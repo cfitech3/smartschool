@@ -1,0 +1,16 @@
+{% extends "base/base.html" %}
+{% block title %}Affecter matiere{% endblock %}
+{% block topbar_title %}Affecter une matiere{% endblock %}
+{% block nav_enseignants %}active{% endblock %}
+{% block content %}
+<div class="page-header"><div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'detail_enseignant' enseignant.pk %}" class="btn btn-outline btn-sm">← Retour</a><h1>Affecter a : {{ enseignant.nom_complet }}</h1></div></div>
+{% if not annee %}<div class="alert alert-warning">⚠️ Aucune annee scolaire active.</div>{% endif %}
+<form method="post" style="max-width:500px;">{% csrf_token %}
+<div class="card"><div class="card-header"><span class="card-title">Nouvelle affectation</span></div><div class="card-body">
+  <div class="form-group"><label class="form-label">Classe *</label><select name="classe" class="form-control" required><option value="">-- Choisir --</option>{% for c in classes %}<option value="{{ c.pk }}">{{ c.nom }} — {{ c.niveau.nom }}</option>{% endfor %}</select></div>
+  <div class="form-group"><label class="form-label">Matiere *</label><select name="matiere" class="form-control" required><option value="">-- Choisir --</option>{% for m in matieres %}<option value="{{ m.pk }}">{{ m.nom }} (coef.{{ m.coefficient }})</option>{% endfor %}</select></div>
+  <div class="form-group"><label class="form-label">Heures par semaine</label><input type="number" name="heures_semaine" class="form-control" value="2" min="1" max="10"></div>
+</div>
+<div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;"><button type="submit" class="btn btn-primary" {% if not annee %}disabled{% endif %}>Affecter</button><a href="{% url 'detail_enseignant' enseignant.pk %}" class="btn btn-outline">Annuler</a></div>
+</div>
+</form>{% endblock %}

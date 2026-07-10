@@ -1,0 +1,37 @@
+{% load static %}
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Connexion — SmartSchool ERP</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/smartschool.css' %}"></head>
+<body>
+<div class="login-page">
+  <div class="login-left">
+    <div class="login-hero">
+      <div style="font-size:48px;margin-bottom:16px;">🎓</div>
+      <h1>Gérez votre école en toute simplicité.</h1>
+      <p>SmartSchool ERP centralise la gestion administrative, pédagogique et financière dans une seule plateforme.</p>
+      <div class="feature-pills">
+        <span class="feature-pill">👨‍🎓 Élèves</span><span class="feature-pill">📝 Notes & Bulletins</span>
+        <span class="feature-pill">💳 Paiements</span><span class="feature-pill">📊 Surveillant</span>
+        <span class="feature-pill">🏫 Multi-établissements</span>
+      </div>
+    </div>
+  </div>
+  <div class="login-right">
+    <div class="login-box">
+      <div class="login-logo">🎓</div>
+      <div class="login-title">Bon retour !</div>
+      <div class="login-sub">Connectez-vous à votre espace</div>
+      {% for message in messages %}
+      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}" style="margin-bottom:14px;">❌ {{ message }}</div>
+      {% endfor %}
+      <form method="post">{% csrf_token %}
+        <div class="form-group"><label class="form-label">Identifiant</label><input type="text" name="username" class="form-control" placeholder="Votre identifiant" autofocus required></div>
+        <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" name="password" class="form-control" placeholder="Votre mot de passe" required></div>
+        <button type="submit" class="login-btn">Se connecter →</button>
+      </form>
+      <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-muted);">SmartSchool ERP v1.5</div>
+    </div>
+  </div>
+</div>
+</body></html>

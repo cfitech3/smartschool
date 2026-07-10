@@ -1,0 +1,28 @@
+{% extends "base/base.html" %}
+{% block title %}Mon Profil{% endblock %}
+{% block topbar_title %}Mon Profil{% endblock %}
+{% block content %}
+<div class="page-header"><h1>👤 Mon Profil</h1></div>
+<div class="grid-2" style="align-items:start;">
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:36px;">
+      <div class="user-avatar" style="width:72px;height:72px;font-size:28px;margin:0 auto 14px;">{{ user.first_name|first|upper }}{{ user.last_name|first|upper }}</div>
+      <div style="font-size:18px;font-weight:800;">{{ user.get_full_name|default:user.username }}</div>
+      <div style="color:var(--text-muted);margin-top:4px;">{{ user.get_role_display }}</div>
+      {% if current_etablissement %}<div style="margin-top:8px;"><span class="badge badge-primary">{{ current_etablissement.nom }}</span></div>{% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Informations</span></div>
+    <div class="card-body">
+      <table style="width:100%;font-size:13.5px;">
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);width:40%;">Identifiant</td><td style="padding:10px 0;font-weight:600;">{{ user.username }}</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Email</td><td style="padding:10px 0;">{{ user.email|default:"—" }}</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Telephone</td><td style="padding:10px 0;">{{ user.telephone|default:"—" }}</td></tr>
+        <tr><td style="padding:10px 0;color:var(--text-muted);">Inscrit le</td><td style="padding:10px 0;">{{ user.date_joined|date:"d F Y" }}</td></tr>
+      </table>
+      <a href="{% url 'logout' %}" class="btn btn-outline btn-sm" style="margin-top:16px;">🚪 Deconnexion</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

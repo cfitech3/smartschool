@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Recu {{ paiement.reference }}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:{{ modele.police|default:"Arial" }},sans-serif;background:#f0f4f8;padding:20px;}
+.actions{max-width:400px;margin:0 auto 14px;display:flex;gap:8px;font-family:sans-serif;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;text-decoration:none;}
+.btn-primary{background:{{ modele.couleur_titre_bg|default:"#1565C0" }};color:{{ modele.couleur_titre_texte|default:"#fff" }};}
+.btn-outline{background:#fff;border:1.5px solid #ccc;color:#555;}
+.recu{max-width:400px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.12);overflow:hidden;}
+.recu-header{background:linear-gradient(135deg,{{ modele.couleur_titre_bg|default:"#0D47A1" }},{{ modele.couleur_accent_recu|default:modele.couleur_titre_bg|default:"#1565C0" }});color:{{ modele.couleur_titre_texte|default:"#fff" }};padding:20px;text-align:center;}
+.recu-header .logo{font-size:32px;margin-bottom:6px;}
+.recu-header h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;}
+.recu-ref{background:{{ modele.couleur_accent_recu|default:"#FF6F00" }};color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:700;letter-spacing:1px;}
+.recu-body{padding:20px;}
+.row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #E3E8EF;font-size:13px;}
+.row:last-child{border:none;}
+.lbl{color:#546E7A;}.val{font-weight:600;color:#1A237E;}
+.montant-box{background:linear-gradient(135deg,{{ modele.couleur_titre_bg|default:"#0D47A1" }},{{ modele.couleur_accent_recu|default:"#1565C0" }});color:#fff;margin:16px 0;padding:16px;border-radius:8px;text-align:center;}
+.montant{font-size:28px;font-weight:800;}.montant-lbl{font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;margin-top:3px;}
+.recu-footer{background:#f0f4f8;padding:14px;text-align:center;font-size:11px;color:#546E7A;border-top:2px dashed #ccc;}
+@media print{body{background:#fff;padding:0;}.actions{display:none;}.recu{box-shadow:none;max-width:100%;border-radius:0;}}
+</style></head>
+<body>
+<div class="actions"><a href="javascript:history.back()" class="btn btn-outline">← Retour</a><button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button></div>
+<div class="recu">
+  <div class="recu-header"><div class="logo">🎓</div><h2>{{ modele.nom_etablissement_custom|default:etablissement.nom }}</h2><p>{{ modele.titre_document|default:"RECU DE PAIEMENT" }}</p></div>
+  <div class="recu-ref">REF: {{ paiement.reference }}</div>
+  <div class="recu-body">
+    <div class="row"><span class="lbl">Eleve</span><span class="val">{{ paiement.eleve.nom }} {{ paiement.eleve.prenom }}</span></div>
+    <div class="row"><span class="lbl">Matricule</span><span class="val">{{ paiement.eleve.matricule }}</span></div>
+    <div class="row"><span class="lbl">Type de frais</span><span class="val">{{ paiement.type_frais.nom }}</span></div>
+    <div class="row"><span class="lbl">Mode</span><span class="val">{{ paiement.get_mode_paiement_display }}</span></div>
+    <div class="row"><span class="lbl">Date</span><span class="val">{{ paiement.date_paiement|date:"d/m/Y H:i" }}</span></div>
+    <div class="row"><span class="lbl">Encaisse par</span><span class="val">{{ paiement.encaisse_par.get_full_name|default:"—" }}</span></div>
+    <div class="montant-box"><div class="montant">{{ paiement.montant|floatformat:0 }} FCFA</div><div class="montant-lbl">Montant recu</div></div>
+    {% if paiement.notes %}<div style="font-size:12px;color:#546E7A;font-style:italic;">Note : {{ paiement.notes }}</div>{% endif %}
+  </div>
+  <div class="recu-footer">✅ Paiement valide{% if modele and modele.texte_pied_page %}<br>{{ modele.texte_pied_page }}{% endif %}<br>{{ paiement.date_paiement|date:"d/m/Y" }}</div>
+</div>
+</body></html>

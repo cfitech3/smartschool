@@ -1,0 +1,73 @@
+{% extends "base/base.html" %}
+{% block title %}Appel{% endblock %}
+{% block topbar_title %}Appel des presences{% endblock %}
+{% block nav_presences %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>📋 Appel des presences</h1></div>
+  <a href="{% url 'historique_presences' %}" class="btn btn-outline btn-sm">📊 Historique</a>
+</div>
+<div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:14px 18px;">
+<form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+  <div style="flex:1;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Classe</label>
+    <select name="classe" class="form-control" onchange="this.form.submit()">
+      <option value="">-- Choisir --</option>
+      {% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}
+    </select>
+  </div>
+  <div style="flex:1;min-width:140px;"><label class="form-label" style="margin-bottom:4px;">Date</label><input type="date" name="date" value="{{ date_appel|date:'Y-m-d' }}" class="form-control" onchange="this.form.submit()"></div>
+  {% if date_appel == today %}<span style="align-self:flex-end;padding:9px 12px;background:rgba(46,125,50,0.1);border-radius:7px;font-size:12px;font-weight:700;color:var(--success);">📅 Aujourd'hui</span>{% endif %}
+</form></div></div>
+{% if classe %}
+  {% if appel_fait %}<div class="alert alert-info">✅ Appel deja enregistre pour cette date. Vous pouvez le modifier.</div>{% endif %}
+  <form method="post">{% csrf_token %}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">{{ classe.nom }} — {{ date_appel|date:"d F Y" }}</span>
+      <div style="display:flex;gap:6px;">
+        <button type="button" onclick="setAll('present')" class="btn btn-outline btn-sm" style="color:var(--success);border-color:var(--success);">✅ Tous presents</button>
+        <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+      </div>
+    </div>
+    <table class="table-modern">
+    <thead><tr><th>#</th><th>Eleve</th><th style="text-align:center;min-width:300px;">Statut</th><th>Motif</th></tr></thead>
+    <tbody>
+    {% for item in eleves_data %}
+    <tr id="row-{{ item.eleve.pk }}" style="{% if item.statut == 'absent' %}background:rgba(198,40,40,0.04);{% elif item.statut == 'retard' %}background:rgba(245,127,23,0.04);{% endif %}">
+      <td style="font-weight:600;color:var(--text-muted);">{{ forloop.counter }}</td>
+      <td><div style="font-weight:700;font-size:13.5px;">{{ item.eleve.nom }} {{ item.eleve.prenom }}</div><div style="font-size:11px;color:var(--text-muted);">{{ item.eleve.matricule }}</div></td>
+      <td>
+        <div style="display:flex;gap:5px;justify-content:center;">
+          <label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1.5px solid {% if item.statut == 'present' %}var(--success){% else %}var(--border){% endif %};cursor:pointer;font-size:12px;font-weight:600;">
+            <input type="radio" name="statut_{{ item.eleve.pk }}" value="present" {% if item.statut == 'present' %}checked{% endif %} style="display:none;" onchange="updateRow({{ item.eleve.pk }}, 'present')">
+            ✅ Present
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1.5px solid {% if item.statut == 'absent' %}var(--danger){% else %}var(--border){% endif %};cursor:pointer;font-size:12px;font-weight:600;">
+            <input type="radio" name="statut_{{ item.eleve.pk }}" value="absent" {% if item.statut == 'absent' %}checked{% endif %} style="display:none;" onchange="updateRow({{ item.eleve.pk }}, 'absent')">
+            ❌ Absent
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1.5px solid {% if item.statut == 'retard' %}var(--warning){% else %}var(--border){% endif %};cursor:pointer;font-size:12px;font-weight:600;">
+            <input type="radio" name="statut_{{ item.eleve.pk }}" value="retard" {% if item.statut == 'retard' %}checked{% endif %} style="display:none;" onchange="updateRow({{ item.eleve.pk }}, 'retard')">
+            ⏰ Retard
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1.5px solid {% if item.statut == 'justifie' %}var(--info){% else %}var(--border){% endif %};cursor:pointer;font-size:12px;font-weight:600;">
+            <input type="radio" name="statut_{{ item.eleve.pk }}" value="justifie" {% if item.statut == 'justifie' %}checked{% endif %} style="display:none;" onchange="updateRow({{ item.eleve.pk }}, 'justifie')">
+            📝 Justifie
+          </label>
+        </div>
+      </td>
+      <td><input type="text" name="motif_{{ item.eleve.pk }}" class="form-control" style="min-width:140px;font-size:12.5px;" value="{{ item.motif }}" placeholder="Motif..."></td>
+    </tr>
+    {% endfor %}
+    </tbody></table>
+    <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;"><button type="submit" class="btn btn-primary">💾 Enregistrer l'appel</button></div>
+  </div>
+  </form>
+{% else %}
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">📋</div><div style="font-size:16px;font-weight:700;">Selectionnez une classe</div></div></div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}<script>
+function setAll(val){document.querySelectorAll('input[type=radio]').forEach(r=>{if(r.value===val){r.checked=true;const id=r.name.replace('statut_','');updateRow(id,val);}});}
+function updateRow(id,val){const row=document.getElementById('row-'+id);if(!row)return;row.style.background=val==='absent'?'rgba(198,40,40,0.04)':val==='retard'?'rgba(245,127,23,0.04)':'';}
+</script>{% endblock %}

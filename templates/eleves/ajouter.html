@@ -1,0 +1,34 @@
+{% extends "base/base.html" %}
+{% block title %}Inscrire un eleve{% endblock %}
+{% block topbar_title %}Inscription{% endblock %}
+{% block nav_eleves %}active{% endblock %}
+{% block content %}
+<div class="page-header"><div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'liste_eleves' %}" class="btn btn-outline btn-sm">← Retour</a><h1>Inscrire un eleve</h1></div></div>
+{% if not annee %}<div class="alert alert-warning">⚠️ Aucune annee scolaire active. Creez-en une dans les Parametres.</div>{% endif %}
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+<div class="grid-2" style="align-items:start;margin-bottom:16px;">
+  <div class="card"><div class="card-header"><span class="card-title">👤 Informations de l'eleve</span></div><div class="card-body">
+    <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Nom *</label>{{ eleve_form.nom }}</div><div><label class="form-label">Prenom *</label>{{ eleve_form.prenom }}</div></div>
+    <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Sexe *</label>{{ eleve_form.sexe }}</div><div><label class="form-label">Date de naissance *</label>{{ eleve_form.date_naissance }}</div></div>
+    <div style="margin-bottom:14px;"><label class="form-label">Lieu de naissance</label>{{ eleve_form.lieu_naissance }}</div>
+    <div style="margin-bottom:14px;"><label class="form-label">Adresse</label>{{ eleve_form.adresse }}</div>
+    <div><label class="form-label">Telephone</label>{{ eleve_form.telephone }}</div>
+  </div></div>
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <div class="card"><div class="card-header"><span class="card-title">🏫 Classe</span></div><div class="card-body">
+      <label class="form-label">Classe *</label>{{ inscription_form.classe }}
+      {% if inscription_form.classe.errors %}<div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ inscription_form.classe.errors.0 }}</div>{% endif %}
+    </div></div>
+    <div class="card"><div class="card-header"><span class="card-title">👨‍👩‍👦 Tuteur</span><span style="font-size:12px;color:var(--text-muted);">Optionnel</span></div><div class="card-body">
+      <div class="grid-2" style="margin-bottom:12px;"><div><label class="form-label">Nom</label>{{ tuteur_form.nom }}</div><div><label class="form-label">Prénom</label>{{ tuteur_form.prenom }}</div></div>
+      <div class="grid-2"><div><label class="form-label">Lien</label>{{ tuteur_form.lien }}</div><div><label class="form-label">Téléphone</label>{{ tuteur_form.telephone }}</div></div>
+    </div></div>
+  </div>
+</div>
+<div class="card"><div class="card-body" style="display:flex;gap:10px;">
+  <button type="submit" class="btn btn-primary" {% if not annee %}disabled{% endif %}>✅ Inscrire</button>
+  <button type="submit" name="ajouter_autre" value="1" class="btn btn-outline" {% if not annee %}disabled{% endif %}>+ Inscrire un autre</button>
+  <a href="{% url 'liste_eleves' %}" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
+</div></div>
+</form>
+{% endblock %}

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Carte Scolaire — {{ eleve.nom_complet }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #e8eef4; padding: 30px; }
+    .actions { max-width: 760px; margin: 0 auto 16px; display: flex; gap: 10px; font-family: sans-serif; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; text-decoration: none; }
+    .btn-primary { background: {{ modele.couleur_titre_bg|default:"#1565C0" }}; color: {{ modele.couleur_titre_texte|default:"#fff" }}; }
+    .btn-outline { background: #fff; border: 1.5px solid #ccc; color: #555; }
+
+    /* Wrapper centré */
+    .cartes-wrapper { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+
+    /* ── CARTE FORMAT CR80 (85.6mm × 54mm → 323px × 204px à 96dpi) ── */
+    .carte-container { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+    .carte {
+      width: 338px; height: 213px;
+      border-radius: 14px; overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    /* RECTO */
+    .recto {
+      background: linear-gradient(135deg,
+        {{ modele.couleur_titre_bg|default:"#0D47A1" }} 0%,
+        {{ modele.couleur_accent_recu|default:"#1565C0"|default:"#1976D2" }} 100%);
+      color: {{ modele.couleur_titre_texte|default:"#ffffff" }};
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column; padding: 14px 16px 12px;
+    }
+    .recto::before {
+      content: ''; position: absolute;
+      top: -30px; right: -30px;
+      width: 140px; height: 140px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 50%;
+    }
+    .recto-header {
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.25);
+      padding-bottom: 9px; margin-bottom: 10px;
+    }
+    .etab-logo {
+      width: 32px; height: 32px; border-radius: 6px;
+      background: rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0; overflow: hidden;
+    }
+    .etab-logo img { width: 100%; height: 100%; object-fit: contain; }
+    .etab-infos { flex: 1; min-width: 0; }
+    .etab-nom { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; line-height: 1.2; }
+    .etab-adresse { font-size: 9px; opacity: 0.75; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .badge-carte { font-size: 8.5px; font-weight: 700; background: rgba(255,255,255,0.18); padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+
+    .recto-body { display: flex; align-items: center; gap: 12px; flex: 1; }
+    .photo-eleve {
+      width: 66px; height: 66px; border-radius: 10px;
+      border: 2px solid rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; flex-shrink: 0; overflow: hidden;
+    }
+    .photo-eleve img { width: 100%; height: 100%; object-fit: cover; }
+    .eleve-infos { flex: 1; min-width: 0; }
+    .eleve-nom { font-size: 14px; font-weight: 900; line-height: 1.2; }
+    .eleve-prenom { font-size: 12px; opacity: 0.88; }
+    .eleve-classe { display: inline-block; margin-top: 6px; font-size: 10px; font-weight: 700; background: rgba(255,255,255,0.2); padding: 3px 10px; border-radius: 20px; }
+    .eleve-naissance { font-size: 9.5px; opacity: 0.7; margin-top: 3px; }
+
+    .recto-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 8px; padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.2);
+      font-size: 9px; opacity: 0.8;
+    }
+    .matricule-tag { font-family: monospace; font-size: 9.5px; }
+
+    /* VERSO */
+    .verso {
+      width: 338px; height: 213px;
+      border-radius: 14px; overflow: hidden;
+      background: #fff;
+      border: 1.5px solid #dde3ea;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      flex-shrink: 0; padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 0;
+    }
+    .verso-title {
+      font-size: 9px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.8px; color: {{ modele.couleur_titre_bg|default:"#1565C0" }};
+      border-bottom: 2px solid {{ modele.couleur_titre_bg|default:"#1565C0" }};
+      padding-bottom: 5px; margin-bottom: 8px;
+    }
+    .verso-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f4f8; font-size: 10.5px; }
+    .verso-row:last-of-type { border: none; }
+    .verso-row .lbl { color: #78909c; }
+    .verso-row .val { font-weight: 700; color: #1a237e; max-width: 180px; text-align: right; }
+    .verso-signature {
+      margin-top: auto; padding-top: 8px;
+      border-top: 1px dashed #cfd8dc;
+      display: flex; justify-content: space-between; align-items: flex-end;
+    }
+    .sign-bloc { text-align: center; font-size: 9px; color: #555; }
+    .sign-ligne { width: 90px; border-top: 1px solid #999; margin-top: 18px; padding-top: 3px; }
+    .validity {
+      font-size: 9px; font-weight: 700;
+      color: {{ modele.couleur_titre_bg|default:"#1565C0" }};
+      background: rgba(21,101,192,0.08);
+      padding: 3px 8px; border-radius: 20px;
+    }
+
+    /* LEGENDE sous les cartes */
+    .legende { font-size: 11.5px; color: #78909c; font-style: italic; margin-top: 4px; }
+
+    @media print {
+      body { background: #fff; padding: 10mm; }
+      .actions { display: none; }
+      .carte { box-shadow: none; }
+      @page { margin: 8mm; size: A4; }
+    }
+  </style>
+</head>
+<body>
+<div class="actions">
+  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button>
+  <span style="align-self:center; font-size:12px; color:#888;">Format standard CR80</span>
+</div>
+
+<div class="cartes-wrapper">
+
+  <!-- TITRE -->
+  <div style="max-width:760px; font-family:sans-serif;">
+    <div style="font-size:18px; font-weight:800; color:#1A237E;">🪪 Carte scolaire</div>
+    <div style="font-size:13px; color:#78909c; margin-top:3px;">{{ annee.libelle|default:"—" }} — {{ etab.nom }}</div>
+  </div>
+
+  <!-- LES DEUX FACES -->
+  <div class="carte-container">
+
+    <!-- RECTO -->
+    <div>
+      <div style="font-family:sans-serif; font-size:10.5px; font-weight:700; color:#546E7A; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:7px;">RECTO</div>
+      <div class="carte recto">
+        <!-- En-tête établissement -->
+        <div class="recto-header">
+          <div class="etab-logo">
+            {% if etab.logo %}
+              <img src="{{ etab.logo.url }}" alt="{{ etab.nom }}">
+            {% else %}
+              🎓
+            {% endif %}
+          </div>
+          <div class="etab-infos">
+            <div class="etab-nom">{{ etab.nom }}</div>
+            {% if etab.adresse %}<div class="etab-adresse">{{ etab.adresse }}</div>{% endif %}
+          </div>
+          <div class="badge-carte">CARTE SCOLAIRE</div>
+        </div>
+
+        <!-- Corps élève -->
+        <div class="recto-body">
+          <div class="photo-eleve">
+            {% if eleve.photo %}
+              <img src="{{ eleve.photo.url }}" alt="{{ eleve.nom_complet }}">
+            {% elif eleve.sexe == 'M' %}
+              👦
+            {% else %}
+              👧
+            {% endif %}
+          </div>
+          <div class="eleve-infos">
+            <div class="eleve-nom">{{ eleve.nom }}</div>
+            <div class="eleve-prenom">{{ eleve.prenom }}</div>
+            {% if inscription %}
+              <span class="eleve-classe">{{ inscription.classe.nom }}</span>
+            {% endif %}
+            <div class="eleve-naissance">Né(e) le {{ eleve.date_naissance|date:"d/m/Y" }}</div>
+          </div>
+        </div>
+
+        <!-- Pied de carte -->
+        <div class="recto-footer">
+          <span class="matricule-tag">{{ eleve.matricule }}</span>
+          <span>{{ annee.libelle|default:"—" }}</span>
+          {% if etab.telephone %}<span>{{ etab.telephone }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- VERSO -->
+    <div>
+      <div style="font-family:sans-serif; font-size:10.5px; font-weight:700; color:#546E7A; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:7px;">VERSO</div>
+      <div class="verso">
+        <div class="verso-title">{{ etab.nom }}</div>
+
+        <div class="verso-row">
+          <span class="lbl">Nom complet</span>
+          <span class="val">{{ eleve.nom }} {{ eleve.prenom }}</span>
+        </div>
+        <div class="verso-row">
+          <span class="lbl">Date de naissance</span>
+          <span class="val">{{ eleve.date_naissance|date:"d/m/Y" }}</span>
+        </div>
+        {% if eleve.lieu_naissance %}
+        <div class="verso-row">
+          <span class="lbl">Lieu de naissance</span>
+          <span class="val">{{ eleve.lieu_naissance }}</span>
+        </div>
+        {% endif %}
+        {% if inscription %}
+        <div class="verso-row">
+          <span class="lbl">Classe</span>
+          <span class="val">{{ inscription.classe.nom }} — {{ inscription.classe.niveau.nom }}</span>
+        </div>
+        {% endif %}
+        {% if eleve.tuteur %}
+        <div class="verso-row">
+          <span class="lbl">Tuteur / Parent</span>
+          <span class="val">{{ eleve.tuteur.telephone }}</span>
+        </div>
+        {% endif %}
+        <div class="verso-row">
+          <span class="lbl">Etablissement</span>
+          <span class="val">{{ etab.telephone|default:"—" }}</span>
+        </div>
+
+        <div class="verso-signature">
+          <div class="sign-bloc">
+            <div class="sign-ligne">{{ modele.label_signature_gauche|default:"Le Directeur" }}</div>
+          </div>
+          <div class="validity">Valide {{ annee.libelle|default:"—" }}</div>
+          <div class="sign-bloc">
+            <div class="sign-ligne">Cachet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legende">Carte à découper et plastifier — Format CR80 (85.6 × 54 mm)</div>
+
+  {% if not etab.logo %}
+  <div style="font-family:sans-serif; font-size:12.5px; color:#E65100; background:#FFF3E0; padding:10px 14px; border-radius:8px; border-left:3px solid #FF6F00;">
+    ⚠️ Logo manquant — Ajoutez le logo de l'établissement dans <a href="/etablissements/parametres/" style="color:#E65100; font-weight:700;">Paramètres</a> pour qu'il apparaisse sur la carte.
+  </div>
+  {% endif %}
+
+</div>
+</body>
+</html>

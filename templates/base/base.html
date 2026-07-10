@@ -1,0 +1,191 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+  <title>{% block title %}SmartSchool{% endblock %} — SmartSchool ERP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/smartschool.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="app-wrapper">
+  <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <a href="{% url 'dashboard' %}" class="sidebar-brand">
+      <div class="brand-logo">🎓</div>
+      <div class="brand-text">
+        <div class="brand-name">SmartSchool</div>
+        <div class="brand-sub">{% if request.etablissement %}{{ request.etablissement.nom|truncatechars:22 }}{% else %}ERP Scolaire{% endif %}</div>
+      </div>
+    </a>
+
+    <nav class="sidebar-nav" id="sidebar-nav">
+    <!-- Contenu injecté par JS selon le rôle -->
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar">{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+          <div class="user-role">{{ request.user.get_role_display }}</div>
+        </div>
+        <a href="{% url 'logout' %}" style="color:var(--text-muted);font-size:16px;text-decoration:none;" title="Déconnexion">🚪</a>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <button class="topbar-btn" id="menu-btn" onclick="toggleSidebar()">☰</button>
+      <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-left:auto;">
+        <a href="{% url 'recherche' %}" class="topbar-btn" title="Rechercher">🔍</a>
+        {% if request.user.role == 'admin' or request.user.role == 'secretariat' %}
+        <a href="{% url 'notifications' %}" class="topbar-btn" style="position:relative;" title="Notifications">
+          🔔{% if notifs_non_lues and notifs_non_lues > 0 %}<span style="position:absolute;top:-2px;right:-2px;width:16px;height:16px;background:var(--danger);border-radius:50%;font-size:9px;color:#fff;display:flex;align-items:center;justify-content:center;">{{ notifs_non_lues }}</span>{% endif %}
+        </a>
+        {% endif %}
+      </div>
+    </header>
+    <main class="page-content">
+      {% for message in messages %}
+      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %}">
+        {% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}❌{% elif message.tags == 'warning' %}⚠️{% else %}ℹ️{% endif %}
+        {{ message }}
+      </div>
+      {% endfor %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<!-- Données contexte pour la sidebar JS -->
+<script>
+const SMARTSCHOOL_CONTEXT = {
+  role: "{{ request.user.role }}",
+  currentPath: "{{ request.path }}",
+  notifs: {{ notifs_non_lues|default:0 }},
+  messages_non_lus: {{ nb_messages_non_lus|default:0 }},
+  reclamations: {{ nb_reclamations_attente|default:0 }},
+};
+
+// Définition des menus par rôle
+const MENUS = {
+  admin: [
+    {section: "Principal"},
+    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
+    {section: "Scolarité"},
+    {icon:"👨‍🎓", label:"Élèves", url:"/eleves/"},
+    {icon:"🏫", label:"Classes", url:"/eleves/classes/"},
+    {icon:"👩‍🏫", label:"Enseignants", url:"/etablissements/enseignants/"},
+    {icon:"📋", label:"Présences", url:"/eleves/presences/"},
+    {icon:"🗓️", label:"Emplois du temps", url:"/notes/emplois/"},
+    {section: "Notes"},
+    {icon:"📝", label:"Saisie notes", url:"/notes/saisie/"},
+    {icon:"📄", label:"Bulletins", url:"/notes/bulletins/"},
+    {icon:"🏛️", label:"Notes Université", url:"/notes/universite/saisie/"},
+    {section: "Finances"},
+    {icon:"💳", label:"Paiements", url:"/finances/"},
+    {icon:"📈", label:"Rapport financier", url:"/finances/rapport/"},
+    {section: "Communication"},
+    {icon:"💬", label:"Messages", url:"/messages/", badge: SMARTSCHOOL_CONTEXT.messages_non_lus},
+    {icon:"✉️", label:"Réclamations", url:"/reclamations/", badge: SMARTSCHOOL_CONTEXT.reclamations},
+    {icon:"🔔", label:"Logs notes", url:"/notes/logs/", badge: SMARTSCHOOL_CONTEXT.notifs},
+    {icon:"👥", label:"Utilisateurs", url:"/auth/utilisateurs/"},
+    {section: "Configuration"},
+    {icon:"🗂️", label:"Documents", url:"/documents/"},
+    {icon:"🖨️", label:"Modèles docs", url:"/etablissements/modeles/"},
+    {icon:"🏛️", label:"Divisions", url:"/etablissements/divisions/"},
+    {icon:"🎓", label:"Cycles", url:"/etablissements/cycles/"},
+    {icon:"⚙️", label:"Paramètres", url:"/etablissements/parametres/"},
+  ],
+  secretariat: [
+    {section: "Principal"},
+    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
+    {section: "Scolarité"},
+    {icon:"👨‍🎓", label:"Élèves", url:"/eleves/"},
+    {icon:"🏫", label:"Classes", url:"/eleves/classes/"},
+    {icon:"👩‍🏫", label:"Enseignants", url:"/etablissements/enseignants/"},
+    {icon:"📋", label:"Présences", url:"/eleves/presences/"},
+    {icon:"🗓️", label:"Emplois du temps", url:"/notes/emplois/"},
+    {section: "Documents"},
+    {icon:"🗂️", label:"Générer docs", url:"/documents/"},
+    {section: "Communication"},
+    {icon:"💬", label:"Messages", url:"/messages/"},
+    {icon:"✉️", label:"Réclamations", url:"/reclamations/"},
+  ],
+  comptable: [
+    {section: "Principal"},
+    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
+    {section: "Finances"},
+    {icon:"💳", label:"Paiements élèves", url:"/finances/"},
+    {icon:"💵", label:"Encaisser", url:"/finances/ajouter/"},
+    {icon:"📈", label:"Rapport", url:"/finances/rapport/"},
+    {section: "Personnel"},
+    {icon:"👩‍🏫", label:"Salaires profs", url:"/etablissements/enseignants/"},
+  ],
+  enseignant: [
+    {section: "Principal"},
+    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
+    {section: "Mon travail"},
+    {icon:"📝", label:"Saisie notes", url:"/notes/saisie/"},
+    {icon:"📄", label:"Bulletins", url:"/notes/bulletins/"},
+    {icon:"🗓️", label:"Mon emploi du temps", url:"/notes/emplois/"},
+  ],
+  surveillant: [
+    {section: "Principal"},
+    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
+    {section: "Surveillance"},
+    {icon:"🏫", label:"Classes", url:"/eleves/classes/"},
+    {icon:"📋", label:"Appel présences", url:"/eleves/presences/"},
+    {icon:"⚠️", label:"Rapport absences", url:"/notes/absences/"},
+    {icon:"📊", label:"Note conduite", url:"/notes/conduite/"},
+    {icon:"🗓️", label:"Emplois du temps", url:"/notes/emplois/"},
+  ],
+  super_admin: [
+    {section: "Vue globale"},
+    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
+    {section: "Administration"},
+    {icon:"👥", label:"Utilisateurs", url:"/auth/utilisateurs/"},
+  ],
+};
+
+function buildSidebar() {
+  const nav = document.getElementById('sidebar-nav');
+  if (!nav) return;
+  const items = MENUS[SMARTSCHOOL_CONTEXT.role] || MENUS['admin'];
+  let html = '';
+  items.forEach(item => {
+    if (item.section) {
+      html += `<div class="nav-section-label">${item.section}</div>`;
+      return;
+    }
+    const active = SMARTSCHOOL_CONTEXT.currentPath.startsWith(item.url) && item.url !== '/dashboard/' 
+      ? 'active' 
+      : (item.url === '/dashboard/' && SMARTSCHOOL_CONTEXT.currentPath === '/dashboard/' ? 'active' : '');
+    const badge = item.badge && item.badge > 0 
+      ? `<span class="nav-badge">${item.badge}</span>` 
+      : '';
+    html += `<a href="${item.url}" class="nav-link ${active}">`
+          + `<span class="nav-icon">${item.icon}</span>`
+          + `<span>${item.label}</span>${badge}</a>`;
+  });
+  nav.innerHTML = html;
+}
+
+buildSidebar();
+
+// UI
+document.querySelectorAll('.alert').forEach(el=>{setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity 0.4s';setTimeout(()=>el.remove(),400);},5000);});
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('overlay').classList.toggle('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
+function checkMobile(){const b=document.getElementById('menu-btn');if(b)b.style.display=window.innerWidth<=768?'flex':'none';if(window.innerWidth>768)closeSidebar();}
+checkMobile();window.addEventListener('resize',checkMobile);
+document.querySelectorAll('.nav-link').forEach(l=>l.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

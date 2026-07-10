@@ -1,0 +1,263 @@
+{% extends "base/base.html" %}
+{% block title %}{{ cycle.nom }}{% endblock %}
+{% block topbar_title %}Configuration du cycle{% endblock %}
+{% block nav_cycles %}active{% endblock %}
+{% block extra_css %}
+<style>
+.mat-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;}
+.mat-row:last-child{border:none;}
+.mat-row:hover{background:var(--bg);}
+.coef-badge{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;font-weight:800;font-size:13px;background:rgba(21,101,192,0.1);color:var(--primary);}
+.tab-btn{padding:8px 18px;border-radius:7px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-muted);}
+.tab-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.tab-content{display:none;} .tab-content.active{display:block;}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'liste_cycles' %}" class="btn btn-outline btn-sm">← Cycles</a>
+    <div>
+      <h1>{{ cycle.nom }}</h1>
+      <div style="font-size:12.5px;color:var(--text-muted);margin-top:3px;">{{ cycle.get_type_cycle_display }} · {{ cycle.get_mode_calcul_display }}</div>
+    </div>
+  </div>
+  {% if cycle.diplome_prepare %}
+  <span style="background:rgba(21,101,192,0.08);color:var(--primary);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;">🏆 {{ cycle.diplome_prepare }}</span>
+  {% endif %}
+</div>
+
+<!-- Onglets -->
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+  <button class="tab-btn active" onclick="showTab('matieres',this)">📚 Matières ({{ matieres_cycle|length }})</button>
+  <button class="tab-btn" onclick="showTab('niveaux',this)">🏫 Niveaux ({{ niveaux|length }})</button>
+  {% if cycle.is_lycee %}<button class="tab-btn" onclick="showTab('series',this)">🎯 Séries ({{ series|length }})</button>{% endif %}
+  {% if cycle.is_universite %}<button class="tab-btn" onclick="showTab('ues',this)">📐 UE ({{ ues|length }})</button>{% endif %}
+  <button class="tab-btn" onclick="showTab('config',this)">⚙️ Configuration</button>
+</div>
+
+<!-- ═══ ONGLET MATIÈRES ═══ -->
+<div id="tab-matieres" class="tab-content active">
+  <div class="grid-2" style="align-items:start;gap:14px;">
+
+    <!-- Liste des matières configurées -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Matières du {{ cycle.nom }}</span>
+        <span class="badge badge-primary">{{ matieres_cycle|length }}</span>
+      </div>
+      {% if matieres_cycle %}
+      {% for mc in matieres_cycle %}
+      <div class="mat-row">
+        <span class="coef-badge">{{ mc.coefficient }}</span>
+        <div style="flex:1;">
+          <div style="font-weight:700;">{{ mc.matiere.nom }}</div>
+          <div style="font-size:11px;color:var(--text-muted);">
+            {% if mc.matiere.is_conduite %}🔵 Conduite · {% endif %}
+            Coef {{ mc.coefficient }} · {% if mc.est_obligatoire %}Obligatoire{% else %}Optionnelle{% endif %}
+          </div>
+        </div>
+        <!-- Modifier coef inline -->
+        <form method="post" style="display:flex;align-items:center;gap:5px;">{% csrf_token %}
+          <input type="hidden" name="action" value="update_coef">
+          <input type="hidden" name="matiere_pk" value="{{ mc.matiere.pk }}">
+          <input type="number" name="coefficient" value="{{ mc.coefficient }}" min="1" max="10" class="form-control" style="width:55px;padding:4px 6px;font-size:13px;text-align:center;">
+          <button type="submit" class="btn btn-outline btn-sm" title="Modifier le coef">✏️</button>
+        </form>
+        <form method="post">{% csrf_token %}
+          <input type="hidden" name="action" value="remove_matiere">
+          <input type="hidden" name="matiere_pk" value="{{ mc.matiere.pk }}">
+          <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger);" onclick="return confirm('Retirer cette matière ?')" title="Retirer">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="text-align:center;padding:32px;color:var(--text-muted);">Aucune matière configurée</div>
+      {% endif %}
+      <div style="padding:12px 14px;background:rgba(21,101,192,0.04);border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);">
+        Total coefficients : <strong>{% for mc in matieres_cycle %}{% if not mc.matiere.is_conduite %}{{ mc.coefficient }}+{% endif %}{% endfor %}...</strong>
+        · Mode : <strong>{{ cycle.get_mode_calcul_display }}</strong>
+      </div>
+    </div>
+
+    <!-- Ajouter une matière -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">+ Ajouter une matière</span></div>
+      <form method="post" class="card-body">{% csrf_token %}
+        <input type="hidden" name="action" value="add_matiere">
+        <div class="form-group">
+          <label class="form-label">Matière *</label>
+          <select name="matiere_pk" class="form-control" required>
+            <option value="">-- Choisir --</option>
+            {% for mat in toutes_matieres %}
+            {% if mat.pk not in matieres_ids %}
+            <option value="{{ mat.pk }}">{{ mat.nom }}{% if mat.is_conduite %} 🔵{% endif %} (coef actuel {{ mat.coefficient }})</option>
+            {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Coefficient *</label>
+            <input type="number" name="coefficient" class="form-control" value="2" min="1" max="10">
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:2px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+              <input type="checkbox" name="est_obligatoire" checked style="width:16px;height:16px;"> Obligatoire
+            </label>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">+ Ajouter au cycle</button>
+      </form>
+
+      <!-- Info mode calcul -->
+      <div style="margin:0 14px 14px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);font-size:12.5px;">
+        <div style="font-weight:700;margin-bottom:6px;">📊 Mode de calcul actuel :</div>
+        {% if cycle.mode_calcul == 'compo' %}
+        <div>Chaque matière = <strong>Moy.Classe/20 + Moy.Compo/40</strong> → Moyenne /20</div>
+        <div style="color:var(--text-muted);margin-top:3px;">Formule : ((Moy.Classe/20×20) + (Moy.Compo/40×20)) ÷ 2</div>
+        {% elif cycle.mode_calcul == 'direct' %}
+        <div>Chaque matière = <strong>Note directe /20</strong></div>
+        <div style="color:var(--text-muted);margin-top:3px;">Une seule note par matière, pas de composition séparée</div>
+        {% else %}
+        <div>Système <strong>Crédits ECTS</strong> par Unité d'Enseignement</div>
+        <div style="color:var(--text-muted);margin-top:3px;">Note /20 × Crédits → Total UE</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ONGLET NIVEAUX ═══ -->
+<div id="tab-niveaux" class="tab-content">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Niveaux rattachés à ce cycle</span></div>
+    {% if niveaux %}
+    <table class="table-modern">
+      <thead><tr><th>Niveau</th><th style="text-align:center;">Ordre</th><th>Classes</th></tr></thead>
+      <tbody>
+        {% for n in niveaux %}
+        <tr>
+          <td style="font-weight:700;">{{ n.nom }}</td>
+          <td style="text-align:center;"><span class="badge badge-primary">{{ n.ordre }}</span></td>
+          <td style="font-size:12.5px;color:var(--text-muted);">{{ n.classes.count }} classe{{ n.classes.count|pluralize }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:32px;color:var(--text-muted);">
+      Aucun niveau rattaché. Assignez des niveaux dans <a href="{% url 'parametres' %}">Paramètres</a>.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══ ONGLET SÉRIES (Lycée) ═══ -->
+{% if cycle.is_lycee %}
+<div id="tab-series" class="tab-content">
+  <div class="grid-2" style="align-items:start;gap:14px;">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Séries du Lycée</span></div>
+      {% for serie in series %}
+      <div class="mat-row">
+        <div style="width:38px;height:38px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;">{{ serie.code }}</div>
+        <div style="flex:1;"><div style="font-weight:700;">Série {{ serie.code }}</div><div style="font-size:12px;color:var(--text-muted);">{{ serie.nom }}</div></div>
+        <span class="badge badge-info">{{ serie.classes.count }} classe{{ serie.classes.count|pluralize }}</span>
+      </div>
+      {% empty %}
+      <div style="padding:24px;text-align:center;color:var(--text-muted);">Aucune série</div>
+      {% endfor %}
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">+ Ajouter une série</span></div>
+      <form method="post" class="card-body">{% csrf_token %}
+        <input type="hidden" name="action" value="add_serie">
+        <div class="form-group"><label class="form-label">Code (A, B, C, D...)</label><input type="text" name="code" class="form-control" placeholder="Ex: A" maxlength="5"></div>
+        <div class="form-group"><label class="form-label">Nom complet</label><input type="text" name="nom" class="form-control" placeholder="Ex: Sciences Exactes"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">+ Ajouter</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ ONGLET UE (Université) ═══ -->
+{% if cycle.is_universite %}
+<div id="tab-ues" class="tab-content">
+  <div class="grid-2" style="align-items:start;gap:14px;">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Unités d'Enseignement</span></div>
+      {% regroup ues by semestre as ues_par_semestre %}
+      {% for semestre_group in ues_par_semestre %}
+      <div style="padding:8px 14px;background:var(--bg);font-weight:700;font-size:12.5px;color:var(--primary);border-top:1px solid var(--border);">Semestre {{ semestre_group.grouper }}</div>
+      {% for ue in semestre_group.list %}
+      <div class="mat-row">
+        <span class="coef-badge" style="font-size:10px;">{{ ue.credits }}cr</span>
+        <div style="flex:1;"><div style="font-weight:700;font-size:13px;">{{ ue.code }} — {{ ue.nom }}</div><div style="font-size:11px;color:var(--text-muted);">{{ ue.credits }} crédits · coef {{ ue.coefficient }}{% if not ue.est_obligatoire %} · Optionnel{% endif %}</div></div>
+      </div>
+      {% endfor %}
+      {% empty %}
+      <div style="padding:24px;text-align:center;color:var(--text-muted);">Aucune UE configurée</div>
+      {% endfor %}
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">+ Ajouter une UE</span></div>
+      <form method="post" class="card-body">{% csrf_token %}
+        <input type="hidden" name="action" value="add_ue">
+        <div class="form-group"><label class="form-label">Code *</label><input type="text" name="code" class="form-control" placeholder="Ex: UE101, MATH-L1" required></div>
+        <div class="form-group"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" placeholder="Ex: Mathématiques Fondamentales" required></div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Semestre</label>
+            <select name="semestre" class="form-control">{% for s in semestres_range %}<option value="{{ s }}">S{{ s }}</option>{% endfor %}</select>
+          </div>
+          <div class="form-group"><label class="form-label">Crédits ECTS</label><input type="number" name="credits" class="form-control" value="3" min="1" max="12"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Coefficient</label><input type="number" name="coefficient" class="form-control" value="1" min="1" max="5"></div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px;cursor:pointer;"><input type="checkbox" name="est_obligatoire" checked style="width:16px;height:16px;"> UE Obligatoire</label>
+        <button type="submit" class="btn btn-primary" style="width:100%;">+ Ajouter l'UE</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ ONGLET CONFIG ═══ -->
+<div id="tab-config" class="tab-content">
+  <div style="max-width:500px;">
+  <form method="post">{% csrf_token %}
+  <input type="hidden" name="action" value="update_cycle">
+  <div class="card">
+    <div class="card-header"><span class="card-title">⚙️ Configuration du cycle</span></div>
+    <div class="card-body">
+      <div class="form-group"><label class="form-label">Nom du cycle</label><input type="text" name="nom" class="form-control" value="{{ cycle.nom }}"></div>
+      <div class="form-group"><label class="form-label">Mode de calcul des notes *</label>
+        <select name="mode_calcul" class="form-control">
+          {% for v,l in cycle.MODE_CALCUL %}<option value="{{ v }}"{% if cycle.mode_calcul == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+        <div style="margin-top:6px;font-size:12px;color:var(--text-muted);">
+          <strong>Classe+Compo</strong> : 1er et 2ème cycle fondamental malien<br>
+          <strong>Note directe</strong> : Lycée (une seule note /20 par devoir)<br>
+          <strong>Crédits ECTS</strong> : Université (système LMD)
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Note de passage</label><input type="number" name="note_passage" class="form-control" value="{{ cycle.note_passage }}" min="0" max="20" step="0.5"></div>
+      <div class="form-group"><label class="form-label">Diplôme préparé</label><input type="text" name="diplome_prepare" class="form-control" value="{{ cycle.diplome_prepare }}" placeholder="Ex: DEF, Baccalauréat, Licence..."></div>
+    </div>
+    <div class="card-body" style="border-top:1px solid var(--border);"><button type="submit" class="btn btn-primary">💾 Enregistrer</button></div>
+  </div>
+  </form>
+  </div>
+</div>
+
+{% endblock %}
+{% block extra_js %}
+<script>
+function showTab(id, btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+{% endblock %}

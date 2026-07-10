@@ -1,0 +1,18 @@
+{% extends "base/base.html" %}
+{% block title %}Ajouter enseignant{% endblock %}
+{% block topbar_title %}Ajouter un enseignant{% endblock %}
+{% block nav_enseignants %}active{% endblock %}
+{% block content %}
+<div class="page-header"><div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'liste_enseignants' %}" class="btn btn-outline btn-sm">← Retour</a><h1>Nouvel enseignant</h1></div></div>
+<form method="post" style="max-width:600px;">{% csrf_token %}
+<div class="card" style="margin-bottom:14px;"><div class="card-header"><span class="card-title">👤 Identite</span></div><div class="card-body">
+  <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Prenom *</label><input type="text" name="prenom" class="form-control" required></div><div><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" required></div></div>
+  <div class="grid-2"><div><label class="form-label">Identifiant (username) *</label><input type="text" name="username" class="form-control" placeholder="Ex: bdiallo" required></div><div><label class="form-label">Mot de passe</label><input type="text" name="password" class="form-control" placeholder="admin123" value="admin123"></div></div>
+</div></div>
+<div class="card"><div class="card-header"><span class="card-title">🎓 Informations professionnelles</span></div><div class="card-body">
+  <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Specialite</label><input type="text" name="specialite" class="form-control" placeholder="Ex: Mathematiques"></div><div><label class="form-label">Diplome</label><input type="text" name="diplome" class="form-control" placeholder="Ex: Master Maths"></div></div>
+  <div class="grid-2"><div><label class="form-label">Date embauche</label><input type="date" name="date_embauche" class="form-control"></div><div><label class="form-label">Salaire (FCFA)</label><input type="number" name="salaire" class="form-control" min="0" step="5000"></div></div>
+</div>
+<div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;"><button type="submit" class="btn btn-primary">Creer l'enseignant</button><a href="{% url 'liste_enseignants' %}" class="btn btn-outline">Annuler</a></div>
+</div>
+</form>{% endblock %}

@@ -1,0 +1,135 @@
+{% extends "base/base.html" %}
+{% block title %}Parametres{% endblock %}
+{% block topbar_title %}Parametres de l'etablissement{% endblock %}
+{% block nav_parametres %}active{% endblock %}
+{% block content %}
+<div class="page-header"><h1>⚙️ Parametres</h1></div>
+
+<div class="grid-2" style="align-items:start;gap:16px;">
+
+  <!-- COLONNE GAUCHE : infos + logo -->
+  <div style="display:flex;flex-direction:column;gap:14px;">
+
+    <!-- LOGO + INFOS PRINCIPALES -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">🏫 Informations de l'etablissement</span></div>
+      <form method="post" enctype="multipart/form-data">{% csrf_token %}
+      <input type="hidden" name="action" value="infos">
+      <div class="card-body">
+
+        <!-- Zone logo -->
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;padding:14px;background:var(--bg);border-radius:var(--radius-sm);border:1.5px dashed var(--border);">
+          <div style="width:80px;height:80px;border-radius:12px;border:2px solid var(--border);background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+            {% if etab.logo %}
+              <img src="{{ etab.logo.url }}" alt="Logo" style="width:100%;height:100%;object-fit:contain;">
+            {% else %}
+              <span style="font-size:32px;">🎓</span>
+            {% endif %}
+          </div>
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:13.5px;margin-bottom:5px;">Logo de l'etablissement</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
+              {% if etab.logo %}Logo actuel : {{ etab.logo.name|slice:"25:" }}{% else %}Aucun logo. Format recommande : PNG 200×200px{% endif %}
+            </div>
+            <input type="file" name="logo" accept="image/*" class="form-control" style="font-size:12.5px;">
+            {% if etab.logo %}
+            <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--danger);cursor:pointer;">
+              <input type="checkbox" name="supprimer_logo"> Supprimer le logo actuel
+            </label>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="form-group"><label class="form-label">Nom de l'etablissement *</label><input type="text" name="nom" class="form-control" value="{{ etab.nom }}" required></div>
+        <div class="form-group"><label class="form-label">Type</label>
+          <select name="type" class="form-control">{% for v,l in types_etab %}<option value="{{ v }}"{% if etab.type == v %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Telephone</label><input type="text" name="telephone" class="form-control" value="{{ etab.telephone }}"></div>
+          <div class="form-group"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ etab.email }}"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Directeur</label><input type="text" name="directeur" class="form-control" value="{{ etab.directeur }}"></div>
+        <div class="form-group"><label class="form-label">Adresse complete</label><textarea name="adresse" class="form-control" rows="2">{{ etab.adresse }}</textarea></div>
+        <div class="form-group"><label class="form-label">Slogan</label><input type="text" name="slogan" class="form-control" value="{{ etab.slogan }}"></div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Couleur principale</label><input type="color" name="couleur_principale" class="form-control" value="{{ etab.couleur_principale }}" style="height:40px;"></div>
+          <div class="form-group"><label class="form-label">Couleur secondaire</label><input type="color" name="couleur_secondaire" class="form-control" value="{{ etab.couleur_secondaire }}" style="height:40px;"></div>
+        </div>
+      </div>
+      <div class="card-body" style="border-top:1px solid var(--border);"><button type="submit" class="btn btn-primary">💾 Enregistrer</button></div>
+      </form>
+    </div>
+
+    <!-- PARAMETRES PEDAGOGIQUES -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">📋 Parametres pedagogiques</span></div>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="params">
+      <div class="card-body">
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Devise</label><input type="text" name="devise" class="form-control" value="{{ params.devise }}"></div>
+          <div class="form-group"><label class="form-label">Type periode</label>
+            <select name="type_periode" class="form-control"><option value="trimestre"{% if params.type_periode == 'trimestre' %} selected{% endif %}>Trimestre</option><option value="semestre"{% if params.type_periode == 'semestre' %} selected{% endif %}>Semestre</option></select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Note de passage</label><input type="number" name="note_passage" class="form-control" value="{{ params.note_passage }}" step="0.5" min="0" max="20"></div>
+        <div class="form-group"><label class="form-label">En-tete bulletin</label><textarea name="entete_bulletin" class="form-control" rows="2">{{ params.entete_bulletin }}</textarea></div>
+        <div class="form-group"><label class="form-label">Pied de bulletin</label><textarea name="pied_bulletin" class="form-control" rows="2">{{ params.pied_bulletin }}</textarea></div>
+      </div>
+      <div class="card-body" style="border-top:1px solid var(--border);"><button type="submit" class="btn btn-primary">💾 Enregistrer</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- COLONNE DROITE : annees + niveaux -->
+  <div style="display:flex;flex-direction:column;gap:14px;">
+
+    <!-- ANNEES SCOLAIRES -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">📅 Annees scolaires</span></div>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="annee">
+      <div class="card-body">
+        <div class="form-group"><label class="form-label">Libelle *</label><input type="text" name="libelle" class="form-control" placeholder="Ex: 2025-2026"></div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Date debut</label><input type="date" name="date_debut" class="form-control"></div>
+          <div class="form-group"><label class="form-label">Date fin</label><input type="date" name="date_fin" class="form-control"></div>
+        </div>
+      </div>
+      <div class="card-body" style="border-top:1px solid var(--border);"><button type="submit" class="btn btn-primary btn-sm">+ Creer l'annee</button></div>
+      </form>
+      {% if annees %}
+      <table class="table-modern"><thead><tr><th>Annee</th><th>Periode</th><th>Statut</th><th></th></tr></thead>
+      <tbody>{% for a in annees %}<tr>
+        <td style="font-weight:700;">{{ a.libelle }}</td>
+        <td style="font-size:12px;color:var(--text-muted);">{{ a.date_debut|date:"d/m/Y" }} → {{ a.date_fin|date:"d/m/Y" }}</td>
+        <td>{% if a.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge" style="background:var(--bg);color:var(--text-muted);">Inactive</span>{% endif %}</td>
+        <td>{% if not a.is_active %}<form method="post" style="display:inline;">{% csrf_token %}<input type="hidden" name="action" value="activer_annee"><input type="hidden" name="annee_id" value="{{ a.pk }}"><button type="submit" class="btn btn-outline btn-sm" style="color:var(--success);">⚡ Activer</button></form>{% endif %}</td>
+      </tr>{% endfor %}</tbody>
+      </table>
+      {% endif %}
+    </div>
+
+    <!-- NIVEAUX -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">🏗️ Niveaux scolaires</span></div>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="niveau">
+      <div class="card-body">
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Nom du niveau</label><input type="text" name="nom" class="form-control" placeholder="Ex: 1ere Annee, CI, 6eme..."></div>
+          <div class="form-group"><label class="form-label">Ordre</label><input type="number" name="ordre" class="form-control" value="{{ niveaux|length|add:1 }}"></div>
+        </div>
+      </div>
+      <div class="card-body" style="border-top:1px solid var(--border);"><button type="submit" class="btn btn-primary btn-sm">+ Ajouter</button></div>
+      </form>
+      {% if niveaux %}
+      <table class="table-modern"><thead><tr><th>Niveau</th><th style="text-align:center;">Ordre</th></tr></thead>
+      <tbody>{% for n in niveaux %}<tr>
+        <td style="font-weight:600;">{{ n.nom }}</td>
+        <td style="text-align:center;color:var(--text-muted);">{{ n.ordre }}</td>
+      </tr>{% endfor %}</tbody>
+      </table>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

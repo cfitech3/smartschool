@@ -1,0 +1,94 @@
+{% extends "base/base.html" %}
+{% block title %}Vue globale{% endblock %}
+{% block topbar_title %}Vue globale — Super Admin{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🌐 Vue globale</h1>
+    <div class="page-subtitle">{{ today|date:"l d F Y" }} — Tous les établissements</div>
+  </div>
+  <a href="{% url 'liste_utilisateurs' %}" class="btn btn-primary">👥 Utilisateurs</a>
+</div>
+
+<!-- KPIs globaux -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:32px;font-weight:900;color:var(--primary);">{{ stats.total_etablissements }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Établissements</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:32px;font-weight:900;color:var(--primary);">{{ stats.total_eleves }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Élèves au total</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:32px;font-weight:900;color:var(--primary);">{{ stats.total_users }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Comptes staff</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:32px;font-weight:900;color:var(--primary);">{{ stats.total_parents }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Comptes parents</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:20px;font-weight:900;color:var(--success);">{{ stats.recettes_mois|floatformat:0 }} <span style="font-size:12px;">FCFA</span></div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Recettes globales ce mois</div>
+  </div>
+</div>
+
+<!-- Liste des établissements -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">🏫 Établissements</span></div>
+  <table class="table-modern">
+    <thead><tr><th>Établissement</th><th>Code</th><th style="text-align:center;">Élèves</th><th style="text-align:center;">Utilisateurs</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for etab in etablissements %}
+    <tr>
+      <td>
+        <div style="font-weight:700;">{{ etab.nom }}</div>
+        {% if etab.adresse %}<div style="font-size:11.5px;color:var(--text-muted);">{{ etab.adresse }}</div>{% endif %}
+      </td>
+      <td><code style="font-size:12px;">{{ etab.code }}</code></td>
+      <td style="text-align:center;font-weight:700;">{{ etab.nb_eleves }}</td>
+      <td style="text-align:center;">{{ etab.nb_users }}</td>
+      <td>
+        <a href="{% url 'changer_etablissement' etab.pk %}" class="btn btn-outline btn-sm">🔀 Gérer</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted);">Aucun établissement</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Derniers utilisateurs créés -->
+<div class="card">
+  <div class="card-header"><span class="card-title">👥 Derniers comptes créés</span><a href="{% url 'liste_utilisateurs' %}" style="font-size:12px;color:var(--primary);">Tous →</a></div>
+  <table class="table-modern">
+    <thead><tr><th>Utilisateur</th><th>Rôle</th><th>Établissement</th><th>Créé le</th></tr></thead>
+    <tbody>
+    {% for u in derniers_users %}
+    <tr>
+      <td style="font-weight:600;">{{ u.get_full_name|default:u.username }}</td>
+      <td><span class="badge badge-primary" style="font-size:11px;">{{ u.get_role_display }}</span></td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ u.etablissement.nom|default:"—"|truncatechars:20 }}</td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ u.date_creation|date:"d/m/Y" }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun utilisateur</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Actions rapides super admin -->
+<div class="card" style="margin-top:16px;">
+  <div class="card-header"><span class="card-title">⚡ Actions</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 18px;">
+    <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">👥 Gérer utilisateurs</a>
+    <a href="{% url 'parametres' %}" class="btn btn-outline">⚙️ Paramètres</a>
+    <a href="{% url 'liste_divisions' %}" class="btn btn-outline">🏛️ Divisions</a>
+    <a href="{% url 'liste_cycles' %}" class="btn btn-outline">🎓 Cycles</a>
+    <a href="{% url 'liste_modeles' %}" class="btn btn-outline">🖨️ Modèles docs</a>
+  </div>
+</div>
+{% endblock %}

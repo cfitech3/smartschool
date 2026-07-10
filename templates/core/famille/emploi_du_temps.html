@@ -1,0 +1,71 @@
+{% extends "base/base_famille.html" %}
+{% block title %}Emploi du temps{% endblock %}
+{% block topbar_title %}Emploi du temps — {{ eleve.nom }} {{ eleve.prenom }}{% endblock %}
+{% block nav_edt %}active{% endblock %}
+{% block extra_css %}
+<style>
+.edt-card{border-radius:8px;overflow:hidden;margin-bottom:12px;border:1px solid var(--border);}
+.edt-jour{padding:10px 16px;font-weight:800;font-size:13.5px;background:var(--primary);color:#fff;display:flex;align-items:center;gap:8px;}
+.creneau{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border);}
+.creneau:last-child{border:none;}
+.creneau:hover{background:var(--bg);}
+.time-badge{min-width:100px;text-align:center;background:rgba(21,101,192,0.1);color:var(--primary);border-radius:6px;padding:5px 8px;font-size:12px;font-weight:700;white-space:nowrap;}
+.mat-nom{font-weight:700;font-size:14px;}
+.mat-info{font-size:12px;color:var(--text-muted);margin-top:2px;}
+.coef-badge{background:rgba(46,125,50,0.1);color:var(--success);border-radius:20px;padding:2px 10px;font-size:11.5px;font-weight:700;}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
+  <div><h1>🗓️ Emploi du temps</h1>
+    <div class="page-subtitle">
+      {% if inscription %}{{ inscription.classe.nom }}{% endif %}
+      — Semaine type
+    </div>
+  </div>
+</div>
+
+{% if edt_par_jour %}
+{% for jour, creneaux_jour in edt_par_jour.items %}
+<div class="edt-card">
+  <div class="edt-jour">
+    <span>{% if jour == "Lundi" %}📅{% elif jour == "Mardi" %}📅{% elif jour == "Mercredi" %}📅{% elif jour == "Jeudi" %}📅{% elif jour == "Vendredi" %}📅{% else %}📅{% endif %}</span>
+    {{ jour }}
+    <span style="font-size:11.5px;font-weight:400;opacity:0.8;margin-left:auto;">{{ creneaux_jour|length }} cours</span>
+  </div>
+  {% for c in creneaux_jour %}
+  <div class="creneau">
+    <div class="time-badge">{{ c.heure_debut }} → {{ c.heure_fin }}</div>
+    <div style="flex:1;">
+      <div class="mat-nom">{{ c.matiere.nom }}</div>
+      <div class="mat-info">
+        {% if c.enseignant %}Prof : {{ c.enseignant.get_full_name }}{% endif %}
+        {% if c.salle %} · 📍 {{ c.salle }}{% endif %}
+      </div>
+    </div>
+    <span class="coef-badge">Coef {{ c.matiere.coefficient }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<!-- Résumé hebdomadaire -->
+<div class="card" style="margin-top:16px;">
+  <div class="card-header"><span class="card-title">📊 Résumé hebdomadaire</span></div>
+  <div style="padding:16px 18px;">
+    <div style="display:flex;gap:20px;flex-wrap:wrap;">
+      <div style="text-align:center;"><div style="font-size:22px;font-weight:900;color:var(--primary);">{{ creneaux|length }}</div><div style="font-size:12px;color:var(--text-muted);">Cours/semaine</div></div>
+      <div style="text-align:center;"><div style="font-size:22px;font-weight:900;color:var(--primary);">{{ edt_par_jour|length }}</div><div style="font-size:12px;color:var(--text-muted);">Jours de cours</div></div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
+  <div style="font-size:40px;margin-bottom:12px;">🗓️</div>
+  <div style="font-weight:600;">Emploi du temps non encore publié</div>
+  <div style="font-size:13px;margin-top:6px;">Contactez l'établissement pour plus d'informations.</div>
+</div></div>
+{% endif %}
+{% endblock %}

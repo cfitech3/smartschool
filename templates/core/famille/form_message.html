@@ -1,0 +1,73 @@
+{% extends "base/base_famille.html" %}
+{% block title %}Contacter l'administration{% endblock %}
+{% block topbar_title %}Envoyer un message{% endblock %}
+{% block nav_messages %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'espace_messages' eleve.pk %}" class="btn btn-outline btn-sm">← Retour</a>
+    <h1>💬 Contacter l'administration</h1>
+  </div>
+</div>
+<div style="max-width:580px;">
+<form method="post">{% csrf_token %}
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header"><span class="card-title">Nouveau message</span></div>
+  <div class="card-body">
+
+    <!-- Choisir le destinataire -->
+    <div class="form-group">
+      <label class="form-label">Destinataire *</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+        {% for dest in destinataires %}
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.15s;"
+          id="label_{{ forloop.counter }}"
+          onclick="selectDest(this, '{{ dest.value }}')">
+          <input type="radio" name="destinataire" value="{{ dest.value }}" style="display:none;">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">
+            {{ dest.label|slice:":2" }}
+          </div>
+          <div>
+            <div style="font-weight:600;font-size:13.5px;">{{ dest.label|slice:"2:" }}</div>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Sujet *</label>
+      <input type="text" name="sujet" class="form-control" placeholder="Ex: Question sur les frais de scolarite, Absence du..." required>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Message *</label>
+      <textarea name="corps" class="form-control" rows="6" placeholder="Ecrivez votre message ici..." required></textarea>
+    </div>
+
+    <div style="padding:10px 12px;background:rgba(1,87,155,0.06);border-radius:var(--radius-sm);font-size:12.5px;color:var(--info);">
+      ℹ️ Ce message concerne l'eleve <strong>{{ eleve.nom }} {{ eleve.prenom }}</strong>. L'administration vous repondra dans votre espace.
+    </div>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;">
+    <button type="submit" class="btn btn-primary">📤 Envoyer</button>
+    <a href="{% url 'espace_messages' eleve.pk %}" class="btn btn-outline">Annuler</a>
+  </div>
+</div>
+</form>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function selectDest(label, value) {
+  document.querySelectorAll('[id^="label_"]').forEach(l => {
+    l.style.borderColor = 'var(--border)';
+    l.style.background = '';
+    l.querySelector('input').checked = false;
+  });
+  label.style.borderColor = 'var(--primary)';
+  label.style.background = 'rgba(21,101,192,0.04)';
+  label.querySelector('input').checked = true;
+}
+</script>
+{% endblock %}

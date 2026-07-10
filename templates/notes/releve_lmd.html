@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<title>Relevé de Notes — {{ eleve.nom_complet }}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:{% if modele %}{{ modele.police|default:"Arial" }}{% else %}Arial{% endif %},sans-serif;background:#f0f4f8;padding:20px;font-size:12px;}
+.actions{max-width:820px;margin:0 auto 14px;display:flex;gap:8px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;text-decoration:none;}
+.btn-primary{background:{% if modele %}{{ modele.couleur_titre_bg|default:"#1565C0" }}{% else %}#1565C0{% endif %};color:#fff;}
+.btn-outline{background:#fff;border:1.5px solid #ccc;color:#555;}
+.doc{max-width:820px;margin:0 auto;background:#fff;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,0.1);border-radius:8px;}
+.entete{display:grid;grid-template-columns:1fr 1fr;gap:20px;border-bottom:3px solid {% if modele %}{{ modele.couleur_titre_bg|default:"#1565C0" }}{% else %}#1565C0{% endif %};padding-bottom:14px;margin-bottom:16px;font-size:11px;line-height:1.7;}
+.entete-d{text-align:right;}
+.etab-nom{text-align:center;font-size:16px;font-weight:900;text-transform:uppercase;color:{% if modele %}{{ modele.couleur_titre_bg|default:"#1565C0" }}{% else %}#1565C0{% endif %};margin-bottom:4px;}
+.titre{background:{% if modele %}{{ modele.couleur_titre_bg|default:"#1565C0" }}{% else %}#1565C0{% endif %};color:#fff;text-align:center;padding:8px;font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;border-radius:4px;}
+.info-box{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 14px;background:#f8faff;border:1px solid #c5d8f0;border-radius:6px;font-size:11px;margin-bottom:16px;}
+.info-row{display:flex;gap:6px;}<span style="color:#546E7A;">.info-lbl</span>{min-width:80px;color:#546E7A;}
+.info-val{font-weight:700;}
+.semestre-titre{background:{% if modele %}{{ modele.couleur_titre_bg|default:"#1565C0" }}{% else %}#1565C0{% endif %}22;color:{% if modele %}{{ modele.couleur_titre_bg|default:"#1565C0" }}{% else %}#1565C0{% endif %};font-weight:800;padding:7px 12px;font-size:12px;border-left:4px solid {% if modele %}{{ modele.couleur_titre_bg|default:"#1565C0" }}{% else %}#1565C0{% endif %};margin-bottom:6px;border-radius:0 4px 4px 0;}
+table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;}
+thead th{background:#e8eef8;border:1px solid #c5d8f0;padding:6px 8px;font-weight:700;text-align:center;}
+tbody td{border:1px solid #d0dce8;padding:5px 8px;}
+.note-ok{color:#2E7D32;font-weight:800;} .note-ko{color:#C62828;font-weight:800;}
+.credits-ok{background:rgba(46,125,50,0.1);color:#2E7D32;font-weight:700;padding:2px 8px;border-radius:10px;}
+.credits-ko{background:rgba(198,40,40,0.1);color:#C62828;font-weight:700;padding:2px 8px;border-radius:10px;}
+.bilan{display:flex;gap:12px;padding:14px 18px;background:#f8faff;border:2px solid #c5d8f0;border-radius:8px;margin-bottom:16px;flex-wrap:wrap;}
+.bilan-item{text-align:center;flex:1;min-width:100px;}
+.bilan-val{font-size:22px;font-weight:900;color:#1A237E;}
+.bilan-lbl{font-size:10px;text-transform:uppercase;color:#546E7A;margin-top:2px;}
+.mention-badge{display:inline-block;padding:6px 18px;border-radius:20px;font-weight:800;font-size:13px;background:{% if modele %}{{ modele.couleur_titre_bg|default:"#1565C0" }}{% else %}#1565C0{% endif %};color:#fff;margin-top:8px;}
+.signatures{display:flex;justify-content:space-between;margin-top:20px;}
+.sign-bloc{text-align:center;font-size:10.5px;font-weight:700;}
+.sign-ligne{width:180px;border-top:1px solid #000;margin-top:40px;padding-top:4px;}
+@media print{body{background:#fff;padding:0;}.actions{display:none;}.doc{box-shadow:none;padding:20px;}@page{margin:8mm;size:A4;}}
+</style></head>
+<body>
+<div class="actions">
+  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button>
+</div>
+<div class="doc">
+  <div class="entete">
+    <div><strong>{% if modele and modele.ligne1_gauche %}{{ modele.ligne1_gauche }}{% else %}{{ etab.nom }}{% endif %}</strong><br>{% if modele and modele.ligne2_gauche %}{{ modele.ligne2_gauche }}{% endif %}</div>
+    <div class="entete-d">{% if modele and modele.ligne1_droite %}{{ modele.ligne1_droite }}{% else %}Republique du Mali{% endif %}<br>{% if modele and modele.ligne2_droite %}{{ modele.ligne2_droite }}{% else %}Un Peuple — Un But — Une Foi{% endif %}</div>
+  </div>
+  <div class="etab-nom">{{ modele.nom_etablissement_custom|default:etab.nom }}</div>
+  <div class="titre">RELEVÉ DE NOTES — SYSTÈME LMD — {{ periode.libelle }}</div>
+
+  <div class="info-box">
+    <div><span style="color:#546E7A;">Nom & Prénom :</span> <strong>{{ eleve.nom }} {{ eleve.prenom }}</strong></div>
+    <div><span style="color:#546E7A;">Matricule :</span> <strong>{{ eleve.matricule }}</strong></div>
+    <div><span style="color:#546E7A;">Filière :</span> <strong>{% if inscription %}{{ inscription.classe.filiere|default:inscription.classe.nom }}{% else %}—{% endif %}</strong></div>
+    <div><span style="color:#546E7A;">Niveau :</span> <strong>{% if inscription %}{{ inscription.classe.niveau.nom }}{% else %}—{% endif %}</strong></div>
+    <div><span style="color:#546E7A;">Année universitaire :</span> <strong>{{ annee.libelle|default:"—" }}</strong></div>
+    <div><span style="color:#546E7A;">Date de naissance :</span> <strong>{{ eleve.date_naissance|date:"d/m/Y" }}</strong></div>
+  </div>
+
+  {% for sem, data in semestres.items %}
+  <div class="semestre-titre">SEMESTRE {{ sem }}</div>
+  <table>
+    <thead><tr><th style="text-align:left;min-width:200px;">Unité d'Enseignement</th><th>Code</th><th>Crédits</th><th>Note /20</th><th>Rattrapage</th><th>Note retenue</th><th>Mention</th><th>Crédits obtenus</th></tr></thead>
+    <tbody>
+    {% for n in data.ues %}
+    <tr>
+      <td style="font-weight:600;">{{ n.ue.nom }}</td>
+      <td style="text-align:center;font-family:monospace;font-size:11px;">{{ n.ue.code }}</td>
+      <td style="text-align:center;">{{ n.ue.credits }}</td>
+      <td class="note-{% if n.note is not None %}{% if n.note >= 10 %}ok{% else %}ko{% endif %}{% endif %}" style="text-align:center;">{% if n.note is not None %}{{ n.note|floatformat:2 }}{% else %}—{% endif %}</td>
+      <td style="text-align:center;color:{% if n.note_rattrapage %}#FF6F00{% else %}#ccc{% endif %};">{% if n.note_rattrapage %}{{ n.note_rattrapage|floatformat:2 }}{% else %}—{% endif %}</td>
+      <td class="note-{% if n.note_retenue is not None %}{% if n.note_retenue >= 10 %}ok{% else %}ko{% endif %}{% endif %}" style="text-align:center;font-size:13px;">{% if n.note_retenue is not None %}{{ n.note_retenue|floatformat:2 }}{% else %}—{% endif %}</td>
+      <td style="text-align:center;font-size:10.5px;">{{ n.mention|default:"—" }}</td>
+      <td style="text-align:center;"><span class="credits-{% if n.credits_valides %}ok{% else %}ko{% endif %}">{% if n.credits_valides %}{{ n.ue.credits }} ✅{% else %}0 ❌{% endif %}</span></td>
+    </tr>
+    {% endfor %}
+    <tr style="background:#f0f4f8;font-weight:700;">
+      <td colspan="2">Total Semestre {{ sem }}</td>
+      <td style="text-align:center;">{{ data.credits_requis }}</td>
+      <td colspan="4"></td>
+      <td style="text-align:center;">
+        <span class="credits-{% if data.credits_obtenus == data.credits_requis %}ok{% else %}ko{% endif %}">
+          {{ data.credits_obtenus }}/{{ data.credits_requis }}
+        </span>
+      </td>
+    </tr>
+    </tbody>
+  </table>
+  {% empty %}
+  <div style="text-align:center;padding:20px;color:#546E7A;">Aucune note saisie pour cette période.</div>
+  {% endfor %}
+
+  <!-- BILAN GLOBAL -->
+  <div class="bilan">
+    <div class="bilan-item"><div class="bilan-val" style="color:{% if moy_generale and moy_generale >= 10 %}#2E7D32{% elif moy_generale %}#C62828{% else %}#555{% endif %};">{% if moy_generale %}{{ moy_generale|floatformat:2 }}/20{% else %}—{% endif %}</div><div class="bilan-lbl">Moyenne générale</div></div>
+    <div class="bilan-item"><div class="bilan-val">{{ total_credits_obtenus }}</div><div class="bilan-lbl">Crédits obtenus</div></div>
+    <div class="bilan-item"><div class="bilan-val">{{ total_credits_requis }}</div><div class="bilan-lbl">Crédits requis</div></div>
+    <div class="bilan-item"><div class="bilan-val">{% widthratio total_credits_obtenus total_credits_requis 100 %}%</div><div class="bilan-lbl">Taux validation</div></div>
+    {% if mention %}<div class="bilan-item"><div class="mention-badge">{{ mention }}</div><div class="bilan-lbl" style="margin-top:6px;">Mention</div></div>{% endif %}
+  </div>
+
+  <div class="signatures">
+    <div class="sign-bloc"><div>{{ modele.label_signature_gauche|default:"Le Directeur / Doyen" }}</div><div class="sign-ligne">Signature et cachet</div></div>
+    <div class="sign-bloc"><div>{{ modele.label_signature_droite|default:"L'Etudiant(e)" }}</div><div class="sign-ligne">Signature</div></div>
+  </div>
+  {% if modele and modele.texte_pied_page %}<div style="margin-top:14px;font-size:10px;color:#888;text-align:center;border-top:1px solid #eee;padding-top:8px;">{{ modele.texte_pied_page }}</div>{% endif %}
+  <div style="text-align:right;font-size:10px;color:#999;margin-top:8px;">Bamako, le {{ today|date:"d F Y" }}</div>
+</div>
+</body></html>

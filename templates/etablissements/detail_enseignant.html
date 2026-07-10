@@ -1,0 +1,29 @@
+{% extends "base/base.html" %}
+{% block title %}{{ enseignant.nom_complet }}{% endblock %}
+{% block topbar_title %}Fiche enseignant{% endblock %}
+{% block nav_enseignants %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'liste_enseignants' %}" class="btn btn-outline btn-sm">← Retour</a><div><h1>{{ enseignant.nom_complet }}</h1><div class="page-subtitle">@{{ enseignant.user.username }}</div></div></div>
+  <div style="display:flex;gap:8px;"><a href="{% url 'affecter_matiere' enseignant.pk %}" class="btn btn-outline btn-sm">📚 Affecter</a><a href="{% url 'modifier_enseignant' enseignant.pk %}" class="btn btn-primary btn-sm">✏️ Modifier</a></div>
+</div>
+<div class="grid-2" style="align-items:start;">
+  <div class="card"><div class="card-header"><span class="card-title">Informations</span></div>
+  <table style="width:100%;font-size:13px;">
+    <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 18px;color:var(--text-muted);width:40%;">Specialite</td><td style="padding:10px 18px;font-weight:600;">{{ enseignant.specialite|default:"—" }}</td></tr>
+    <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 18px;color:var(--text-muted);">Diplome</td><td style="padding:10px 18px;">{{ enseignant.diplome|default:"—" }}</td></tr>
+    <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 18px;color:var(--text-muted);">Email</td><td style="padding:10px 18px;">{{ enseignant.user.email|default:"—" }}</td></tr>
+    <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 18px;color:var(--text-muted);">Telephone</td><td style="padding:10px 18px;">{{ enseignant.user.telephone|default:"—" }}</td></tr>
+    <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 18px;color:var(--text-muted);">Embauche</td><td style="padding:10px 18px;">{{ enseignant.date_embauche|date:"d/m/Y"|default:"—" }}</td></tr>
+    <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 18px;color:var(--text-muted);">Salaire</td><td style="padding:10px 18px;font-weight:700;">{% if enseignant.salaire %}{{ enseignant.salaire|floatformat:0 }} FCFA{% else %}—{% endif %}</td></tr>
+    <tr><td style="padding:10px 18px;color:var(--text-muted);">Statut</td><td style="padding:10px 18px;">{% if enseignant.statut == 'actif' %}<span class="badge badge-success">Actif</span>{% elif enseignant.statut == 'conge' %}<span class="badge badge-warning">Conge</span>{% else %}<span class="badge badge-danger">Inactif</span>{% endif %}</td></tr>
+  </table></div>
+  <div class="card"><div class="card-header"><span class="card-title">📚 Affectations {% if annee %}— {{ annee.libelle }}{% endif %}</span><a href="{% url 'affecter_matiere' enseignant.pk %}" class="btn btn-primary btn-sm">+ Affecter</a></div>
+  {% if affectations %}
+  <table class="table-modern"><thead><tr><th>Matiere</th><th>Classe</th><th>H/sem</th></tr></thead>
+  <tbody>{% for a in affectations %}<tr><td style="font-weight:600;">{{ a.matiere.nom }}</td><td><span class="badge badge-primary">{{ a.classe.nom }}</span></td><td style="text-align:center;">{{ a.heures_semaine }}h</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<div style="text-align:center;padding:28px;color:var(--text-muted);">Aucune affectation cette annee</div>{% endif %}
+  </div>
+</div>
+{% endblock %}

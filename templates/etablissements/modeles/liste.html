@@ -1,0 +1,29 @@
+{% extends "base/base.html" %}
+{% block title %}Modeles{% endblock %}
+{% block topbar_title %}Modeles de documents{% endblock %}
+{% block nav_modeles %}active{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>🖨️ Modeles de documents</h1><div class="page-subtitle">Personnalisez bulletins, recus, certificats...</div></div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+{% for type_val,type_label in types %}
+<div class="card">
+  <div class="card-header"><span class="card-title">{{ type_label }}</span></div>
+  <div class="card-body">
+    {% with found=False %}
+    {% for m in modeles %}{% if m.type_document == type_val %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+        <div><div style="font-weight:600;font-size:13.5px;">{{ m.nom }}</div>{% if m.is_actif %}<span class="badge badge-success" style="font-size:10px;">Actif</span>{% endif %}</div>
+        <div style="display:flex;gap:5px;">
+          <a href="{% url 'apercu_modele' m.pk %}" target="_blank" class="btn btn-outline btn-sm">👁</a>
+          <a href="{% url 'modifier_modele' m.pk %}" class="btn btn-outline btn-sm">✏️</a>
+          {% if not m.is_actif %}<a href="{% url 'activer_modele' m.pk %}" class="btn btn-outline btn-sm" style="color:var(--success);">⚡</a>{% endif %}
+        </div>
+      </div>
+    {% endif %}{% endfor %}
+    {% endwith %}
+    <a href="{% url 'creer_modele_type' type_val %}" class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;justify-content:center;">+ Nouveau modele</a>
+  </div>
+</div>
+{% endfor %}
+</div>
+{% endblock %}

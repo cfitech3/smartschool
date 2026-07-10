@@ -1,0 +1,49 @@
+{% extends "base/base.html" %}
+{% block title %}Cycles scolaires{% endblock %}
+{% block topbar_title %}Cycles scolaires{% endblock %}
+{% block nav_cycles %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>🎓 Cycles scolaires</h1><div class="page-subtitle">Configuration du système scolaire malien</div></div>
+</div>
+
+{% if not cycles %}
+<div class="alert alert-warning">⚠️ Aucun cycle configuré. Lancez <code>python setup_demo.py</code> pour initialiser.</div>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+{% for cycle in cycles %}
+{% with nb_matieres=cycle.matieres_defaut.count nb_niveaux=cycle.niveaux.count %}
+<a href="{% url 'detail_cycle' cycle.pk %}" class="card" style="text-decoration:none;color:inherit;display:block;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+  <div style="padding:20px;border-bottom:1px solid var(--border);">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+      <div style="width:46px;height:46px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
+        background:{% if cycle.type_cycle == 'premier_cycle' %}rgba(21,101,192,0.1){% elif cycle.type_cycle == 'second_cycle' %}rgba(46,125,50,0.1){% elif cycle.type_cycle == 'lycee' %}rgba(173,20,87,0.1){% else %}rgba(245,127,23,0.1){% endif %};">
+        {% if cycle.type_cycle == 'premier_cycle' %}📚{% elif cycle.type_cycle == 'second_cycle' %}📖{% elif cycle.type_cycle == 'lycee' %}🎓{% else %}🏛️{% endif %}
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:800;">{{ cycle.nom }}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ cycle.get_type_cycle_display }}</div>
+      </div>
+    </div>
+    {% if cycle.diplome_prepare %}
+    <div style="font-size:12px;background:rgba(21,101,192,0.07);padding:5px 10px;border-radius:6px;color:var(--primary);font-weight:600;">
+      🏆 {{ cycle.diplome_prepare }}
+    </div>
+    {% endif %}
+  </div>
+  <div style="padding:14px 20px;display:flex;justify-content:space-between;font-size:12.5px;">
+    <div style="text-align:center;"><div style="font-weight:800;font-size:18px;color:var(--primary);">{{ nb_niveaux }}</div><div style="color:var(--text-muted);">Niveau{{ nb_niveaux|pluralize }}</div></div>
+    <div style="text-align:center;"><div style="font-weight:800;font-size:18px;color:var(--primary);">{{ nb_matieres }}</div><div style="color:var(--text-muted);">Matière{{ nb_matieres|pluralize }}</div></div>
+    <div style="text-align:center;">
+      <div style="font-weight:800;font-size:13px;color:var(--primary);">
+        {% if cycle.mode_calcul == 'compo' %}Classe+Compo{% elif cycle.mode_calcul == 'direct' %}/20 Direct{% else %}Crédits{% endif %}
+      </div>
+      <div style="color:var(--text-muted);">Mode calcul</div>
+    </div>
+  </div>
+</a>
+{% endwith %}
+{% endfor %}
+</div>
+{% endblock %}

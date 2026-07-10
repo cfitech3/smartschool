@@ -1,0 +1,49 @@
+{% extends "base/base_famille.html" %}
+{% block title %}Messages{% endblock %}
+{% block topbar_title %}Mes messages{% endblock %}
+{% block nav_messages %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>💬 Mes messages</h1><div class="page-subtitle">Echanges avec l'administration</div></div>
+  <a href="{% url 'envoyer_message' eleve.pk %}" class="btn btn-primary">+ Nouveau message</a>
+</div>
+{% if messages_list %}
+<div style="display:flex;flex-direction:column;gap:10px;">
+{% for m in messages_list %}
+<div class="card" style="border-left:4px solid {% if m.statut == 'repondu' %}var(--success){% elif m.statut == 'lu' %}var(--info){% else %}var(--warning){% endif %};">
+  <div style="padding:14px 18px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div>
+        <div style="font-weight:700;font-size:14px;">{{ m.sujet }}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
+          A : {{ m.get_destinataire_role_display }}{% if m.destinataire_user %} — {{ m.destinataire_user.get_full_name }}{% endif %}
+          · {{ m.date_envoi|date:"d/m/Y H:i" }}
+        </div>
+      </div>
+      {% if m.statut == 'repondu' %}<span class="badge badge-success">✅ Repondu</span>
+      {% elif m.statut == 'lu' %}<span class="badge badge-info">👁 Lu</span>
+      {% else %}<span class="badge badge-warning">⏳ En attente</span>{% endif %}
+    </div>
+    <div style="margin-top:10px;font-size:13px;color:var(--text-muted);background:var(--bg);padding:10px 12px;border-radius:var(--radius-sm);">
+      {{ m.corps|truncatechars:200 }}
+    </div>
+    {% if m.reponse %}
+    <div style="margin-top:10px;padding:10px 12px;background:rgba(46,125,50,0.06);border-radius:var(--radius-sm);border-left:3px solid var(--success);">
+      <div style="font-size:11.5px;font-weight:700;color:var(--success);margin-bottom:4px;">
+        Reponse de {{ m.repondu_par.get_full_name|default:"l'administration" }} — {{ m.date_reponse|date:"d/m/Y H:i" }}
+      </div>
+      <div style="font-size:13px;">{{ m.reponse }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
+  <div style="font-size:40px;margin-bottom:12px;">💬</div>
+  <div style="font-weight:600;">Aucun message envoye</div>
+  <a href="{% url 'envoyer_message' eleve.pk %}" class="btn btn-primary" style="margin-top:14px;">+ Envoyer un message</a>
+</div></div>
+{% endif %}
+{% endblock %}

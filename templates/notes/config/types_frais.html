@@ -1,0 +1,15 @@
+{% extends "base/base.html" %}
+{% block title %}Types de frais{% endblock %}
+{% block topbar_title %}Types de frais{% endblock %}
+{% block nav_frais %}active{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>🏷️ Types de frais</h1><div class="page-subtitle">{{ types|length }} type(s)</div></div><a href="{% url 'ajouter_type_frais' %}" class="btn btn-primary">+ Ajouter</a></div>
+<div class="card"><table class="table-modern">
+<thead><tr><th>Nom</th><th style="text-align:right;">Montant defaut</th><th>Obligatoire</th><th>Actions</th></tr></thead>
+<tbody>{% for t in types %}<tr>
+<td style="font-weight:700;">{{ t.nom }}</td>
+<td style="text-align:right;font-weight:700;">{{ t.montant_defaut|floatformat:0 }} FCFA</td>
+<td>{% if t.is_obligatoire %}<span class="badge badge-success">Oui</span>{% else %}<span class="badge badge-warning">Non</span>{% endif %}</td>
+<td><a href="{% url 'modifier_type_frais' t.pk %}" class="btn btn-outline btn-sm">✏️ Modifier</a></td>
+</tr>{% empty %}<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-muted);">Aucun type<br><a href="{% url 'ajouter_type_frais' %}" class="btn btn-primary btn-sm" style="margin-top:12px;">+ Creer</a></td></tr>{% endfor %}</tbody>
+</table></div>{% endblock %}

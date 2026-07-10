@@ -1,0 +1,63 @@
+{% extends "base/base.html" %}
+{% block title %}Messages familles{% endblock %}
+{% block topbar_title %}Messages des familles{% endblock %}
+{% block nav_admin_messages %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>💬 Messages des familles</h1><div class="page-subtitle">{{ messages_list|length }} message(s)</div></div>
+  {% if nb_non_lus > 0 %}<span class="badge badge-warning" style="font-size:14px;padding:7px 16px;">{{ nb_non_lus }} non lu(s)</span>{% endif %}
+</div>
+
+<!-- Filtres -->
+<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+  <a href="{% url 'admin_messages' %}" class="btn {% if not statut_filtre %}btn-primary{% else %}btn-outline{% endif %} btn-sm">Tous</a>
+  {% for v,l in statuts %}
+  <a href="?statut={{ v }}" class="btn {% if statut_filtre == v %}btn-primary{% else %}btn-outline{% endif %} btn-sm">
+    {% if v == 'non_lu' %}⏳{% elif v == 'lu' %}👁{% else %}✅{% endif %} {{ l }}
+  </a>
+  {% endfor %}
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px;">
+{% for m in messages_list %}
+<div class="card" style="border-left:4px solid {% if m.statut == 'non_lu' %}var(--warning){% elif m.statut == 'repondu' %}var(--success){% else %}var(--info){% endif %};">
+  <div style="padding:14px 18px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div>
+        <div style="font-weight:800;font-size:14.5px;">{{ m.sujet }}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
+          De : <strong>{{ m.expediteur.get_full_name }}</strong> ({{ m.expediteur.get_role_display }})
+          {% if m.eleve %} pour <strong>{{ m.eleve.nom_complet }}</strong>{% endif %}
+          · {{ m.date_envoi|date:"d/m/Y H:i" }}
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+          A : {{ m.get_destinataire_role_display }}{% if m.destinataire_user %} — {{ m.destinataire_user.get_full_name }}{% endif %}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        {% if m.statut == 'non_lu' %}<span class="badge badge-warning">⏳ Non lu</span>
+        {% elif m.statut == 'repondu' %}<span class="badge badge-success">✅ Repondu</span>
+        {% else %}<span class="badge badge-info">👁 Lu</span>{% endif %}
+        <a href="{% url 'admin_repondre_message' m.pk %}" class="btn {% if m.statut == 'non_lu' %}btn-primary{% else %}btn-outline{% endif %} btn-sm">
+          {% if m.statut == 'repondu' %}Voir{% else %}Repondre{% endif %}
+        </a>
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:13px;color:var(--text-muted);padding:8px 12px;background:var(--bg);border-radius:var(--radius-sm);">
+      {{ m.corps|truncatechars:150 }}
+    </div>
+    {% if m.reponse %}
+    <div style="margin-top:6px;font-size:12px;color:var(--success);">
+      ✅ Repondu par {{ m.repondu_par.get_full_name }} le {{ m.date_reponse|date:"d/m/Y" }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% empty %}
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
+  <div style="font-size:40px;margin-bottom:12px;">💬</div>
+  <div style="font-weight:600;">Aucun message{% if statut_filtre %} avec ce statut{% endif %}</div>
+</div></div>
+{% endfor %}
+</div>
+{% endblock %}

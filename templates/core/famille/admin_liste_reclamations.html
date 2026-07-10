@@ -1,0 +1,64 @@
+{% extends "base/base.html" %}
+{% block title %}Reclamations{% endblock %}
+{% block topbar_title %}Reclamations des familles{% endblock %}
+{% block nav_logs %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>✉️ Reclamations</h1><div class="page-subtitle">Demandes de revision de notes</div></div>
+  {% if nb_attente > 0 %}<span class="badge badge-danger" style="font-size:14px;padding:7px 16px;">{{ nb_attente }} en attente</span>{% endif %}
+</div>
+
+<!-- Filtres statut -->
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+  <a href="{% url 'liste_reclamations_admin' %}" class="btn {% if not statut_filtre %}btn-primary{% else %}btn-outline{% endif %} btn-sm">Toutes</a>
+  {% for v,l in statuts %}
+  <a href="?statut={{ v }}" class="btn {% if statut_filtre == v %}btn-primary{% else %}btn-outline{% endif %} btn-sm">
+    {% if v == 'en_attente' %}⏳{% elif v == 'en_cours' %}🔄{% elif v == 'acceptee' %}✅{% else %}❌{% endif %} {{ l }}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+{% if reclamations %}
+<table class="table-modern">
+<thead>
+  <tr><th>Date</th><th>Eleve</th><th>Matiere</th><th>Periode</th><th>Note</th><th>Motif</th><th>Statut</th><th>Actions</th></tr>
+</thead>
+<tbody>
+{% for r in reclamations %}
+<tr style="{% if r.statut == 'en_attente' %}background:rgba(255,111,0,0.04);{% endif %}">
+  <td style="font-size:12px;color:var(--text-muted);">{{ r.date_creation|date:"d/m/Y" }}</td>
+  <td>
+    <div style="font-weight:700;font-size:13.5px;">{{ r.eleve.nom }} {{ r.eleve.prenom }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">{{ r.role_auteur }}</div>
+  </td>
+  <td style="font-weight:600;">{{ r.note_periode.matiere.nom }}</td>
+  <td style="font-size:12.5px;">{{ r.note_periode.periode.libelle }}</td>
+  <td style="text-align:center;font-weight:700;color:{% if r.note_periode.moyenne_finale and r.note_periode.moyenne_finale >= 10 %}var(--success){% elif r.note_periode.moyenne_finale %}var(--danger){% else %}var(--text-muted){% endif %};">
+    {% if r.note_periode.note_conduite is not None %}{{ r.note_periode.note_conduite|floatformat:1 }}/20{% elif r.note_periode.moyenne_finale is not None %}{{ r.note_periode.moyenne_finale|floatformat:2 }}/20{% else %}—{% endif %}
+  </td>
+  <td style="font-size:12.5px;max-width:200px;color:var(--text-muted);">{{ r.motif|truncatechars:60 }}</td>
+  <td>
+    {% if r.statut == 'en_attente' %}<span class="badge badge-warning">⏳ Attente</span>
+    {% elif r.statut == 'en_cours' %}<span class="badge badge-info">🔄 En cours</span>
+    {% elif r.statut == 'acceptee' %}<span class="badge badge-success">✅ Acceptee</span>
+    {% else %}<span class="badge badge-danger">❌ Rejetee</span>{% endif %}
+  </td>
+  <td>
+    {% if r.statut in 'en_attente,en_cours' %}
+    <a href="{% url 'traiter_reclamation' r.pk %}" class="btn btn-primary btn-sm">Traiter</a>
+    {% else %}
+    <a href="{% url 'traiter_reclamation' r.pk %}" class="btn btn-outline btn-sm">Voir</a>
+    {% endif %}
+  </td>
+</tr>
+{% endfor %}
+</tbody></table>
+{% else %}
+<div style="text-align:center;padding:50px;color:var(--text-muted);">
+  <div style="font-size:40px;margin-bottom:12px;">✉️</div>
+  <div style="font-weight:600;">Aucune reclamation{% if statut_filtre %} avec ce statut{% endif %}</div>
+</div>
+{% endif %}
+</div>
+{% endblock %}

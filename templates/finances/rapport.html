@@ -1,0 +1,37 @@
+{% extends "base/base.html" %}
+{% block title %}Rapport financier{% endblock %}
+{% block topbar_title %}Rapport financier{% endblock %}
+{% block nav_rapports %}active{% endblock %}
+{% block extra_css %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>📈 Rapport financier</h1><div class="page-subtitle">{% if annee %}{{ annee.libelle }}{% endif %} — {{ today|date:"d F Y" }}</div></div>
+<div style="display:flex;gap:8px;"><a href="{% url 'export_paiements' %}" class="btn btn-outline btn-sm">📥 Excel</a></div></div>
+<div class="stats-grid" style="margin-bottom:20px;">
+  <div class="stat-card"><div class="stat-icon green">💰</div><div class="stat-body"><div class="stat-value">{{ total_annee|floatformat:0 }}</div><div class="stat-label">Total annee (FCFA)</div></div></div>
+</div>
+<div class="grid-2" style="align-items:start;margin-bottom:20px;">
+  <div class="card"><div class="card-header"><span class="card-title">📊 Evolution mensuelle</span></div><div class="card-body"><canvas id="chartMois" height="220"></canvas></div></div>
+  <div class="card"><div class="card-header"><span class="card-title">🏷️ Par type de frais</span></div>
+    <table class="table-modern">
+    <thead><tr><th>Type</th><th style="text-align:right;">Total</th><th style="text-align:center;">Nb</th></tr></thead>
+    <tbody>{% for pt in par_type %}<tr><td style="font-weight:600;">{{ pt.type_frais__nom }}</td><td style="text-align:right;font-weight:700;">{{ pt.total|floatformat:0 }} F</td><td style="text-align:center;"><span class="badge badge-primary">{{ pt.nb }}</span></td></tr>{% empty %}<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">Aucune donnee</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+{% if eleves_en_retard %}
+<div class="card"><div class="card-header"><span class="card-title" style="color:var(--warning);">⚠️ Eleves sans paiement ce mois</span></div>
+<table class="table-modern"><thead><tr><th>Eleve</th><th>Classe</th><th>Tuteur</th><th>Actions</th></tr></thead>
+<tbody>{% for e in eleves_en_retard %}{% with insc=e.get_inscription_active %}<tr>
+<td><a href="{% url 'detail_eleve' e.pk %}" style="font-weight:700;text-decoration:none;color:var(--primary);">{{ e.nom }} {{ e.prenom }}</a></td>
+<td>{% if insc %}<span class="badge badge-primary">{{ insc.classe.nom }}</span>{% else %}—{% endif %}</td>
+<td style="font-size:12.5px;">{% if e.tuteur %}{{ e.tuteur.telephone }}{% else %}—{% endif %}</td>
+<td><a href="{% url 'enregistrer_paiement' %}?eleve={{ e.pk }}" class="btn btn-primary btn-sm">💳 Encaisser</a></td>
+</tr>{% endwith %}{% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+const d={{ mois_data|safe }};
+if(d&&d.length){new Chart(document.getElementById('chartMois'),{type:'bar',data:{labels:d.map(x=>x.mois),datasets:[{label:'Recettes',data:d.map(x=>x.total),backgroundColor:'rgba(21,101,192,0.7)',borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString()+' F'},grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}});}
+</script>{% endblock %}

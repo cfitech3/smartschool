@@ -1,0 +1,35 @@
+{% extends "base/base_famille.html" %}
+{% block title %}Reclamations{% endblock %}
+{% block topbar_title %}Reclamations — {{ eleve.nom }} {{ eleve.prenom }}{% endblock %}
+{% block nav_reclamations %}active{% endblock %}
+{% block content %}
+<div class="page-header"><a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
+<div><h1>✉️ Mes reclamations</h1><div class="page-subtitle">Pour reclamer sur une note, allez dans "Notes" et cliquez sur "Reclamer"</div></div>
+<a href="{% url 'espace_notes' eleve.pk %}" class="btn btn-primary btn-sm">📝 Voir les notes</a>
+</div>
+{% if reclamations %}
+<div class="card">
+<table class="table-modern">
+<thead><tr><th>Date</th><th>Matiere</th><th>Periode</th><th>Motif</th><th>Statut</th><th>Reponse</th></tr></thead>
+<tbody>
+{% for r in reclamations %}
+<tr>
+<td style="font-size:12px;color:var(--text-muted);">{{ r.date_creation|date:"d/m/Y" }}</td>
+<td style="font-weight:600;">{{ r.note_periode.matiere.nom }}</td>
+<td style="font-size:12.5px;">{{ r.note_periode.periode.libelle }}</td>
+<td style="font-size:12.5px;max-width:220px;">{{ r.motif|truncatechars:80 }}</td>
+<td>
+  {% if r.statut == 'en_attente' %}<span class="badge badge-warning">En attente</span>
+  {% elif r.statut == 'en_cours' %}<span class="badge badge-info">En cours</span>
+  {% elif r.statut == 'acceptee' %}<span class="badge badge-success">Acceptee</span>
+  {% else %}<span class="badge badge-danger">Rejetee</span>{% endif %}
+</td>
+<td style="font-size:12px;">{{ r.reponse|default:"—"|truncatechars:60 }}</td>
+</tr>
+{% endfor %}
+</tbody></table>
+</div>
+{% else %}
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;">✉️</div>Aucune reclamation envoyee</div></div>
+{% endif %}
+{% endblock %}

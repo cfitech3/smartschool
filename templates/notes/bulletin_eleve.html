@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Bulletin{{ eleve.nom_complet }}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:{{ modele.police|default:"Arial" }},sans-serif;background:#f5f5f5;padding:20px;font-size:{{ modele.taille_police|default:12 }}px;}
+    .actions{max-width:900px;margin:0 auto 14px;display:flex;gap:8px;font-family:sans-serif;}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;border:none;cursor:pointer;text-decoration:none;}
+    .btn-primary{background:#1565C0;color:#fff;} .btn-outline{background:#fff;border:1.5px solid #ccc;color:#555;}
+    .bulletin{max-width:900px;margin:0 auto;background:#fff;padding:22px 26px;border:1px solid #ccc;box-shadow:0 4px 20px rgba(0,0,0,0.08);}
+    .entete{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-bottom:2px solid {{ modele.couleur_bordure|default:"#000" }};padding-bottom:12px;margin-bottom:12px;font-size:10.5px;line-height:1.7;}
+    .entete-d{text-align:right;}
+    .etab-nom{text-align:center;font-size:14px;font-weight:900;text-transform:uppercase;color:{{ modele.couleur_titre_bg|default:"#1565C0" }};margin-bottom:6px;}
+    .titre-bloc{background:{{ modele.couleur_titre_bg|default:"#555" }};color:{{ modele.couleur_titre_texte|default:"#fff" }};text-align:center;padding:7px;font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;border-radius:2px;}
+    .info-eleve{border:1px solid #999;padding:8px 12px;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:12px;font-size:11px;}
+    .info-eleve span{font-weight:700;}
+    table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10.5px;}
+    thead th{background:{{ modele.couleur_tableau_header|default:"#ddd" }};border:1px solid {{ modele.couleur_bordure|default:"#000" }};padding:5px 6px;font-weight:700;text-align:center;}
+    tbody td{border:1px solid {{ modele.couleur_bordure|default:"#999" }};padding:4px 6px;}
+    tbody tr:nth-child(even){background:#f9f9f9;}
+    .conduite-row{background:rgba(1,87,155,0.06)!important;}
+    .conduite-note{font-weight:900;text-align:center;font-size:13px;}
+    .moy-cell{text-align:center;font-weight:800;}
+    .moy-cell.ok{color:#2E7D32;} .moy-cell.ko{color:#C62828;}
+    .resume{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;}
+    .resume-box{border:1.5px solid {{ modele.couleur_bordure|default:"#333" }};padding:8px 12px;text-align:center;}
+    .resume-box .lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#555;display:block;}
+    .resume-box .val{font-size:18px;font-weight:900;color:#1A237E;display:block;margin-top:3px;}
+    .signatures{display:flex;justify-content:space-between;margin-top:18px;}
+    .sign-bloc{text-align:center;font-size:10.5px;font-weight:700;}
+    .sign-ligne{width:160px;border-top:1px solid #000;margin-top:40px;padding-top:4px;}
+    .pied{margin-top:12px;font-size:10px;color:#888;text-align:center;font-style:italic;border-top:1px solid #eee;padding-top:8px;}
+    @media print{body{background:#fff;padding:0;}.actions{display:none;}.bulletin{box-shadow:none;padding:15px 20px;}@page{margin:8mm;size:A4;}}
+  </style>
+</head>
+<body>
+{% if not is_apercu %}
+<div class="actions">
+  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button>
+</div>
+{% endif %}
+<div class="bulletin">
+  <!-- EN-TETE -->
+  <div class="entete">
+    <div>{% if modele and modele.ligne1_gauche %}{{ modele.ligne1_gauche }}<br>{% endif %}{% if modele and modele.ligne2_gauche %}{{ modele.ligne2_gauche }}<br>{% endif %}{% if modele and modele.ligne3_gauche %}{{ modele.ligne3_gauche }}{% endif %}</div>
+    <div class="entete-d">{% if modele and modele.ligne1_droite %}{{ modele.ligne1_droite }}<br>{% endif %}{% if modele and modele.ligne2_droite %}{{ modele.ligne2_droite }}<br>{% endif %}{% if modele and modele.ligne3_droite %}{{ modele.ligne3_droite }}{% endif %}</div>
+  </div>
+  <div class="etab-nom">{{ modele.nom_etablissement_custom|default:etab.nom }}</div>
+  <div class="titre-bloc">{{ modele.titre_document|default:"BULLETIN DE NOTES" }} — {{ periode.libelle }}</div>
+
+  <!-- INFOS ELEVE -->
+  <div class="info-eleve">
+    <div>Nom et prenom : <span>{{ eleve.nom }} {{ eleve.prenom }}</span></div>
+    <div>Annee scolaire : <span>{{ annee.libelle|default:"—" }}</span></div>
+    <div>Matricule : <span>{{ eleve.matricule }}</span></div>
+    <div>Classe : <span>{% if inscription %}{{ inscription.classe.nom }}{% else %}—{% endif %}</span></div>
+    <div>Date et lieu naissance : <span>{{ eleve.date_naissance|date:"d/m/Y" }}{% if eleve.lieu_naissance %} — {{ eleve.lieu_naissance }}{% endif %}</span></div>
+  </div>
+
+  <!-- TABLEAU DES NOTES -->
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align:left;min-width:120px;">Matieres</th>
+        {% if not modele or modele.col_moy_classe %}<th>Moy.Classe /20</th>{% endif %}
+        {% if not modele or modele.col_moy_compo %}<th>Moy.Compo /40</th>{% endif %}
+        {% if not modele or modele.col_moyenne_finale %}<th>Moy.Finale</th>{% endif %}
+        {% if not modele or modele.col_coefficient %}<th>Coef</th>{% endif %}
+        {% if not modele or modele.col_moy_coeffic %}<th>Moy.Coeff</th>{% endif %}
+        {% if not modele or modele.col_appreciation %}<th>Appreciation</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+    {% for l in lignes %}
+    <tr class="{% if l.matiere.is_conduite %}conduite-row{% endif %}">
+      <td style="font-weight:{% if l.matiere.is_conduite %}900{% else %}600{% endif %};">
+        {{ l.matiere.nom }}{% if l.matiere.is_conduite %} 🔵{% endif %}
+      </td>
+      {% if l.matiere.is_conduite %}
+        {% if not modele or modele.col_moy_classe %}<td></td>{% endif %}
+        {% if not modele or modele.col_moy_compo %}<td></td>{% endif %}
+        {% if not modele or modele.col_moyenne_finale %}<td class="conduite-note">{% if l.note_conduite is not None %}{{ l.note_conduite|floatformat:1 }}/20{% else %}—{% endif %}</td>{% endif %}
+        {% if not modele or modele.col_coefficient %}<td style="text-align:center;">{{ l.matiere.coefficient }}</td>{% endif %}
+        {% if not modele or modele.col_moy_coeffic %}<td class="moy-cell">{% if l.moy_coeffic is not None %}{{ l.moy_coeffic|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
+        {% if not modele or modele.col_appreciation %}<td style="text-align:center;font-size:10px;">{{ l.appreciation|default:"—" }}</td>{% endif %}
+      {% else %}
+        {% if not modele or modele.col_moy_classe %}<td style="text-align:center;">{% if l.moy_classe is not None %}{{ l.moy_classe|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
+        {% if not modele or modele.col_moy_compo %}<td style="text-align:center;">{% if l.moy_compo is not None %}{{ l.moy_compo|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
+        {% if not modele or modele.col_moyenne_finale %}<td class="moy-cell {% if l.moyenne_finale is not None %}{% if l.moyenne_finale >= 10 %}ok{% else %}ko{% endif %}{% endif %}">{% if l.moyenne_finale is not None %}{{ l.moyenne_finale|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
+        {% if not modele or modele.col_coefficient %}<td style="text-align:center;">{{ l.matiere.coefficient }}</td>{% endif %}
+        {% if not modele or modele.col_moy_coeffic %}<td class="moy-cell">{% if l.moy_coeffic is not None %}{{ l.moy_coeffic|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
+        {% if not modele or modele.col_appreciation %}<td style="text-align:center;font-size:10px;">{{ l.appreciation|default:"—" }}</td>{% endif %}
+      {% endif %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- RESUME -->
+  <div class="resume">
+    <div class="resume-box">
+      <span class="lbl">Moyenne Generale</span>
+      <span class="val" style="color:{% if moy_generale and moy_generale >= 10 %}#2E7D32{% elif moy_generale %}#C62828{% else %}#555{% endif %};">{% if moy_generale %}{{ moy_generale|floatformat:2 }}/20{% else %}—{% endif %}</span>
+    </div>
+    {% if not modele or modele.afficher_rang %}<div class="resume-box"><span class="lbl">Rang</span><span class="val">{% if rang %}{{ rang }}{% if effectif %}/{{ effectif }}{% endif %}{% else %}—{% endif %}</span></div>{% endif %}
+    {% if not modele or modele.afficher_moy_premier %}<div class="resume-box"><span class="lbl">Moy. du 1er</span><span class="val">{% if moy_premier %}{{ moy_premier|floatformat:2 }}/20{% else %}—{% endif %}</span></div>{% endif %}
+  </div>
+
+  {% if not modele or modele.afficher_appre_directeur %}
+  <div style="border:1px solid #999;padding:6px 12px;margin-bottom:12px;font-size:11px;">
+    <strong>Appreciation du Directeur :</strong> {{ appre_directeur|default:"—" }}
+  </div>
+  {% endif %}
+
+  <!-- SIGNATURES -->
+  <div class="signatures">
+    <div class="sign-bloc"><div>{{ modele.label_signature_gauche|default:"Le Directeur" }}</div><div class="sign-ligne">Signature et cachet</div></div>
+    <div class="sign-bloc"><div>{{ modele.label_signature_droite|default:"Le Parent ou Tuteur" }}</div><div class="sign-ligne">Signature</div></div>
+  </div>
+
+  <div class="pied">{% if modele and modele.texte_pied_page %}{{ modele.texte_pied_page }} — {% endif %}Bamako, le {{ today|date:"d F Y" }}</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{% extends "base/base.html" %}
+{% block title %}Modifier{{ enseignant.nom_complet }}{% endblock %}
+{% block topbar_title %}Modifier un enseignant{% endblock %}
+{% block nav_enseignants %}active{% endblock %}
+{% block content %}
+<div class="page-header"><div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'detail_enseignant' enseignant.pk %}" class="btn btn-outline btn-sm">← Retour</a><h1>Modifier : {{ enseignant.nom_complet }}</h1></div></div>
+<form method="post" style="max-width:600px;">{% csrf_token %}
+<div class="card" style="margin-bottom:14px;"><div class="card-header"><span class="card-title">👤 Identite</span></div><div class="card-body">
+  <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Prenom</label><input type="text" name="prenom" class="form-control" value="{{ enseignant.user.first_name }}"></div><div><label class="form-label">Nom</label><input type="text" name="nom" class="form-control" value="{{ enseignant.user.last_name }}"></div></div>
+  <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ enseignant.user.email }}"></div><div><label class="form-label">Telephone</label><input type="text" name="telephone" class="form-control" value="{{ enseignant.user.telephone }}"></div></div>
+  <div><label class="form-label">Nouveau mot de passe (laisser vide = inchange)</label><input type="text" name="password" class="form-control" placeholder="Nouveau mot de passe..."></div>
+</div></div>
+<div class="card"><div class="card-header"><span class="card-title">🎓 Informations professionnelles</span></div><div class="card-body">
+  <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Specialite</label><input type="text" name="specialite" class="form-control" value="{{ enseignant.specialite }}"></div><div><label class="form-label">Diplome</label><input type="text" name="diplome" class="form-control" value="{{ enseignant.diplome }}"></div></div>
+  <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Date embauche</label><input type="date" name="date_embauche" class="form-control" value="{{ enseignant.date_embauche|date:'Y-m-d' }}"></div><div><label class="form-label">Salaire (FCFA)</label><input type="number" name="salaire" class="form-control" value="{{ enseignant.salaire }}"></div></div>
+  <div><label class="form-label">Statut</label><select name="statut" class="form-control"><option value="actif"{% if enseignant.statut == 'actif' %} selected{% endif %}>Actif</option><option value="conge"{% if enseignant.statut == 'conge' %} selected{% endif %}>En conge</option><option value="inactif"{% if enseignant.statut == 'inactif' %} selected{% endif %}>Inactif</option></select></div>
+</div>
+<div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;"><button type="submit" class="btn btn-primary">Enregistrer</button><a href="{% url 'detail_enseignant' enseignant.pk %}" class="btn btn-outline">Annuler</a></div>
+</div>
+</form>{% endblock %}

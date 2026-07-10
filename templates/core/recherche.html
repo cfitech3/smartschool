@@ -1,0 +1,34 @@
+{% extends "base/base.html" %}
+{% block title %}Recherche{% endblock %}
+{% block topbar_title %}Recherche globale{% endblock %}
+{% block content %}
+<div class="page-header"><h1>🔍 Recherche</h1></div>
+<div class="card" style="margin-bottom:20px;"><div class="card-body" style="padding:16px 20px;">
+<form method="get" style="display:flex;gap:10px;"><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Nom, prenom, matricule, reference..." style="font-size:15px;" autofocus><button type="submit" class="btn btn-primary">Rechercher</button>{% if q %}<a href="{% url 'recherche' %}" class="btn btn-outline">✕</a>{% endif %}</form>
+</div></div>
+{% if q %}
+<div style="margin-bottom:14px;font-size:13.5px;color:var(--text-muted);"><strong>{{ total }}</strong> resultat{{ total|pluralize }} pour "<strong>{{ q }}</strong>"</div>
+{% if resultats.eleves %}
+<div class="card" style="margin-bottom:16px;"><div class="card-header"><span class="card-title">👨‍🎓 Eleves</span></div>
+<table class="table-modern"><thead><tr><th>Eleve</th><th>Matricule</th><th>Classe</th><th>Actions</th></tr></thead><tbody>
+{% for e in resultats.eleves %}{% with insc=e.get_inscription_active %}<tr>
+<td><div style="font-weight:600;">{{ e.nom }} {{ e.prenom }}</div></td>
+<td><code style="font-size:12px;background:var(--bg);padding:2px 7px;border-radius:4px;">{{ e.matricule }}</code></td>
+<td>{% if insc %}<span class="badge badge-primary">{{ insc.classe.nom }}</span>{% else %}—{% endif %}</td>
+<td><div style="display:flex;gap:6px;"><a href="{% url 'detail_eleve' e.pk %}" class="btn btn-outline btn-sm">👁 Voir</a><a href="{% url 'enregistrer_paiement' %}?eleve={{ e.pk }}" class="btn btn-primary btn-sm">💳</a></div></td>
+</tr>{% endwith %}{% endfor %}
+</tbody></table></div>{% endif %}
+{% if resultats.paiements %}
+<div class="card" style="margin-bottom:16px;"><div class="card-header"><span class="card-title">💳 Paiements</span></div>
+<table class="table-modern"><thead><tr><th>Reference</th><th>Eleve</th><th>Montant</th><th>Date</th><th></th></tr></thead><tbody>
+{% for p in resultats.paiements %}<tr>
+<td><code style="font-size:11.5px;background:var(--bg);padding:2px 7px;border-radius:4px;">{{ p.reference }}</code></td>
+<td style="font-weight:600;">{{ p.eleve.nom }} {{ p.eleve.prenom }}</td>
+<td><strong>{{ p.montant|floatformat:0 }} F</strong></td>
+<td style="font-size:12px;color:var(--text-muted);">{{ p.date_paiement|date:"d/m/Y" }}</td>
+<td><a href="{% url 'recu_paiement' p.pk %}" class="btn btn-outline btn-sm" target="_blank">🧾</a></td>
+</tr>{% endfor %}
+</tbody></table></div>{% endif %}
+{% if total == 0 %}<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;">🔍</div><div style="font-weight:600;">Aucun resultat pour "{{ q }}"</div></div></div>{% endif %}
+{% else %}<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">🔍</div><div style="font-size:16px;font-weight:700;color:var(--text);">Tapez votre recherche</div></div></div>{% endif %}
+{% endblock %}

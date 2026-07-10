@@ -1,0 +1,58 @@
+{% extends "base/base.html" %}
+{% block title %}Repondre message{% endblock %}
+{% block topbar_title %}Message de {{ msg.expediteur.get_full_name }}{% endblock %}
+{% block nav_admin_messages %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'admin_messages' %}" class="btn btn-outline btn-sm">← Retour</a>
+    <div><h1>{{ msg.sujet }}</h1><div class="page-subtitle">{{ msg.expediteur.get_full_name }} · {{ msg.date_envoi|date:"d/m/Y H:i" }}</div></div>
+  </div>
+  <span class="badge {% if msg.statut == 'non_lu' %}badge-warning{% elif msg.statut == 'repondu' %}badge-success{% else %}badge-info{% endif %}" style="font-size:13px;padding:5px 12px;">
+    {{ msg.get_statut_display }}
+  </span>
+</div>
+<div class="grid-2" style="align-items:start;">
+
+  <!-- Message original -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📩 Message recu</span></div>
+    <div class="card-body">
+      <table style="width:100%;font-size:12.5px;margin-bottom:14px;">
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 0;color:var(--text-muted);width:35%;">Expediteur</td><td style="padding:8px 0;font-weight:700;">{{ msg.expediteur.get_full_name }} ({{ msg.expediteur.get_role_display }})</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 0;color:var(--text-muted);">Eleve concerne</td><td style="padding:8px 0;font-weight:600;">{% if msg.eleve %}{{ msg.eleve.nom_complet }}{% else %}—{% endif %}</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 0;color:var(--text-muted);">Destinataire</td><td style="padding:8px 0;">{{ msg.get_destinataire_role_display }}{% if msg.destinataire_user %} — {{ msg.destinataire_user.get_full_name }}{% endif %}</td></tr>
+        <tr><td style="padding:8px 0;color:var(--text-muted);">Date</td><td style="padding:8px 0;">{{ msg.date_envoi|date:"d/m/Y H:i" }}</td></tr>
+      </table>
+      <div style="background:var(--bg);padding:14px;border-radius:var(--radius-sm);font-size:13.5px;line-height:1.7;white-space:pre-wrap;">{{ msg.corps }}</div>
+    </div>
+  </div>
+
+  <!-- Réponse -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">💬 Reponse</span></div>
+    {% if msg.reponse %}
+    <div class="card-body" style="background:rgba(46,125,50,0.05);">
+      <div style="font-size:12px;color:var(--success);font-weight:700;margin-bottom:8px;">
+        Repondu par {{ msg.repondu_par.get_full_name }} le {{ msg.date_reponse|date:"d/m/Y H:i" }}
+      </div>
+      <div style="font-size:13.5px;line-height:1.7;white-space:pre-wrap;">{{ msg.reponse }}</div>
+      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;"><strong>Modifier la reponse :</strong></div>
+    </div>
+    {% endif %}
+    <form method="post">{% csrf_token %}
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">{% if msg.reponse %}Nouvelle reponse{% else %}Votre reponse *{% endif %}</label>
+        <textarea name="reponse" class="form-control" rows="7" placeholder="Ecrivez votre reponse..." required>{{ msg.reponse }}</textarea>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Cette reponse sera visible par {{ msg.expediteur.get_full_name }} dans son espace famille.</div>
+      </div>
+    </div>
+    <div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;">
+      <button type="submit" class="btn btn-primary">📤 Envoyer la reponse</button>
+      <a href="{% url 'admin_messages' %}" class="btn btn-outline">Annuler</a>
+    </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base/base.html" %}
+{% block title %}Conduite{% endblock %}
+{% block topbar_title %}Saisie de la note de conduite{% endblock %}
+{% block nav_conduite %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>📊 Note de conduite</h1><div class="page-subtitle">Saisie reservee au Surveillant General</div></div>
+  <a href="{% url 'rapport_absences' %}" class="btn btn-outline btn-sm">⚠️ Rapport absences</a>
+</div>
+{% if not matiere_conduite %}
+<div class="alert alert-danger">❌ Aucune matiere de conduite configuree. Allez dans <a href="{% url 'liste_matieres' %}" style="font-weight:700;">Matieres</a> et cochez "Matiere de conduite" sur la matiere concernee.</div>
+{% endif %}
+<div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:14px 18px;">
+<form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+  <div style="flex:1;min-width:160px;"><label class="form-label" style="margin-bottom:4px;">Classe</label><select name="classe" class="form-control"><option value="">-- Classe --</option>{% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}</select></div>
+  <div style="flex:1;min-width:160px;"><label class="form-label" style="margin-bottom:4px;">Periode</label><select name="periode" class="form-control"><option value="">-- Periode --</option>{% for p in periodes %}<option value="{{ p.pk }}"{% if periode_id == p.pk|stringformat:"s" %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}</select></div>
+  <button type="submit" class="btn btn-primary">Afficher</button>
+</form></div></div>
+
+{% if eleves_data %}
+<div class="alert alert-info">💡 La note de conduite est sur <strong>20</strong>. Elle apparaîtra sur le bulletin avec la mention 🔵. La suggestion est calculee automatiquement selon les absences.</div>
+<form method="post">{% csrf_token %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">{{ classe.nom }} — {{ periode.libelle }}</span>
+    <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+  </div>
+  <table class="table-modern">
+  <thead>
+    <tr>
+      <th>Eleve</th>
+      <th style="text-align:center;">Absences</th>
+      <th style="text-align:center;">Retards</th>
+      <th style="text-align:center;">Suggestion</th>
+      <th style="text-align:center;min-width:140px;">Note conduite /20</th>
+      <th style="text-align:center;">Appreciation</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item in eleves_data %}
+  <tr style="{% if item.nb_absences >= 3 %}background:rgba(198,40,40,0.04);{% endif %}">
+    <td>
+      <div style="font-weight:700;">{{ item.eleve.nom }} {{ item.eleve.prenom }}</div>
+      <div style="font-size:11px;color:var(--text-muted);">{{ item.eleve.matricule }}</div>
+    </td>
+    <td style="text-align:center;">
+      {% if item.nb_absences >= 3 %}
+        <span class="badge badge-danger">{{ item.nb_absences }}</span>
+      {% elif item.nb_absences > 0 %}
+        <span class="badge badge-warning">{{ item.nb_absences }}</span>
+      {% else %}
+        <span class="badge badge-success">0</span>
+      {% endif %}
+    </td>
+    <td style="text-align:center;"><span class="badge badge-info">{{ item.nb_retards }}</span></td>
+    <td style="text-align:center;">
+      <button type="button" onclick="setSuggestion('{{ item.eleve.pk }}', {{ item.conduite_suggeree }})" style="background:rgba(1,87,155,0.1);border:1px solid var(--info);color:var(--info);padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">{{ item.conduite_suggeree }}/20</button>
+    </td>
+    <td style="text-align:center;">
+      <input type="number" name="nc_{{ item.eleve.pk }}" id="nc_{{ item.eleve.pk }}" class="form-control" style="width:100px;margin:0 auto;text-align:center;font-weight:700;font-size:16px;" min="0" max="20" step="0.5"
+        value="{% if item.note and item.note.note_conduite is not None %}{{ item.note.note_conduite }}{% endif %}"
+        placeholder="—" oninput="updateAppre('{{ item.eleve.pk }}')">
+    </td>
+    <td style="text-align:center;font-size:12.5px;" id="appre_{{ item.eleve.pk }}">
+      {% if item.note and item.note.note_conduite is not None %}{{ item.note.appreciation }}{% else %}—{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  </table>
+  <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;">
+    <button type="submit" class="btn btn-primary">💾 Enregistrer les notes de conduite</button>
+  </div>
+</div>
+</form>
+{% elif classe and periode %}
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;">📊</div><div>Aucun eleve dans cette classe</div></div></div>
+{% else %}
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">📊</div><div style="font-size:16px;font-weight:700;">Selectionnez une classe et une periode</div></div></div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+function setSuggestion(id, val){
+  const inp=document.getElementById('nc_'+id);
+  if(inp){inp.value=val;updateAppre(id);}
+}
+function updateAppre(id){
+  const val=parseFloat(document.getElementById('nc_'+id).value);
+  const el=document.getElementById('appre_'+id);
+  if(!el||isNaN(val)){el&&(el.textContent='—');return;}
+  let a='Tres Mal';
+  if(val>=16)a='Tres Bien';else if(val>=14)a='Bien';else if(val>=12)a='Assez Bien';else if(val>=10)a='Passable';else if(val>=6)a='Mal';
+  el.textContent=a;
+  el.style.color=val>=10?'var(--success)':'var(--danger)';
+  el.style.fontWeight='700';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,363 @@
+{% extends "base/base.html" %}
+{% block title %}{% if mode == "creer" %}Nouveau modele{% else %}{{ modele.nom }}{% endif %}{% endblock %}
+{% block topbar_title %}{% if mode == "creer" %}Creer un modele{% else %}Modifier — {{ modele.nom }}{% endif %}{% endblock %}
+{% block nav_modeles %}active{% endblock %}
+{% block extra_css %}
+<style>
+.section-card{margin-bottom:12px;}
+.champ-group{margin-bottom:12px;}
+.grid-color{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.check-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:6px;border:1.5px solid var(--border);cursor:pointer;font-size:13px;margin-bottom:6px;}
+.check-item:hover{border-color:var(--primary);}
+.check-item input{width:16px;height:16px;cursor:pointer;}
+.preview-frame{width:100%;height:680px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;}
+.type-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11.5px;font-weight:700;background:rgba(21,101,192,0.1);color:var(--primary);}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'liste_modeles' %}" class="btn btn-outline btn-sm">← Retour</a>
+    <div>
+      <h1>{% if mode == "creer" %}Nouveau modele{% else %}{{ modele.nom }}{% endif %}</h1>
+      {% if modele %}<div style="margin-top:4px;"><span class="type-badge">{{ modele.get_type_document_display }}</span>{% if modele.is_actif %} <span class="badge badge-success" style="font-size:11px;">Actif</span>{% endif %}</div>{% endif %}
+    </div>
+  </div>
+  {% if mode == "modifier" %}
+  <a href="{% url 'apercu_modele' modele.pk %}" target="_blank" class="btn btn-outline btn-sm">👁 Apercu plein ecran</a>
+  {% endif %}
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+
+<!-- ═══════ COLONNE GAUCHE : FORMULAIRE ═══════ -->
+<div>
+<form method="post" id="mainForm">{% csrf_token %}
+
+{% if mode == "creer" %}
+<!-- Type de document -->
+<div class="card section-card"><div class="card-header"><span class="card-title">📄 Type de document</span></div>
+<div class="card-body">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    {% for v,l in types %}
+    <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;" id="type_label_{{ v }}" onclick="selectType('{{ v }}')">
+      <input type="radio" name="type_document" value="{{ v }}" {% if v == type_doc_initial %}checked{% endif %} style="display:none;">
+      <span style="font-size:18px;">{% if v == "bulletin" %}📝{% elif v == "recu" %}🧾{% elif v == "certificat" %}📜{% elif v == "attestation" %}📋{% elif v == "carte_scolaire" %}🪪{% elif v == "releve_notes" %}📊{% endif %}</span>
+      {{ l }}
+    </label>
+    {% endfor %}
+  </div>
+</div></div>
+{% endif %}
+
+<!-- Informations générales -->
+<div class="card section-card"><div class="card-header"><span class="card-title">📌 Nom</span></div>
+<div class="card-body">
+  <div class="champ-group"><label class="form-label">Nom du modele *</label><input type="text" name="nom" class="form-control liveinput" value="{% if modele %}{{ modele.nom }}{% endif %}" placeholder="Ex: Bulletin Officiel 2025" required></div>
+</div></div>
+
+<!-- EN-TETE -->
+<div class="card section-card"><div class="card-header"><span class="card-title">📋 En-tete du document</span></div>
+<div class="card-body">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
+    <div><label class="form-label" style="font-size:11.5px;">Ligne 1 gauche</label><input type="text" name="ligne1_gauche" class="form-control liveinput" value="{% if modele %}{{ modele.ligne1_gauche }}{% else %}{{ etab.nom }}{% endif %}"></div>
+    <div><label class="form-label" style="font-size:11.5px;">Ligne 1 droite</label><input type="text" name="ligne1_droite" class="form-control liveinput" value="{% if modele %}{{ modele.ligne1_droite }}{% else %}Republique du Mali{% endif %}"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
+    <div><label class="form-label" style="font-size:11.5px;">Ligne 2 gauche</label><input type="text" name="ligne2_gauche" class="form-control liveinput" value="{% if modele %}{{ modele.ligne2_gauche }}{% endif %}"></div>
+    <div><label class="form-label" style="font-size:11.5px;">Ligne 2 droite</label><input type="text" name="ligne2_droite" class="form-control liveinput" value="{% if modele %}{{ modele.ligne2_droite }}{% else %}Un Peuple - Un But - Une Foi{% endif %}"></div>
+  </div>
+  <div class="champ-group"><label class="form-label" style="font-size:11.5px;">Nom etablissement personnalise (vide = nom reel)</label><input type="text" name="nom_etablissement_custom" class="form-control liveinput" value="{% if modele %}{{ modele.nom_etablissement_custom }}{% endif %}" placeholder="{{ etab.nom }}"></div>
+  <div class="champ-group"><label class="form-label" style="font-size:11.5px;">Titre du document</label><input type="text" name="titre_document" class="form-control liveinput" value="{% if modele %}{{ modele.titre_document }}{% endif %}" placeholder="Ex: BULLETIN DE NOTES"></div>
+  <div class="grid-color">
+    <div><label class="form-label" style="font-size:11.5px;">Couleur fond titre</label><input type="color" name="couleur_titre_bg" class="form-control liveinput" value="{% if modele %}{{ modele.couleur_titre_bg }}{% else %}#555555{% endif %}" style="height:38px;"></div>
+    <div><label class="form-label" style="font-size:11.5px;">Couleur texte titre</label><input type="color" name="couleur_titre_texte" class="form-control liveinput" value="{% if modele %}{{ modele.couleur_titre_texte }}{% else %}#ffffff{% endif %}" style="height:38px;"></div>
+  </div>
+</div></div>
+
+<!-- STYLE -->
+<div class="card section-card"><div class="card-header"><span class="card-title">🎨 Style</span></div>
+<div class="card-body">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
+    <div><label class="form-label" style="font-size:11.5px;">Police</label>
+      <select name="police" class="form-control liveinput">
+        <option value="Arial"{% if modele and modele.police == "Arial" or not modele %} selected{% endif %}>Arial</option>
+        <option value="Times New Roman"{% if modele and modele.police == "Times New Roman" %} selected{% endif %}>Times New Roman</option>
+        <option value="Calibri"{% if modele and modele.police == "Calibri" %} selected{% endif %}>Calibri</option>
+        <option value="Georgia"{% if modele and modele.police == "Georgia" %} selected{% endif %}>Georgia</option>
+      </select>
+    </div>
+    <div><label class="form-label" style="font-size:11.5px;">Couleur bordure tableau</label><input type="color" name="couleur_bordure" class="form-control liveinput" value="{% if modele %}{{ modele.couleur_bordure }}{% else %}#999999{% endif %}" style="height:38px;"></div>
+  </div>
+  <div class="grid-color">
+    <div><label class="form-label" style="font-size:11.5px;">Fond en-tete tableau</label><input type="color" name="couleur_tableau_header" class="form-control liveinput" value="{% if modele %}{{ modele.couleur_tableau_header }}{% else %}#dddddd{% endif %}" style="height:38px;"></div>
+    <div class="section-bulletin section-releve_notes" style="display:none;"><label class="form-label" style="font-size:11.5px;">Couleur accent</label><input type="color" name="couleur_accent_recu" class="form-control liveinput" value="{% if modele %}{{ modele.couleur_accent_recu }}{% else %}#FF6F00{% endif %}" style="height:38px;"></div>
+  </div>
+</div></div>
+
+<!-- COLONNES BULLETIN (seulement pour bulletin / releve_notes) -->
+<div class="card section-card section-bulletin section-releve_notes" style="{% if modele and modele.type_document not in 'bulletin,releve_notes' %}display:none;{% endif %}">
+  <div class="card-header"><span class="card-title">📊 Colonnes affichees</span></div>
+  <div class="card-body">
+    <label class="check-item"><input type="checkbox" name="col_moy_classe" {% if not modele or modele.col_moy_classe %}checked{% endif %}> Moy. Classe /20</label>
+    <label class="check-item"><input type="checkbox" name="col_moy_compo" {% if not modele or modele.col_moy_compo %}checked{% endif %}> Moy. Compo /40</label>
+    <label class="check-item"><input type="checkbox" name="col_moyenne_finale" {% if not modele or modele.col_moyenne_finale %}checked{% endif %}> Moyenne Finale /20</label>
+    <label class="check-item"><input type="checkbox" name="col_coefficient" {% if not modele or modele.col_coefficient %}checked{% endif %}> Coefficient</label>
+    <label class="check-item"><input type="checkbox" name="col_moy_coeffic" {% if not modele or modele.col_moy_coeffic %}checked{% endif %}> Moy. x Coeff</label>
+    <label class="check-item"><input type="checkbox" name="col_appreciation" {% if not modele or modele.col_appreciation %}checked{% endif %}> Appréciation</label>
+    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">
+      <label class="check-item"><input type="checkbox" name="afficher_rang" {% if not modele or modele.afficher_rang %}checked{% endif %}> Afficher le rang dans la classe</label>
+      <label class="check-item"><input type="checkbox" name="afficher_moy_premier" {% if not modele or modele.afficher_moy_premier %}checked{% endif %}> Afficher la moyenne du premier</label>
+      <label class="check-item"><input type="checkbox" name="afficher_appre_directeur" {% if not modele or modele.afficher_appre_directeur %}checked{% endif %}> Appreciation du directeur</label>
+    </div>
+  </div>
+</div>
+
+<!-- RECU : style spécifique -->
+<div class="card section-card section-recu" style="{% if not modele or modele.type_document != 'recu' %}display:none;{% endif %}">
+  <div class="card-header"><span class="card-title">🧾 Style du recu</span></div>
+  <div class="card-body">
+    <div class="grid-color">
+      <div><label class="form-label" style="font-size:11.5px;">Couleur principale</label><input type="color" name="couleur_accent_recu" class="form-control liveinput" value="{% if modele %}{{ modele.couleur_accent_recu }}{% else %}#FF6F00{% endif %}" style="height:38px;"></div>
+      <div><label class="form-label" style="font-size:11.5px;">Format</label>
+        <select name="format_recu" class="form-control">
+          <option value="A5" {% if modele and modele.format_recu == "A5" %}selected{% endif %}>A5 (demi-page)</option>
+          <option value="A4" {% if modele and modele.format_recu == "A4" %}selected{% endif %}>A4 (page entiere)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SIGNATURES + PIED DE PAGE -->
+<div class="card section-card"><div class="card-header"><span class="card-title">✍️ Signatures & Pied de page</span></div>
+<div class="card-body">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+    <div><label class="form-label" style="font-size:11.5px;">Signature gauche</label><input type="text" name="label_signature_gauche" class="form-control" value="{% if modele %}{{ modele.label_signature_gauche }}{% else %}Le Directeur{% endif %}"></div>
+    <div><label class="form-label" style="font-size:11.5px;">Signature droite</label><input type="text" name="label_signature_droite" class="form-control" value="{% if modele %}{{ modele.label_signature_droite }}{% else %}Le Parent ou Tuteur{% endif %}"></div>
+  </div>
+  <div><label class="form-label" style="font-size:11.5px;">Texte pied de page</label><textarea name="texte_pied_page" class="form-control" rows="2">{% if modele %}{{ modele.texte_pied_page }}{% endif %}</textarea></div>
+</div></div>
+
+<!-- BOUTONS -->
+<div class="card"><div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap;">
+  <button type="submit" class="btn btn-primary">💾 {% if mode == "creer" %}Creer le modele{% else %}Enregistrer{% endif %}</button>
+  <a href="{% url 'liste_modeles' %}" class="btn btn-outline">Annuler</a>
+  {% if mode == "modifier" and not modele.is_actif %}
+  <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-left:auto;cursor:pointer;">
+    <input type="checkbox" name="is_actif"> Activer ce modele a l'enregistrement
+  </label>
+  {% endif %}
+  {% if mode == "modifier" %}
+  <button type="submit" name="action" value="supprimer" class="btn btn-outline" style="color:var(--danger);border-color:var(--danger);" onclick="return confirm('Supprimer ?')">🗑 Supprimer</button>
+  {% endif %}
+</div></div>
+
+</form>
+</div>
+
+<!-- ═══════ COLONNE DROITE : APERCU ═══════ -->
+<div style="position:sticky;top:70px;">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">👁 Apercu en direct</span>
+      {% if mode == "modifier" %}
+      <a href="{% url 'apercu_modele' modele.pk %}" target="_blank" class="btn btn-outline btn-sm">Plein ecran</a>
+      {% endif %}
+    </div>
+    <div style="padding:12px;background:#f0f0f0;">
+      <iframe id="previewFrame" class="preview-frame"></iframe>
+    </div>
+  </div>
+</div>
+
+</div><!-- fin grid -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const TYPE_DOC = "{{ modele.type_document|default:type_doc_initial }}";
+
+// Sélection du type au moment de la création
+function selectType(v){
+  document.querySelectorAll('[id^="type_label_"]').forEach(l=>{
+    const radio=l.querySelector('input');
+    const selected=radio.value===v;
+    radio.checked=selected;
+    l.style.borderColor=selected?'var(--primary)':'var(--border)';
+    l.style.background=selected?'rgba(21,101,192,0.06)':'';
+    l.style.color=selected?'var(--primary)':'';
+  });
+  // Afficher/masquer les sections selon le type
+  showSections(v);
+  buildPreview();
+}
+
+function showSections(t){
+  const types=['bulletin','recu','certificat','attestation','carte_scolaire','releve_notes'];
+  types.forEach(typ=>{
+    document.querySelectorAll('.section-'+typ).forEach(el=>{
+      el.style.display=t===typ?'':'none';
+    });
+  });
+}
+
+// Initialiser la sélection visuelle au chargement
+document.querySelectorAll('[id^="type_label_"]').forEach(l=>{
+  const radio=l.querySelector('input');
+  if(radio.checked){
+    l.style.borderColor='var(--primary)';
+    l.style.background='rgba(21,101,192,0.06)';
+    l.style.color='var(--primary)';
+  }
+});
+showSections(TYPE_DOC);
+
+// APERCU EN DIRECT
+function g(name){const el=document.querySelector(`[name="${name}"]`);return el?el.value:'';}
+function gc(name){const el=document.querySelector(`[name="${name}"]`);return el?el.checked:false;}
+
+function buildPreview(){
+  const bg=g('couleur_titre_bg')||'#555555';
+  const fg=g('couleur_titre_texte')||'#ffffff';
+  const titre=g('titre_document')||'DOCUMENT';
+  const l1g=g('ligne1_gauche'); const l1d=g('ligne1_droite');
+  const l2g=g('ligne2_gauche'); const l2d=g('ligne2_droite');
+  const nomEtab=g('nom_etablissement_custom')||'{{ etab.nom|escapejs }}';
+  const police=g('police')||'Arial';
+  const bordure=g('couleur_bordure')||'#999999';
+  const hTab=g('couleur_tableau_header')||'#dddddd';
+  const accent=g('couleur_accent_recu')||'#FF6F00';
+  const type=document.querySelector('[name="type_document"]:checked')?.value||TYPE_DOC;
+
+  let body='';
+
+  if(type==='bulletin'||type==='releve_notes'){
+    const cols=[
+      gc('col_moy_classe')?'<th>Moy.Cl /20</th>':'',
+      gc('col_moy_compo')?'<th>Moy.Co /40</th>':'',
+      gc('col_moyenne_finale')?'<th>Moy /20</th>':'',
+      gc('col_coefficient')?'<th>Coef</th>':'',
+      gc('col_moy_coeffic')?'<th>M×C</th>':'',
+      gc('col_appreciation')?'<th>App.</th>':'',
+    ].join('');
+    const rows=[
+      ['Mathematiques',3,false,'14.50','30.00','14.50','43.50','Bien'],
+      ['Francais',3,false,'12.00','26.00','12.50','37.50','Passable'],
+      ['Sciences',2,false,'16.00','34.00','16.00','32.00','T.Bien'],
+      ['Conduite',1,true,'','','16.00','16.00','Bien'],
+    ].map(([nom,coef,isc,mc,mn,moy,mcoef,app])=>`
+      <tr style="${isc?'background:rgba(1,87,155,0.05);':''}">
+        <td style="font-weight:600;">${nom}${isc?' 🔵':''}</td>
+        ${gc('col_moy_classe')?`<td>${isc?'':mc}</td>`:''}
+        ${gc('col_moy_compo')?`<td>${isc?'':mn}</td>`:''}
+        ${gc('col_moyenne_finale')?`<td style="font-weight:800;color:${parseFloat(moy)>=10?'#2E7D32':'#C62828'};">${moy}</td>`:''}
+        ${gc('col_coefficient')?`<td>${coef}</td>`:''}
+        ${gc('col_moy_coeffic')?`<td>${mcoef}</td>`:''}
+        ${gc('col_appreciation')?`<td>${app}</td>`:''}
+      </tr>`).join('');
+    body=`
+      <div class="entete">
+        <div>${l1g}<br><small>${l2g}</small></div>
+        <div style="text-align:right;">${l1d}<br><small>${l2d}</small></div>
+      </div>
+      <div class="etab">${nomEtab}</div>
+      <div class="titre">${titre}</div>
+      <div class="info-eleve">
+        <b>Nom :</b> DAGNON Harouna &nbsp; <b>Classe :</b> 9eme A &nbsp; <b>Annee :</b> 2024-2025
+      </div>
+      <table><thead><tr><th style="text-align:left;">Matiere</th>${cols}</tr></thead>
+      <tbody>${rows}</tbody></table>
+      ${gc('afficher_rang')||gc('afficher_moy_premier')?`<div class="resume"><div><b>Moy. Generale :</b> <span style="color:#2E7D32;font-weight:800;">14.50/20</span></div>${gc('afficher_rang')?'<div><b>Rang :</b> 3/35</div>':''}${gc('afficher_moy_premier')?'<div><b>Moy. du 1er :</b> 17.50/20</div>':''}</div>`:''}
+    `;
+  } else if(type==='recu'){
+    body=`
+      <div style="background:linear-gradient(135deg,${bg},${accent});color:#fff;padding:18px;border-radius:8px 8px 0 0;text-align:center;">
+        <div style="font-size:16px;font-weight:800;">${nomEtab}</div>
+        <div style="font-size:12px;opacity:0.85;margin-top:4px;">${titre}</div>
+      </div>
+      <div style="padding:16px;">
+        <div style="background:#f8f9fa;padding:10px;border-radius:6px;text-align:center;margin-bottom:12px;">
+          <div style="font-size:24px;font-weight:900;color:${bg};">25 000 FCFA</div>
+        </div>
+        <div style="font-size:12px;"><b>Eleve :</b> DAGNON Harouna</div>
+        <div style="font-size:12px;"><b>Type :</b> Frais d'inscription</div>
+        <div style="font-size:12px;"><b>Date :</b> 01/10/2024</div>
+      </div>
+    `;
+  } else if(type==='certificat'){
+    body=`
+      <div class="entete"><div>${l1g}<br><small>${l2g}</small></div><div style="text-align:right;">${l1d}<br><small>${l2d}</small></div></div>
+      <div class="etab">${nomEtab}</div>
+      <div class="titre" style="text-decoration:underline;">${titre}</div>
+      <p style="margin:14px 0;text-align:justify;">Le soussigne, Directeur de <b>${nomEtab}</b>, certifie que :</p>
+      <div style="border:1px solid ${bordure};padding:12px;margin:12px 0;border-radius:4px;">
+        <div style="font-size:15px;font-weight:900;color:${bg};">DAGNON Harouna</div>
+        <div style="font-size:11px;margin-top:4px;">Ne le 15/06/2010 — Matricule: EFBT-2024-0042</div>
+      </div>
+      <p style="text-align:justify;">est regulierement inscrit(e) en classe de <b>9eme Annee</b> pour l'annee <b>2024-2025</b>.</p>
+    `;
+  } else if(type==='attestation'){
+    body=`
+      <div class="entete"><div>${l1g}</div><div style="text-align:right;">${l1d}</div></div>
+      <div class="etab">${nomEtab}</div>
+      <div class="titre" style="color:${bg};">${titre}</div>
+      <p style="margin:12px 0;">J'atteste que <b>DAGNON Harouna</b> a frequente notre etablissement durant l'annee <b>2024-2025</b> en classe de <b>9eme Annee</b>.</p>
+    `;
+  } else if(type==='carte_scolaire'){
+    body=`
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="width:240px;height:152px;border-radius:8px;background:linear-gradient(135deg,${bg},${accent||'#1565C0'});color:#fff;padding:12px;position:relative;">
+          <div style="font-size:9px;font-weight:800;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.3);padding-bottom:6px;margin-bottom:8px;">${nomEtab}</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div style="width:46px;height:46px;border-radius:6px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;">👦</div>
+            <div><div style="font-size:12px;font-weight:800;">DAGNON</div><div style="font-size:10px;">Harouna</div><div style="font-size:9px;margin-top:4px;background:rgba(255,255,255,0.2);padding:2px 6px;border-radius:10px;display:inline-block;">9eme Annee</div></div>
+          </div>
+          <div style="position:absolute;bottom:8px;left:12px;right:12px;display:flex;justify-content:space-between;font-size:8px;opacity:0.8;border-top:1px solid rgba(255,255,255,0.2);padding-top:6px;">
+            <span>EFBT-2024-0042</span><span>2024-2025</span>
+          </div>
+        </div>
+        <div style="width:240px;height:152px;border-radius:8px;border:1.5px solid #ddd;background:#fff;padding:12px;font-size:10px;">
+          <div style="font-weight:800;color:${bg};border-bottom:1px solid ${bg};padding-bottom:4px;margin-bottom:8px;">${titre}</div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid #f0f0f0;padding:4px 0;"><span style="color:#666;">Nom complet</span><span style="font-weight:700;">DAGNON Harouna</span></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid #f0f0f0;padding:4px 0;"><span style="color:#666;">Classe</span><span style="font-weight:700;">9eme A</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="color:#666;">Annee</span><span style="font-weight:700;">2024-2025</span></div>
+        </div>
+      </div>
+    `;
+  }
+
+  const html=`<!DOCTYPE html><html><head><style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:${police},sans-serif;padding:16px;font-size:11px;background:#fff;}
+    .entete{display:flex;justify-content:space-between;border-bottom:2px solid ${bordure};padding-bottom:8px;margin-bottom:10px;font-size:10px;font-weight:700;}
+    .etab{text-align:center;font-size:13px;font-weight:900;color:${bg};margin-bottom:6px;}
+    .titre{background:${bg};color:${fg};text-align:center;padding:6px;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;}
+    .info-eleve{font-size:10.5px;border:1px solid ${bordure};padding:6px 10px;margin-bottom:8px;}
+    table{width:100%;border-collapse:collapse;font-size:10px;}
+    th{background:${hTab};border:1px solid ${bordure};padding:4px 5px;text-align:center;font-size:9.5px;}
+    td{border:1px solid #ccc;padding:4px 5px;}
+    .resume{display:flex;gap:14px;margin-top:8px;font-size:10.5px;padding:6px 8px;background:#f8f9fa;border-radius:4px;}
+    p{font-size:11.5px;line-height:1.6;}
+  </style></head><body>${body}</body></html>`;
+
+  document.getElementById('previewFrame').srcdoc=html;
+}
+
+// Écouter tous les changements
+document.querySelectorAll('.liveinput, input[type=checkbox], input[type=radio][name=type_document], select').forEach(el=>{
+  el.addEventListener('input', buildPreview);
+  el.addEventListener('change', buildPreview);
+});
+
+buildPreview();
+
+// Initialiser sélection type
+if("{{ mode }}"==="creer"){
+  const initialType="{{ type_doc_initial }}";
+  const lbl=document.getElementById('type_label_'+initialType);
+  if(lbl){ lbl.style.borderColor='var(--primary)'; lbl.style.background='rgba(21,101,192,0.06)'; lbl.style.color='var(--primary)'; }
+  showSections(initialType);
+}
+</script>
+{% endblock %}

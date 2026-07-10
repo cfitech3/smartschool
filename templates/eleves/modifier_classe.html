@@ -1,0 +1,72 @@
+{% extends "base/base.html" %}
+{% block title %}Modifier {{ classe.nom }}{% endblock %}
+{% block topbar_title %}Modifier une classe{% endblock %}
+{% block nav_classes %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'detail_classe' classe.pk %}" class="btn btn-outline btn-sm">← Retour</a>
+    <div><h1>Modifier : {{ classe.nom }}</h1>
+      <div class="page-subtitle">{{ classe.niveau.nom }}{% if classe.niveau.cycle %} — {{ classe.niveau.cycle.nom }}{% endif %}</div>
+    </div>
+  </div>
+</div>
+
+<div style="max-width:520px;">
+<form method="post">{% csrf_token %}
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header"><span class="card-title">✏️ Renommer la classe</span></div>
+  <div class="card-body">
+    <div class="form-group">
+      <label class="form-label">Nom de la classe *</label>
+      <input type="text" name="nom" class="form-control" value="{{ classe.nom }}"
+        style="font-size:18px;font-weight:800;letter-spacing:0.5px;" required autofocus>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:5px;">
+        Entrez le nouveau nom et cliquez sur Enregistrer
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header"><span class="card-title">🏗️ Niveau & Capacité</span></div>
+  <div class="card-body">
+    <div class="form-group">
+      <label class="form-label">Changer de niveau</label>
+      <select name="niveau" class="form-control">
+        <option value="">— Garder : {{ classe.niveau.nom }} —</option>
+        {% for n in niveaux %}
+        <option value="{{ n.pk }}"{% if classe.niveau.pk == n.pk %} selected{% endif %}>
+          {{ n.nom }}{% if n.cycle %} ({{ n.cycle.nom }}){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label">Capacité max</label>
+        <input type="number" name="capacite_max" class="form-control" value="{{ classe.capacite_max }}" min="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Salle</label>
+        <input type="text" name="salle" class="form-control" value="{{ classe.salle }}" placeholder="Ex: Salle 01">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="display:flex;gap:10px;align-items:center;">
+    <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+    <a href="{% url 'detail_classe' classe.pk %}" class="btn btn-outline">Annuler</a>
+    <button type="submit" name="action" value="supprimer"
+      class="btn btn-outline" style="margin-left:auto;color:var(--danger);border-color:var(--danger);"
+      onclick="return confirm('Supprimer la classe {{ classe.nom }} ? Cette action est irréversible.')">
+      🗑 Supprimer
+    </button>
+  </div>
+</div>
+
+</form>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+  <title>{% block title %}Espace Famille{% endblock %} — SmartSchool</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/smartschool.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="app-wrapper">
+  <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <a href="{% url 'espace_accueil' %}" class="sidebar-brand">
+      <div class="brand-logo">🎓</div>
+      <div class="brand-text"><div class="brand-name">SmartSchool</div><div class="brand-sub">Espace Famille</div></div>
+    </a>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Mon espace</div>
+      <a href="{% url 'espace_accueil' %}" class="nav-link {% block nav_accueil %}{% endblock %}"><span class="nav-icon">🏠</span><span>{% if request.user.is_parent %}Mes enfants{% else %}Accueil{% endif %}</span></a>
+      {% if eleve_courant %}
+      <a href="{% url 'espace_eleve_detail' eleve_courant.pk %}" class="nav-link {% block nav_detail %}{% endblock %}"><span class="nav-icon">👤</span><span>{{ eleve_courant.prenom }}</span></a>
+      <a href="{% url 'espace_notes' eleve_courant.pk %}" class="nav-link {% block nav_notes %}{% endblock %}"><span class="nav-icon">📝</span><span>Notes</span></a>
+      <a href="{% url 'espace_emploi_du_temps' eleve_courant.pk %}" class="nav-link {% block nav_edt %}{% endblock %}"><span class="nav-icon">🗓️</span><span>Emploi du temps</span></a>
+      <a href="{% url 'espace_absences' eleve_courant.pk %}" class="nav-link {% block nav_absences %}{% endblock %}"><span class="nav-icon">📋</span><span>Absences</span></a>
+      <a href="{% url 'espace_paiements' eleve_courant.pk %}" class="nav-link {% block nav_paiements %}{% endblock %}"><span class="nav-icon">💳</span><span>Paiements</span></a>
+      <a href="{% url 'espace_messages' eleve_courant.pk %}" class="nav-link {% block nav_messages %}{% endblock %}"><span class="nav-icon">💬</span><span>Contacter</span></a>
+      <a href="{% url 'espace_reclamations' eleve_courant.pk %}" class="nav-link {% block nav_reclamations %}{% endblock %}"><span class="nav-icon">✉️</span><span>Reclamations</span></a>
+      {% endif %}
+      <a href="{% url 'logout' %}" class="nav-link" style="color:#ef5350;margin-top:8px;"><span class="nav-icon">🚪</span><span>Deconnexion</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar">{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}</div>
+        <div style="flex:1;min-width:0;"><div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div><div class="user-role">{{ request.user.get_role_display }}</div></div>
+      </div>
+    </div>
+  </aside>
+  <div class="main-content">
+    <header class="topbar">
+      <button class="topbar-btn" id="menu-btn" onclick="toggleSidebar()" style="display:none;">☰</button>
+      <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
+    </header>
+    <main class="page-content">
+      {% for message in messages %}
+      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %}">
+        {% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}❌{% elif message.tags == 'warning' %}⚠️{% else %}ℹ️{% endif %} {{ message }}
+      </div>
+      {% endfor %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.alert').forEach(el=>{setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity 0.4s';setTimeout(()=>el.remove(),400);},4000);});
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('overlay').classList.toggle('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
+function checkMobile(){const b=document.getElementById('menu-btn');b.style.display=window.innerWidth<=768?'flex':'none';if(window.innerWidth>768)closeSidebar();}
+checkMobile();window.addEventListener('resize',checkMobile);
+document.querySelectorAll('.nav-link').forEach(l=>l.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
+</script>
+</body></html>

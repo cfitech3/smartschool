@@ -1,0 +1,37 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Certificat{{ eleve.nom_complet }}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:{{ modele.police|default:"Times New Roman" }},serif;background:#f5f5f5;padding:20px;font-size:{{ modele.taille_police|default:13 }}px;}
+.actions{max-width:740px;margin:0 auto 14px;display:flex;gap:8px;font-family:sans-serif;}
+.btn{display:inline-flex;gap:6px;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;border:none;cursor:pointer;text-decoration:none;}
+.btn-primary{background:#1565C0;color:#fff;}.btn-outline{background:#fff;border:1.5px solid #999;color:#444;}
+.doc{max-width:740px;margin:0 auto;background:#fff;padding:40px 50px;border:1px solid #ccc;box-shadow:0 4px 20px rgba(0,0,0,0.08);min-height:850px;}
+.entete{display:grid;grid-template-columns:1fr 1fr;gap:20px;border-bottom:3px double {{ modele.couleur_bordure|default:"#1565C0" }};padding-bottom:18px;margin-bottom:24px;font-size:12px;line-height:1.7;font-weight:bold;}
+.entete-d{text-align:right;}
+.ecole-nom{font-size:17px;font-weight:bold;color:{{ modele.couleur_titre_bg|default:"#1565C0" }};margin:8px 0;text-transform:uppercase;text-align:center;}
+.titre{text-align:center;margin:22px 0 6px;font-size:19px;font-weight:bold;text-transform:uppercase;letter-spacing:2px;text-decoration:underline;}
+.sous-titre{text-align:center;font-size:13px;color:#555;margin-bottom:28px;}
+.corps{font-size:14px;line-height:2;}
+.corps p{margin-bottom:12px;}
+.eleve-bloc{border:1px solid {{ modele.couleur_bordure|default:"#1565C0" }};border-radius:4px;padding:14px 18px;margin:22px 0;background:#f8faff;}
+.eleve-nom{font-size:16px;font-weight:bold;color:#1565C0;}
+strong.val{text-decoration:underline;}
+.signatures{display:flex;justify-content:space-between;margin-top:44px;}
+.sign-bloc{text-align:center;font-size:12px;font-weight:bold;}
+.sign-ligne{width:170px;border-top:1px solid #000;margin-top:40px;padding-top:5px;}
+.pied{margin-top:20px;font-size:11px;color:#888;text-align:center;font-style:italic;border-top:1px solid #eee;padding-top:8px;}
+@media print{body{background:#fff;padding:0;}.actions{display:none;}.doc{box-shadow:none;padding:28px 38px;}@page{margin:8mm;}}
+</style></head><body>
+<div class="actions"><a href="javascript:history.back()" class="btn btn-outline">← Retour</a><button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button></div>
+<div class="doc">
+  <div class="entete"><div>{% if modele.ligne1_gauche %}{{ modele.ligne1_gauche }}<br>{% endif %}{% if modele.ligne2_gauche %}{{ modele.ligne2_gauche }}{% endif %}</div><div class="entete-d">{% if modele.ligne1_droite %}{{ modele.ligne1_droite }}{% else %}Un Peuple — Un But — Une Foi{% endif %}</div></div>
+  <div class="ecole-nom">{{ modele.nom_etablissement_custom|default:etab.nom }}</div>
+  <div class="titre">{{ modele.titre_document|default:"CERTIFICAT DE SCOLARITE" }}</div>
+  <div class="sous-titre">Annee scolaire {{ annee.libelle|default:"—" }}</div>
+  <div class="corps">
+    <p>Le soussigne, <strong class="val">{{ etab.directeur|default:"Le Directeur" }}</strong>, Directeur de l'etablissement <strong class="val">{{ modele.nom_etablissement_custom|default:etab.nom }}</strong>, certifie que :</p>
+    <div class="eleve-bloc"><div class="eleve-nom">{{ eleve.nom }} {{ eleve.prenom }}</div><div style="font-size:12.5px;color:#555;margin-top:5px;">Ne(e) le {{ eleve.date_naissance|date:"d F Y" }}{% if eleve.lieu_naissance %} a {{ eleve.lieu_naissance }}{% endif %}<br>Matricule : {{ eleve.matricule }}</div></div>
+    <p>est regulierement inscrit(e) en classe de <strong class="val">{% if inscription %}{{ inscription.classe.nom }}{% else %}—{% endif %}</strong> pour l'annee scolaire <strong class="val">{{ annee.libelle|default:"—" }}</strong>.</p>
+    <p>Ce certificat est delivre pour servir et valoir ce que de droit.</p>
+  </div>
+  <div class="signatures"><div class="sign-bloc"><div>{{ modele.label_signature_gauche|default:"Le Directeur" }}</div><div class="sign-ligne">Signature et cachet</div></div><div class="sign-bloc"><div>{{ modele.label_signature_droite|default:"Lu et approuve" }}</div><div class="sign-ligne">Signature</div></div></div>
+  <div class="pied">{% if modele.texte_pied_page %}{{ modele.texte_pied_page }} — {% endif %}Bamako, le {{ today|date:"d F Y" }}</div>
+</div></body></html>

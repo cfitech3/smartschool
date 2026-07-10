@@ -1,0 +1,60 @@
+{% extends "base/base.html" %}
+{% block title %}Emplois du temps{% endblock %}
+{% block topbar_title %}Emplois du temps{% endblock %}
+{% block nav_emplois %}active{% endblock %}
+{% block extra_css %}<style>.edt-table{width:100%;border-collapse:collapse;min-width:700px;}.edt-table th{background:var(--primary);color:#fff;padding:9px 8px;font-size:12px;text-align:center;}.edt-table td{border:1px solid var(--border);padding:3px;vertical-align:top;min-height:54px;}.edt-table td:first-child{background:var(--bg);font-size:11.5px;font-weight:700;color:var(--text-muted);text-align:center;padding:8px 6px;width:70px;}.creneau{background:rgba(21,101,192,0.08);border-left:3px solid var(--primary);border-radius:4px;padding:5px 7px;margin:2px;font-size:11px;position:relative;}.creneau .mat{font-weight:700;color:var(--primary);}.creneau .ens,.creneau .salle{color:var(--text-muted);font-size:10px;}.creneau .del{position:absolute;top:3px;right:4px;background:none;border:none;cursor:pointer;color:var(--danger);opacity:0;font-size:12px;}.creneau:hover .del{opacity:1;}</style>{% endblock %}
+{% block content %}
+<div class="page-header"><h1>🗓️ Emplois du temps</h1>{% if classe %}<button class="btn btn-primary" onclick="document.getElementById('modal').style.display='flex'">+ Creneau</button>{% endif %}</div>
+<div class="card" style="margin-bottom:14px;"><div class="card-body" style="padding:12px 16px;">
+<form method="get" style="display:flex;gap:10px;align-items:flex-end;">
+  <div style="flex:1;max-width:280px;"><label class="form-label" style="margin-bottom:4px;">Classe</label>
+    <select name="classe" class="form-control" onchange="this.form.submit()">
+      <option value="">-- Selectionner --</option>
+      {% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }} — {{ c.niveau.nom }}</option>{% endfor %}
+    </select>
+  </div>
+</form></div></div>
+{% if classe %}
+<div class="card" style="overflow-x:auto;">
+  <div class="card-header"><span class="card-title">{{ classe.nom }} — Semaine type</span></div>
+  <table class="edt-table">
+    <thead><tr><th>Horaire</th>{% for jv,jl in jours %}<th>{{ jl }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for heure in heures %}
+    <tr><td>{{ heure }}</td>
+      {% for jv,jl in jours %}
+      <td>{% for c in creneaux|dictsort:"heure_debut" %}{% if c.jour == jv and c.heure_debut == heure %}
+        <div class="creneau">
+          <div class="mat">{{ c.matiere.nom }}</div>
+          {% if c.enseignant %}<div class="ens">{{ c.enseignant.get_full_name }}</div>{% endif %}
+          {% if c.salle %}<div class="salle">📍{{ c.salle }}</div>{% endif %}
+          <div style="font-size:10px;color:var(--text-muted);">→ {{ c.heure_fin }}</div>
+          <form method="post" action="{% url 'supprimer_creneau' c.pk %}" style="display:inline;">{% csrf_token %}
+            <button type="submit" class="del" onclick="return confirm('Supprimer ?')">✕</button>
+          </form>
+        </div>
+      {% endif %}{% endfor %}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<!-- Modal -->
+<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--card-bg);border-radius:var(--radius);padding:28px;width:100%;max-width:460px;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;"><h3 style="font-size:16px;font-weight:800;">Ajouter un creneau</h3><button onclick="document.getElementById('modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);">✕</button></div>
+    <form method="post">{% csrf_token %}
+      <div class="form-group"><label class="form-label">Jour *</label><select name="jour" class="form-control" required>{% for v,l in jours %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+      <div class="form-group"><label class="form-label">Matiere *</label><select name="matiere" class="form-control" required><option value="">-- Choisir --</option>{% for m in matieres %}<option value="{{ m.pk }}">{{ m.nom }} (coef.{{ m.coefficient }})</option>{% endfor %}</select></div>
+      <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Debut *</label><select name="heure_debut" class="form-control" required>{% for h in heures %}<option value="{{ h }}"{% if h == "08:00" %} selected{% endif %}>{{ h }}</option>{% endfor %}</select></div><div><label class="form-label">Fin *</label><select name="heure_fin" class="form-control" required>{% for h in heures %}<option value="{{ h }}"{% if h == "10:00" %} selected{% endif %}>{{ h }}</option>{% endfor %}</select></div></div>
+      <div class="form-group"><label class="form-label">Enseignant</label><select name="enseignant" class="form-control"><option value="">-- Optionnel --</option>{% for e in enseignants %}<option value="{{ e.pk }}">{{ e.nom_complet }}</option>{% endfor %}</select></div>
+      <div class="form-group"><label class="form-label">Salle</label><input type="text" name="salle" class="form-control" placeholder="Ex: Salle 01"></div>
+      <div style="display:flex;gap:10px;"><button type="submit" class="btn btn-primary" style="flex:1;">Ajouter</button><button type="button" onclick="document.getElementById('modal').style.display='none'" class="btn btn-outline">Annuler</button></div>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">🗓️</div><div style="font-size:16px;font-weight:700;">Selectionnez une classe</div></div></div>
+{% endif %}
+{% endblock %}

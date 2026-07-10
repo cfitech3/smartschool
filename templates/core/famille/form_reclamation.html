@@ -1,0 +1,25 @@
+{% extends "base/base_famille.html" %}
+{% block title %}Nouvelle reclamation{% endblock %}
+{% block topbar_title %}Faire une reclamation{% endblock %}
+{% block content %}
+<div class="page-header"><a href="{% url 'espace_notes' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour aux notes</a><h1>✉️ Reclamation sur une note</h1></div>
+<div style="max-width:520px;">
+<div class="card" style="margin-bottom:14px;"><div class="card-body" style="background:var(--bg);">
+  <div style="font-size:12px;color:var(--text-muted);">Matiere</div>
+  <div style="font-weight:700;font-size:15px;">{{ note.matiere.nom }}</div>
+  <div style="display:flex;gap:20px;margin-top:8px;font-size:13px;">
+    <div><span style="color:var(--text-muted);">Periode :</span> <strong>{{ note.periode.libelle }}</strong></div>
+    <div><span style="color:var(--text-muted);">Note actuelle :</span> <strong>{% if note.matiere.is_conduite %}{{ note.note_conduite|floatformat:1 }}{% else %}{{ note.moyenne_finale|floatformat:2 }}{% endif %}/20</strong></div>
+  </div>
+</div></div>
+<form method="post">{% csrf_token %}
+<div class="card"><div class="card-header"><span class="card-title">Motif de la reclamation</span></div><div class="card-body">
+  <textarea name="motif" class="form-control" rows="5" placeholder="Expliquez clairement pourquoi vous pensez qu'il y a une erreur sur cette note..." required></textarea>
+</div>
+<div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;">
+  <button type="submit" class="btn btn-primary">Envoyer la reclamation</button>
+  <a href="{% url 'espace_notes' eleve.pk %}" class="btn btn-outline">Annuler</a>
+</div></div>
+</form>
+</div>
+{% endblock %}

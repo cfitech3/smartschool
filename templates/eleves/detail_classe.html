@@ -1,0 +1,31 @@
+{% extends "base/base.html" %}
+{% block title %}Classe {{ classe.nom }}{% endblock %}
+{% block topbar_title %}Detail de la classe{% endblock %}
+{% block nav_classes %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'liste_classes' %}" class="btn btn-outline btn-sm">← Classes</a><div><h1>Classe {{ classe.nom }}</h1><div class="page-subtitle">{{ classe.niveau.nom }} — {{ inscriptions|length }} eleve{{ inscriptions|length|pluralize }}</div></div></div>
+  <a href="{% url 'ajouter_eleve' %}" class="btn btn-primary btn-sm">+ Ajouter un eleve</a>
+  <a href="{% url 'generer_acces_classe' classe.pk %}" class="btn btn-outline btn-sm">🔐 Accès familles</a>
+</div>
+<div class="card"><div class="card-header"><span class="card-title">📋 Liste des eleves</span></div>
+{% if inscriptions %}
+<table class="table-modern">
+<thead><tr><th>#</th><th>Eleve</th><th>Matricule</th><th>Tuteur</th><th>Absences</th><th>Actions</th></tr></thead>
+<tbody>
+{% for i in inscriptions %}
+<tr>
+  <td style="font-weight:600;color:var(--text-muted);">{{ forloop.counter }}</td>
+  <td><div style="display:flex;align-items:center;gap:9px;"><div style="width:32px;height:32px;border-radius:50%;background:{% if i.eleve.sexe == 'M' %}rgba(21,101,192,0.12){% else %}rgba(173,20,87,0.12){% endif %};display:flex;align-items:center;justify-content:center;font-size:14px;">{% if i.eleve.sexe == 'M' %}👦{% else %}👧{% endif %}</div><div><div style="font-weight:600;font-size:13.5px;">{{ i.eleve.nom }} {{ i.eleve.prenom }}</div><div style="font-size:11px;color:var(--text-muted);">{{ i.eleve.age }} ans</div></div></div></td>
+  <td><code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;">{{ i.eleve.matricule }}</code></td>
+  <td style="font-size:12.5px;">{% if i.eleve.tuteur %}{{ i.eleve.tuteur.nom }} — {{ i.eleve.tuteur.telephone }}{% else %}—{% endif %}</td>
+  <td><a href="{% url 'fiche_absences_eleve' i.eleve.pk %}" class="btn btn-outline btn-sm">📋</a></td>
+  <td><a href="{% url 'detail_eleve' i.eleve.pk %}" class="btn btn-outline btn-sm">Voir</a></td>
+</tr>
+{% endfor %}
+</tbody></table>
+{% else %}
+<div style="text-align:center;padding:40px;color:var(--text-muted);"><div style="font-size:36px;margin-bottom:10px;">📋</div>Aucun eleve dans cette classe</div>
+{% endif %}
+</div>
+{% endblock %}

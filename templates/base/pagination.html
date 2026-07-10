@@ -1,0 +1,6 @@
+{% if page_obj.has_other_pages %}
+<div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:16px;border-top:1px solid var(--border);">
+  {% if page_obj.has_previous %}<a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">← Prec</a>{% endif %}
+  <span style="font-size:13px;color:var(--text-muted);">Page {{ page_obj.number }}/{{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} total)</span>
+  {% if page_obj.has_next %}<a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Suiv →</a>{% endif %}
+</div>{% endif %}

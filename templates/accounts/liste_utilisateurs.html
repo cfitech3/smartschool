@@ -1,0 +1,112 @@
+{% extends "base/base.html" %}
+{% block title %}Utilisateurs{% endblock %}
+{% block topbar_title %}Gestion des utilisateurs{% endblock %}
+{% block nav_utilisateurs %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>👥 Utilisateurs</h1><div class="page-subtitle">{{ users|length }} compte(s)</div></div>
+  <button onclick="document.getElementById('modal-creer').style.display='flex'" class="btn btn-primary">+ Nouvel utilisateur</button>
+</div>
+
+<!-- Filtres par rôle -->
+<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+  <a href="?" class="btn {% if not role_filtre %}btn-primary{% else %}btn-outline{% endif %} btn-sm">Tous</a>
+  {% for v,l in roles %}
+  {% if v in roles_staff %}
+  <a href="?role={{ v }}" class="btn {% if role_filtre == v %}btn-primary{% else %}btn-outline{% endif %} btn-sm">{{ l }}</a>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<div class="card">
+<table class="table-modern">
+<thead><tr><th>Utilisateur</th><th>Rôle</th><th>Identifiant</th><th>Statut</th><th>Actions</th></tr></thead>
+<tbody>
+{% for u in users %}
+<tr style="{% if not u.is_active %}opacity:0.5;{% endif %}">
+  <td>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">{{ u.first_name|first|upper }}{{ u.last_name|first|upper }}</div>
+      <div><div style="font-weight:700;">{{ u.get_full_name|default:u.username }}</div>{% if u.telephone %}<div style="font-size:11.5px;color:var(--text-muted);">{{ u.telephone }}</div>{% endif %}</div>
+    </div>
+  </td>
+  <td>
+    <span class="badge {% if u.role == 'admin' %}badge-primary{% elif u.role == 'comptable' %}badge-success{% elif u.role == 'enseignant' %}badge-info{% elif u.role == 'surveillant' %}badge-warning{% elif u.role == 'secretariat' %}badge-info{% else %}badge-danger{% endif %}">{{ u.get_role_display }}</span>
+  </td>
+  <td><code style="font-size:12px;background:var(--bg);padding:2px 8px;border-radius:4px;">{{ u.username }}</code></td>
+  <td>{% if u.is_active %}<span class="badge badge-success">Actif</span>{% else %}<span class="badge badge-danger">Inactif</span>{% endif %}</td>
+  <td>
+    <div style="display:flex;gap:5px;">
+      <!-- Changer mdp -->
+      <button onclick="openMdp({{ u.pk }}, '{{ u.get_full_name|escapejs }}')" class="btn btn-outline btn-sm" title="Changer mot de passe">🔑</button>
+      <!-- Activer/Désactiver -->
+      {% if u != request.user %}
+      <form method="post" style="display:inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="toggle_actif">
+        <input type="hidden" name="user_pk" value="{{ u.pk }}">
+        <button type="submit" class="btn btn-outline btn-sm" title="{% if u.is_active %}Désactiver{% else %}Activer{% endif %}">{% if u.is_active %}🔒{% else %}🔓{% endif %}</button>
+      </form>
+      {% endif %}
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted);">Aucun utilisateur</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+<!-- MODAL CRÉER UTILISATEUR -->
+<div id="modal-creer" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--card-bg);border-radius:var(--radius);padding:28px;width:100%;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h3 style="font-size:16px;font-weight:800;">Créer un utilisateur</h3>
+      <button onclick="document.getElementById('modal-creer').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);">✕</button>
+    </div>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="creer">
+      <div class="grid-2" style="margin-bottom:12px;">
+        <div><label class="form-label">Prénom *</label><input type="text" name="prenom" class="form-control" required></div>
+        <div><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" required></div>
+      </div>
+      <div class="form-group"><label class="form-label">Rôle *</label>
+        <select name="role" class="form-control" id="sel-role" onchange="updateUsername()">
+          {% for v,l in roles %}{% if v in roles_staff %}<option value="{{ v }}">{{ l }}</option>{% endif %}{% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Identifiant (username) *</label>
+        <input type="text" name="username" id="inp-username" class="form-control" placeholder="Ex: bdiallo, secretaire1" required>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Sera utilisé pour se connecter</div>
+      </div>
+      <div class="form-group"><label class="form-label">Mot de passe</label>
+        <input type="text" name="password" class="form-control" value="admin123" placeholder="admin123">
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Minimum 6 caractères</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button type="submit" class="btn btn-primary" style="flex:1;">Créer</button>
+        <button type="button" onclick="document.getElementById('modal-creer').style.display='none'" class="btn btn-outline">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL CHANGER MDP -->
+<div id="modal-mdp" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--card-bg);border-radius:var(--radius);padding:28px;width:100%;max-width:400px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h3 style="font-size:16px;font-weight:800;">Changer le mot de passe</h3>
+      <button onclick="document.getElementById('modal-mdp').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div id="mdp-nom" style="font-weight:700;margin-bottom:12px;color:var(--primary);"></div>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="changer_mdp">
+      <input type="hidden" name="user_pk" id="mdp-user-pk">
+      <div class="form-group"><label class="form-label">Nouveau mot de passe *</label><input type="text" name="nouveau_mdp" class="form-control" placeholder="Minimum 6 caractères" minlength="6" required></div>
+      <div style="display:flex;gap:10px;"><button type="submit" class="btn btn-primary" style="flex:1;">Enregistrer</button><button type="button" onclick="document.getElementById('modal-mdp').style.display='none'" class="btn btn-outline">Annuler</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script>
+function openMdp(pk, nom){ document.getElementById('mdp-user-pk').value=pk; document.getElementById('mdp-nom').textContent=nom; document.getElementById('modal-mdp').style.display='flex'; }
+function updateUsername(){ const role=document.getElementById('sel-role').value; const pfx={'admin':'dir','secretariat':'sec','comptable':'compta','enseignant':'prof','surveillant':'surv'}; const inp=document.getElementById('inp-username'); if(!inp.value.trim()) inp.placeholder=`${pfx[role]||role}1`; }
+</script>{% endblock %}

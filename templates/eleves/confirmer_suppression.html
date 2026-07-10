@@ -1,0 +1,16 @@
+{% extends "base/base.html" %}
+{% block title %}Archiver{% endblock %}
+{% block topbar_title %}Archiver un eleve{% endblock %}
+{% block content %}
+<div style="max-width:480px;margin:0 auto;padding-top:20px;">
+<div class="card"><div class="card-header" style="background:rgba(198,40,40,0.05);"><span class="card-title" style="color:var(--danger);">⚠️ Confirmer l'archivage</span></div>
+<div class="card-body" style="text-align:center;padding:32px;">
+  <div style="font-size:44px;margin-bottom:14px;">🗑️</div>
+  <div style="font-size:17px;font-weight:700;">{{ eleve.nom_complet }}</div>
+  <div style="color:var(--text-muted);margin:8px 0 20px;font-size:13px;">L'eleve sera archive (pas supprime definitvement). Vous pourrez le restaurer plus tard.</div>
+  <form method="post" style="display:flex;gap:10px;justify-content:center;">{% csrf_token %}
+    <button type="submit" class="btn" style="background:var(--danger);color:#fff;">Oui, archiver</button>
+    <a href="{% url 'detail_eleve' eleve.pk %}" class="btn btn-outline">Annuler</a>
+  </form>
+</div></div></div>
+{% endblock %}

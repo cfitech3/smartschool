@@ -1,0 +1,186 @@
+{% extends "base/base.html" %}
+{% block title %}Nouvelle classe{% endblock %}
+{% block topbar_title %}Ajouter une classe{% endblock %}
+{% block nav_classes %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'liste_classes' %}" class="btn btn-outline btn-sm">← Classes</a>
+    <h1>Nouvelle classe</h1>
+  </div>
+</div>
+
+{% if not annee %}
+<div class="alert alert-warning">⚠️ Aucune année scolaire active. Créez-en une dans <a href="{% url 'parametres' %}">Paramètres</a>.</div>
+{% endif %}
+
+<div style="max-width:560px;">
+<form method="post">{% csrf_token %}
+<div class="card">
+  <div class="card-header"><span class="card-title">Informations de la classe</span></div>
+  <div class="card-body">
+
+    <!-- Nom de la classe -->
+    <div class="form-group">
+      <label class="form-label">Nom de la classe *</label>
+      <input type="text" name="nom" id="inp-nom" class="form-control" placeholder="Ex: 1A, 9B, Terminale C, Licence 1..." required
+        style="font-size:17px;font-weight:700;letter-spacing:0.5px;">
+      <!-- Suggestions rapides -->
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;" id="suggestions">
+      </div>
+    </div>
+
+    <!-- Niveau / Cycle -->
+    <div class="form-group">
+      <label class="form-label">Cycle & Niveau *</label>
+
+      <!-- Sélecteur par cycle -->
+      {% if cycles %}
+      <div style="display:flex;flex-direction:column;gap:8px;" id="bloc-cycles">
+        {% for cycle in cycles %}
+        <div style="border:1.5px solid var(--border);border-radius:8px;overflow:hidden;">
+          <button type="button" onclick="toggleCycle('{{ cycle.pk }}')"
+            style="width:100%;padding:10px 14px;background:var(--bg);border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:700;">
+            <span>
+              {% if cycle.type_cycle == 'premier_cycle' %}📚{% elif cycle.type_cycle == 'second_cycle' %}📖{% elif cycle.type_cycle == 'lycee' %}🎓{% else %}🏛️{% endif %}
+              {{ cycle.nom }}
+            </span>
+            <span id="arrow-{{ cycle.pk }}" style="transition:transform 0.2s;">▼</span>
+          </button>
+          <div id="niveaux-{{ cycle.pk }}" style="display:none;border-top:1px solid var(--border);">
+            {% for niveau in cycle.niveaux.all %}
+            <label style="display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);"
+              onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+              <input type="radio" name="niveau" value="{{ niveau.pk }}" required style="width:15px;height:15px;">
+              {{ niveau.nom }}
+              {% if cycle.diplome_prepare %}<span style="font-size:11px;color:var(--text-muted);margin-left:auto;">{{ cycle.diplome_prepare }}</span>{% endif %}
+            </label>
+            {% empty %}
+            <div style="padding:10px 14px;font-size:12px;color:var(--text-muted);">Aucun niveau dans ce cycle</div>
+            {% endfor %}
+            <!-- Option : saisir un niveau libre -->
+            <label style="display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:13px;">
+              <input type="radio" name="niveau" value="libre_{{ cycle.pk }}" style="width:15px;height:15px;"
+                onclick="document.getElementById('inp-niveau-libre').style.display='block';document.getElementById('inp-niveau-libre').focus();">
+              <span style="color:var(--primary);font-weight:600;">✏️ Saisir un autre niveau...</span>
+            </label>
+          </div>
+        </div>
+        {% endfor %}
+        <!-- Saisie libre -->
+        <input type="text" name="niveau_libre" id="inp-niveau-libre" class="form-control"
+          placeholder="Ex: Master 2, BTS, CAP..." style="display:none;margin-top:4px;">
+      </div>
+      {% else %}
+      <!-- Fallback si pas de cycles -->
+      <select name="niveau" class="form-control" id="sel-niveau">
+        <option value="">-- Choisir un niveau --</option>
+        {% for n in niveaux %}<option value="{{ n.pk }}">{{ n.nom }}</option>{% endfor %}
+      </select>
+      <input type="text" name="niveau_libre" class="form-control" style="margin-top:6px;" placeholder="Ou saisir un nouveau niveau...">
+      {% endif %}
+    </div>
+
+    <!-- Série (lycée uniquement, affichée dynamiquement) -->
+    <div class="form-group" id="bloc-serie" style="display:none;">
+      <label class="form-label">Série (optionnel)</label>
+      <select name="serie" class="form-control">
+        <option value="">-- Choisir une série --</option>
+        {% for serie in series %}
+        <option value="{{ serie.pk }}">Série {{ serie.code }} — {{ serie.nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label">Capacité max</label>
+        <input type="number" name="capacite_max" class="form-control" value="40" min="1" max="200">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Salle</label>
+        <input type="text" name="salle" class="form-control" placeholder="Ex: Salle 01">
+      </div>
+    </div>
+
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;">
+    <button type="submit" class="btn btn-primary" {% if not annee %}disabled{% endif %}>✅ Créer la classe</button>
+    <button type="submit" name="ajouter_autre" value="1" class="btn btn-outline" {% if not annee %}disabled{% endif %}>+ En créer une autre</button>
+    <a href="{% url 'liste_classes' %}" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
+  </div>
+</div>
+</form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Suggestions de noms selon le niveau sélectionné
+const suggestions = {
+  'premier_cycle': ['1A','1B','2A','2B','3A','3B','4A','4B','5A','5B','6A','6B'],
+  'second_cycle':  ['7A','7B','8A','8B','9A','9B'],
+  'lycee':         ['Seconde A','Seconde B','1ère A','1ère B','Terminale A','Terminale B','Terminale C','Terminale D'],
+  'universite':    ['Licence 1','Licence 2','Licence 3','Master 1','Master 2','Doctorat 1'],
+};
+
+function toggleCycle(pk){
+  const zone  = document.getElementById('niveaux-'+pk);
+  const arrow = document.getElementById('arrow-'+pk);
+  const open  = zone.style.display === 'none';
+  // Fermer tous
+  document.querySelectorAll('[id^="niveaux-"]').forEach(z=>{z.style.display='none';});
+  document.querySelectorAll('[id^="arrow-"]').forEach(a=>{a.style.transform='';});
+  if(open){
+    zone.style.display = '';
+    arrow.style.transform = 'rotate(180deg)';
+    // Afficher suggestions selon le type de cycle
+    const btn = arrow.closest('button');
+    const text = btn.textContent.trim();
+    let type = '';
+    if(text.includes('1er Cycle')) type='premier_cycle';
+    else if(text.includes('2')) type='second_cycle';
+    else if(text.includes('Lycée')) type='lycee';
+    else if(text.includes('Université')) type='universite';
+    showSuggestions(type);
+    // Afficher série si lycée
+    document.getElementById('bloc-serie').style.display = type==='lycee' ? '' : 'none';
+  }
+}
+
+function showSuggestions(type){
+  const box = document.getElementById('suggestions');
+  const list = suggestions[type] || [];
+  box.innerHTML = '';
+  if(list.length){
+    const lbl = document.createElement('span');
+    lbl.textContent = 'Suggestions : ';
+    lbl.style.cssText = 'font-size:12px;color:var(--text-muted);align-self:center;';
+    box.appendChild(lbl);
+    list.forEach(s=>{
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = s;
+      btn.style.cssText = 'padding:3px 10px;border-radius:20px;border:1.5px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer;font-weight:600;';
+      btn.onclick = () => {
+        document.getElementById('inp-nom').value = s;
+        document.querySelectorAll('#suggestions button').forEach(b=>b.style.borderColor='var(--border)');
+        btn.style.borderColor = 'var(--primary)';
+        btn.style.background = 'rgba(21,101,192,0.06)';
+        btn.style.color = 'var(--primary)';
+      };
+      box.appendChild(btn);
+    });
+  }
+}
+
+// Ouvrir le premier cycle par défaut
+document.addEventListener('DOMContentLoaded', ()=>{
+  const first = document.querySelector('[id^="niveaux-"]');
+  if(first){
+    const pk = first.id.replace('niveaux-','');
+    toggleCycle(pk);
+  }
+});
+</script>
+{% endblock %}

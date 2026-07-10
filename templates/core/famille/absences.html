@@ -1,0 +1,25 @@
+{% extends "base/base_famille.html" %}
+{% block title %}Absences{% endblock %}
+{% block topbar_title %}Absences — {{ eleve.nom }} {{ eleve.prenom }}{% endblock %}
+{% block nav_absences %}active{% endblock %}
+{% block content %}
+<div class="page-header"><a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a><h1>📋 Absences</h1></div>
+<div class="stats-grid" style="margin-bottom:16px;">
+  <div class="stat-card"><div class="stat-icon green">✅</div><div class="stat-body"><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total enregistrements</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(198,40,40,0.1);">❌</div><div class="stat-body"><div class="stat-value">{{ stats.absents }}</div><div class="stat-label">Absences</div></div></div>
+  <div class="stat-card"><div class="stat-icon orange">⏰</div><div class="stat-body"><div class="stat-value">{{ stats.retards }}</div><div class="stat-label">Retards</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue">📝</div><div class="stat-body"><div class="stat-value">{{ stats.justifies }}</div><div class="stat-label">Justifies</div></div></div>
+</div>
+{% if stats.absents >= 3 %}<div class="alert alert-warning">⚠️ {{ stats.absents }} absences enregistrees — pensez a fournir des justificatifs aupres de l'etablissement si necessaire.</div>{% endif %}
+<div class="card"><div class="card-header"><span class="card-title">Historique</span></div>
+{% if presences %}
+<table class="table-modern"><thead><tr><th>Date</th><th>Statut</th><th>Motif</th></tr></thead>
+<tbody>{% for p in presences %}<tr>
+<td style="font-weight:600;">{{ p.date|date:"d/m/Y" }}</td>
+<td>{% if p.statut == 'present' %}<span class="badge badge-success">✅ Present</span>{% elif p.statut == 'absent' %}<span class="badge badge-danger">❌ Absent</span>{% elif p.statut == 'retard' %}<span class="badge badge-warning">⏰ Retard</span>{% else %}<span class="badge badge-info">📝 Justifie</span>{% endif %}</td>
+<td style="font-size:12.5px;color:var(--text-muted);">{{ p.motif|default:"—" }}</td>
+</tr>{% endfor %}</tbody>
+</table>
+{% else %}<div style="text-align:center;padding:40px;color:var(--text-muted);">Aucune presence enregistree</div>{% endif %}
+</div>
+{% endblock %}

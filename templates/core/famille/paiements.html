@@ -1,0 +1,130 @@
+{% extends "base/base_famille.html" %}
+{% block title %}Paiements{% endblock %}
+{% block topbar_title %}Paiements — {{ eleve.nom }} {{ eleve.prenom }}{% endblock %}
+{% block nav_paiements %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
+  <div><h1>💳 Paiements scolaires</h1><div class="page-subtitle">{% if annee %}{{ annee.libelle }}{% endif %}</div></div>
+</div>
+
+<!-- Stats rapides -->
+<div class="stats-grid" style="margin-bottom:20px;">
+  <div class="stat-card">
+    <div class="stat-icon green">✅</div>
+    <div class="stat-body">
+      <div class="stat-value">{{ total_paye|floatformat:0 }}</div>
+      <div class="stat-label">FCFA payes cette annee</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon blue">📋</div>
+    <div class="stat-body">
+      <div class="stat-value">{{ paiements|length }}</div>
+      <div class="stat-label">Paiements effectues</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(198,40,40,0.1);">⚠️</div>
+    <div class="stat-body">
+      <div class="stat-value" style="color:{% if nb_retards > 0 %}var(--danger){% else %}var(--success){% endif %};">{{ nb_retards }}</div>
+      <div class="stat-label">Frais en retard</div>
+    </div>
+  </div>
+</div>
+
+<!-- Situation des frais obligatoires -->
+{% if frais_attendus %}
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header">
+    <span class="card-title">📊 Situation des frais obligatoires</span>
+    {% if nb_retards > 0 %}
+    <span class="badge badge-danger">{{ nb_retards }} en retard</span>
+    {% else %}
+    <span class="badge badge-success">Tout est a jour</span>
+    {% endif %}
+  </div>
+  <table class="table-modern">
+  <thead>
+    <tr>
+      <th>Type de frais</th>
+      <th style="text-align:right;">Montant attendu</th>
+      <th style="text-align:right;">Montant paye</th>
+      <th style="text-align:right;">Solde</th>
+      <th style="text-align:center;">Situation</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for f in frais_attendus %}
+  <tr style="{% if f.en_retard %}background:rgba(198,40,40,0.03);{% endif %}">
+    <td style="font-weight:600;">{{ f.type.nom }}</td>
+    <td style="text-align:right;font-size:13.5px;">{{ f.attendu|floatformat:0 }} <span style="font-size:11px;color:var(--text-muted);">FCFA</span></td>
+    <td style="text-align:right;font-size:13.5px;color:var(--success);font-weight:600;">{{ f.paye|floatformat:0 }} <span style="font-size:11px;color:var(--text-muted);">FCFA</span></td>
+    <td style="text-align:right;font-weight:700;color:{% if f.en_retard %}var(--danger){% else %}var(--success){% endif %};">
+      {% if f.en_retard %}
+        -{{ f.solde|floatformat:0|cut:"-" }} FCFA
+      {% else %}
+        ✅ Regle
+      {% endif %}
+    </td>
+    <td style="text-align:center;">
+      {% if f.en_retard %}
+        <span class="badge badge-danger">⚠️ En retard</span>
+      {% else %}
+        <span class="badge badge-success">✅ A jour</span>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  </table>
+  {% if nb_retards > 0 %}
+  <div style="padding:12px 18px;background:rgba(198,40,40,0.05);border-top:1px solid var(--border);">
+    <span style="font-size:13px;color:var(--danger);">⚠️ Des frais sont en attente de paiement. Veuillez contacter l'etablissement au plus vite.</span>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Historique des paiements effectues -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📜 Historique des paiements</span>
+  </div>
+  {% if paiements %}
+  <table class="table-modern">
+  <thead>
+    <tr>
+      <th>Reference</th>
+      <th>Type de frais</th>
+      <th>Mode</th>
+      <th style="text-align:right;">Montant</th>
+      <th>Date</th>
+      <th>Statut</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in paiements %}
+  <tr>
+    <td><code style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px;">{{ p.reference }}</code></td>
+    <td style="font-weight:600;">{{ p.type_frais.nom }}</td>
+    <td style="font-size:12.5px;">{{ p.get_mode_paiement_display }}</td>
+    <td style="text-align:right;font-weight:700;font-size:14px;color:var(--success);">{{ p.montant|floatformat:0 }} <span style="font-size:11px;color:var(--text-muted);">FCFA</span></td>
+    <td style="font-size:12.5px;color:var(--text-muted);">{{ p.date_paiement|date:"d/m/Y" }}</td>
+    <td>
+      {% if p.statut == 'valide' %}<span class="badge badge-success">✅ Valide</span>
+      {% elif p.statut == 'annule' %}<span class="badge badge-danger">Annule</span>
+      {% else %}<span class="badge badge-warning">En attente</span>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:40px;color:var(--text-muted);">
+    <div style="font-size:36px;margin-bottom:10px;">💳</div>
+    Aucun paiement enregistre pour cette annee scolaire
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

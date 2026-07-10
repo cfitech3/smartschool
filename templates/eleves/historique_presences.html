@@ -1,0 +1,32 @@
+{% extends "base/base.html" %}
+{% block title %}Historique presences{% endblock %}
+{% block topbar_title %}Historique des presences{% endblock %}
+{% block nav_presences %}active{% endblock %}
+{% block content %}
+<div class="page-header"><h1>📊 Historique des presences</h1><a href="{% url 'appel_presences' %}" class="btn btn-primary">📋 Faire l'appel</a></div>
+<div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:14px 18px;">
+<form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+  <div style="flex:1;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Classe</label><select name="classe" class="form-control"><option value="">-- Choisir --</option>{% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}</select></div>
+  <div style="flex:1;min-width:140px;"><label class="form-label" style="margin-bottom:4px;">Mois</label><input type="month" name="mois" value="{{ mois }}" class="form-control"></div>
+  <button type="submit" class="btn btn-primary">Filtrer</button>
+</form></div></div>
+{% if presences %}
+<div class="stats-grid" style="margin-bottom:16px;">
+  <div class="stat-card"><div class="stat-icon green">✅</div><div class="stat-body"><div class="stat-value">{{ stats.presents }}</div><div class="stat-label">Presents</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:rgba(198,40,40,0.1);">❌</div><div class="stat-body"><div class="stat-value">{{ stats.absents }}</div><div class="stat-label">Absents</div></div></div>
+  <div class="stat-card"><div class="stat-icon orange">⏰</div><div class="stat-body"><div class="stat-value">{{ stats.retards }}</div><div class="stat-label">Retards</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue">📋</div><div class="stat-body"><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total</div></div></div>
+</div>
+<div class="card"><table class="table-modern">
+<thead><tr><th>Date</th><th>Eleve</th><th>Statut</th><th>Motif</th></tr></thead>
+<tbody>{% for p in presences %}<tr>
+<td style="font-weight:600;font-size:13px;">{{ p.date|date:"d/m/Y" }}</td>
+<td><a href="{% url 'detail_eleve' p.eleve.pk %}" style="font-weight:600;text-decoration:none;color:var(--primary);">{{ p.eleve.nom }} {{ p.eleve.prenom }}</a></td>
+<td>{% if p.statut == 'present' %}<span class="badge badge-success">✅ Present</span>{% elif p.statut == 'absent' %}<span class="badge badge-danger">❌ Absent</span>{% elif p.statut == 'retard' %}<span class="badge badge-warning">⏰ Retard</span>{% else %}<span class="badge badge-info">📝 Justifie</span>{% endif %}</td>
+<td style="font-size:12.5px;color:var(--text-muted);">{{ p.motif|default:"—" }}</td>
+</tr>{% endfor %}</tbody>
+</table></div>
+{% else %}
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">📋</div><div style="font-size:16px;font-weight:700;">Aucune donnee pour cette selection</div></div></div>
+{% endif %}
+{% endblock %}

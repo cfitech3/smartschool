@@ -1,0 +1,34 @@
+{% extends "base/base.html" %}
+{% block title %}Logs notes{% endblock %}
+{% block topbar_title %}Journal des modifications de notes{% endblock %}
+{% block nav_logs %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>🔔 Journal des modifications</h1><div class="page-subtitle">Modifications effectuees par les enseignants et surveillants</div></div>
+  {% if non_lus %}<span class="badge badge-danger" style="font-size:14px;padding:6px 14px;">{{ non_lus }} nouvelle(s)</span>{% endif %}
+</div>
+<div class="card">
+{% if logs %}
+<table class="table-modern">
+  <thead><tr><th>Date</th><th>Auteur</th><th>Role</th><th>Eleve</th><th>Matiere</th><th>Classe</th><th>Champ</th><th>Avant</th><th style="color:var(--success);">Apres</th></tr></thead>
+  <tbody>
+  {% for log in logs %}
+  <tr style="{% if log.notif_envoyee and not log.notif_lue %}background:rgba(255,111,0,0.05);border-left:3px solid var(--accent);{% endif %}">
+    <td style="font-size:11.5px;color:var(--text-muted);white-space:nowrap;">{{ log.date_modif|date:"d/m H:i" }}</td>
+    <td style="font-weight:700;font-size:13px;">{{ log.modifie_par.get_full_name|default:log.modifie_par.username }}</td>
+    <td><span class="badge {% if log.role_modifiant == 'surveillant' %}badge-info{% else %}badge-primary{% endif %}" style="font-size:10px;">{{ log.role_modifiant }}</span></td>
+    <td style="font-size:13px;font-weight:600;">{{ log.note_periode.eleve.nom_complet }}</td>
+    <td style="font-size:12.5px;">{{ log.note_periode.matiere.nom }}</td>
+    <td style="font-size:12px;color:var(--text-muted);">{{ log.note_periode.classe.nom }}</td>
+    <td><code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;">{{ log.champ_modifie }}</code></td>
+    <td style="color:var(--danger);font-weight:700;">{{ log.valeur_avant|default:"nouveau" }}</td>
+    <td style="color:var(--success);font-weight:700;">{{ log.valeur_apres }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">🔔</div><div style="font-size:16px;font-weight:700;color:var(--text);">Aucune modification enregistree</div></div>
+{% endif %}
+</div>
+{% endblock %}

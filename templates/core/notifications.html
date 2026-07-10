@@ -1,0 +1,33 @@
+{% extends "base/base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block topbar_title %}Logs des modifications de notes{% endblock %}
+{% block nav_logs %}active{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>🔔 Modifications de notes</h1><div class="page-subtitle">Historique des changements effectues par les enseignants et surveillants</div></div></div>
+<div class="card">
+{% if logs %}
+<table class="table-modern">
+  <thead><tr><th>Date</th><th>Modifie par</th><th>Role</th><th>Eleve</th><th>Matiere</th><th>Champ</th><th>Avant</th><th>Apres</th></tr></thead>
+  <tbody>
+  {% for log in logs %}
+  <tr style="{% if not log.notif_lue and log.notif_envoyee %}background:rgba(255,111,0,0.05);{% endif %}">
+    <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">{{ log.date_modif|date:"d/m/Y H:i" }}</td>
+    <td style="font-weight:600;">{{ log.modifie_par.get_full_name|default:log.modifie_par.username }}</td>
+    <td><span class="badge badge-primary" style="font-size:10.5px;">{{ log.role_modifiant }}</span></td>
+    <td>{{ log.note_periode.eleve.nom_complet }}</td>
+    <td>{{ log.note_periode.matiere.nom }}</td>
+    <td><code style="font-size:11.5px;background:var(--bg);padding:2px 6px;border-radius:4px;">{{ log.champ_modifie }}</code></td>
+    <td style="color:var(--danger);font-weight:600;">{{ log.valeur_avant|default:"—" }}</td>
+    <td style="color:var(--success);font-weight:600;">{{ log.valeur_apres }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div style="text-align:center;padding:60px;color:var(--text-muted);">
+  <div style="font-size:48px;margin-bottom:14px;">🔔</div>
+  <div style="font-size:16px;font-weight:700;color:var(--text);">Aucune modification enregistree</div>
+</div>
+{% endif %}
+</div>
+{% endblock %}

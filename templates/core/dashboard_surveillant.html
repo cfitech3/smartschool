@@ -1,0 +1,116 @@
+{% extends "base/base.html" %}
+{% block title %}Tableau de bord{% endblock %}
+{% block topbar_title %}Tableau de bord — Surveillance{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🛡️ Bonjour, {{ request.user.first_name|default:request.user.username }}</h1>
+    <div class="page-subtitle">{{ today|date:"l d F Y" }}{% if jour_auj %} — {{ jour_auj|capfirst }}{% endif %}</div>
+  </div>
+  <a href="{% url 'appel_presences' %}" class="btn btn-primary">📋 Faire l'appel</a>
+</div>
+
+<!-- KPIs présences (pas de finances) -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;margin-bottom:20px;">
+  <div class="card" style="padding:18px;text-align:center;border-top:3px solid var(--success);">
+    <div style="font-size:30px;font-weight:900;color:var(--success);">{{ stats.presents_today }}</div>
+    <div style="font-size:12px;color:var(--text-muted);">Présents aujourd'hui</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;border-top:3px solid var(--danger);">
+    <div style="font-size:30px;font-weight:900;color:var(--danger);">{{ stats.absents_today }}</div>
+    <div style="font-size:12px;color:var(--text-muted);">Absents aujourd'hui</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;border-top:3px solid var(--warning);">
+    <div style="font-size:30px;font-weight:900;color:var(--warning);">{{ stats.retards_today }}</div>
+    <div style="font-size:12px;color:var(--text-muted);">Retards aujourd'hui</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;border-top:3px solid var(--primary);">
+    <div style="font-size:30px;font-weight:900;color:var(--primary);">{{ stats.taux_presence }}%</div>
+    <div style="font-size:12px;color:var(--text-muted);">Taux de présence</div>
+    <div style="height:4px;background:var(--border);border-radius:99px;margin-top:6px;overflow:hidden;">
+      <div style="height:100%;width:{{ stats.taux_presence }}%;background:{% if stats.taux_presence >= 85 %}var(--success){% elif stats.taux_presence >= 70 %}var(--warning){% else %}var(--danger){% endif %};border-radius:99px;"></div>
+    </div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:30px;font-weight:900;color:var(--primary);">{{ stats.total_classes }}</div>
+    <div style="font-size:12px;color:var(--text-muted);">Classes à surveiller</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+<!-- Classes sans appel -->
+<div class="card">
+  <div class="card-header"><span class="card-title">⚠️ Classes sans appel</span></div>
+  {% if classes_sans_appel %}
+  <table class="table-modern">
+    <tbody>
+    {% for cl in classes_sans_appel %}
+    <tr>
+      <td style="font-weight:700;">{{ cl.nom }}</td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ cl.niveau.nom }}</td>
+      <td><a href="{% url 'appel_presences' %}?classe={{ cl.pk }}" class="btn btn-outline btn-sm">Appel</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:24px;text-align:center;color:var(--success);font-weight:600;">✅ Tous les appels effectués</div>
+  {% endif %}
+</div>
+
+<!-- Absentéisme fréquent -->
+<div class="card">
+  <div class="card-header"><span class="card-title">🔴 Absentéisme fréquent ce mois</span></div>
+  {% if absents_freq %}
+  <table class="table-modern">
+    <thead><tr><th>Élève</th><th style="text-align:center;">Absences</th></tr></thead>
+    <tbody>
+    {% for a in absents_freq %}
+    <tr>
+      <td><a href="{% url 'detail_eleve' a.eleve__pk %}" style="font-weight:600;">{{ a.eleve__nom }} {{ a.eleve__prenom }}</a></td>
+      <td style="text-align:center;"><span class="badge badge-danger">{{ a.nb }} abs.</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:24px;text-align:center;color:var(--text-muted);">Aucun absentéisme fréquent ce mois</div>
+  {% endif %}
+</div>
+</div>
+
+<!-- EDT du jour -->
+{% if edt_auj %}
+<div class="card" style="margin-top:16px;">
+  <div class="card-header"><span class="card-title">🗓️ Emploi du temps — {{ jour_auj|capfirst }}</span><a href="{% url 'emploi_du_temps' %}" style="font-size:12px;color:var(--primary);">Semaine complète →</a></div>
+  <div style="overflow-x:auto;">
+  <table class="table-modern">
+    <thead><tr><th>Horaire</th><th>Classe</th><th>Matière</th><th>Enseignant</th><th>Salle</th></tr></thead>
+    <tbody>
+    {% for cr in edt_auj %}
+    <tr>
+      <td style="font-weight:700;white-space:nowrap;">{{ cr.heure_debut }} → {{ cr.heure_fin }}</td>
+      <td style="font-weight:700;">{{ cr.classe.nom }}</td>
+      <td>{{ cr.matiere.nom }}</td>
+      <td style="font-size:12.5px;">{{ cr.enseignant.get_full_name|default:"—" }}</td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ cr.salle|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Actions rapides surveillant (sans caisse) -->
+<div class="card" style="margin-top:16px;">
+  <div class="card-header"><span class="card-title">⚡ Actions rapides</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 18px;">
+    <a href="{% url 'appel_presences' %}" class="btn btn-primary">📋 Faire l'appel</a>
+    <a href="{% url 'liste_classes' %}" class="btn btn-outline">🏫 Liste des classes</a>
+    <a href="{% url 'rapport_absences' %}" class="btn btn-outline">⚠️ Rapport absences</a>
+    <a href="{% url 'saisie_conduite' %}" class="btn btn-outline">📊 Saisir conduite</a>
+    <a href="{% url 'emploi_du_temps' %}" class="btn btn-outline">🗓️ Emploi du temps</a>
+  </div>
+</div>
+{% endblock %}

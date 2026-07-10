@@ -1,0 +1,23 @@
+{% extends "base/base_famille.html" %}
+{% block title %}Accueil{% endblock %}
+{% block topbar_title %}{% if request.user.is_parent %}Mes enfants{% else %}Mon espace{% endif %}{% endblock %}
+{% block nav_accueil %}active{% endblock %}
+{% block content %}
+<div class="page-header"><h1>👋 Bonjour, {{ request.user.first_name|default:request.user.username }}</h1></div>
+{% if eleves %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
+{% for eleve in eleves %}
+<a href="{% url 'espace_eleve_detail' eleve.pk %}" class="card" style="text-decoration:none;color:inherit;display:block;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+  <div style="padding:20px;text-align:center;">
+    <div style="width:64px;height:64px;border-radius:50%;background:{% if eleve.sexe == 'M' %}rgba(21,101,192,0.12){% else %}rgba(173,20,87,0.12){% endif %};display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 12px;">{% if eleve.sexe == 'M' %}👦{% else %}👧{% endif %}</div>
+    <div style="font-size:16px;font-weight:800;">{{ eleve.nom }} {{ eleve.prenom }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">{{ eleve.matricule }}</div>
+    {% with insc=eleve.get_inscription_active %}{% if insc %}<div style="margin-top:8px;"><span class="badge badge-primary">{{ insc.classe.nom }}</span></div>{% endif %}{% endwith %}
+  </div>
+</a>
+{% endfor %}
+</div>
+{% else %}
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">👤</div><div style="font-size:16px;font-weight:700;">Aucun eleve rattache a votre compte</div><div style="font-size:13px;margin-top:8px;">Contactez l'etablissement pour lier votre compte.</div></div></div>
+{% endif %}
+{% endblock %}

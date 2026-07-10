@@ -1,0 +1,40 @@
+{% extends "base/base.html" %}
+{% block title %}Encaisser{% endblock %}
+{% block topbar_title %}Enregistrer un paiement{% endblock %}
+{% block nav_encaissement %}active{% endblock %}
+{% block content %}
+<div class="page-header"><div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'liste_paiements' %}" class="btn btn-outline btn-sm">← Retour</a><h1>💵 Enregistrer un paiement</h1></div></div>
+<div style="max-width:600px;">
+<form method="post">{% csrf_token %}
+<div class="card" style="margin-bottom:14px;"><div class="card-header"><span class="card-title">Informations du paiement</span></div><div class="card-body">
+  <div class="form-group"><label class="form-label">Eleve *</label>
+    <select name="eleve" id="sel-eleve" class="form-control" required>
+      <option value="">-- Rechercher un eleve --</option>
+      {% for e in eleves %}<option value="{{ e.pk }}"{% if eleve_pre and e.pk == eleve_pre.pk %} selected{% endif %}>{{ e.nom }} {{ e.prenom }} — {{ e.matricule }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Type de frais *</label>
+    <select name="type_frais" id="sel-frais" class="form-control" required>
+      <option value="">-- Choisir --</option>
+      {% for tf in types_frais %}<option value="{{ tf.pk }}" data-montant="{{ tf.montant_defaut }}">{{ tf.nom }} ({{ tf.montant_defaut|floatformat:0 }} FCFA)</option>{% endfor %}
+    </select>
+  </div>
+  <div class="grid-2">
+    <div class="form-group"><label class="form-label">Montant (FCFA) *</label><input type="number" name="montant" id="inp-montant" class="form-control" min="1" step="500" placeholder="0" required></div>
+    <div class="form-group"><label class="form-label">Mode de paiement *</label><select name="mode_paiement" class="form-control" required>{% for v,l in modes %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="form-group"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2" placeholder="Remarques..."></textarea></div>
+</div></div>
+<div class="card"><div class="card-body" style="display:flex;gap:10px;">
+  <button type="submit" class="btn btn-primary">✅ Enregistrer</button>
+  <button type="submit" name="imprimer_recu" value="1" class="btn btn-outline">🧾 Enregistrer et imprimer</button>
+  <a href="{% url 'liste_paiements' %}" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
+</div></div>
+</form></div>
+{% endblock %}
+{% block extra_js %}<script>
+document.getElementById('sel-frais').addEventListener('change',function(){
+  const opt=this.selectedOptions[0];
+  if(opt&&opt.dataset.montant){document.getElementById('inp-montant').value=opt.dataset.montant;}
+});
+</script>{% endblock %}

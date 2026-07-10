@@ -1,0 +1,54 @@
+{% extends "base/base.html" %}
+{% block title %}Tableau de bord{% endblock %}
+{% block topbar_title %}Tableau de bord{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+{% block extra_css %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Bonjour, {{ request.user.first_name|default:request.user.username }} 👋</h1>
+  <div class="page-subtitle">{% if current_etablissement %}{{ current_etablissement.nom }} — {% endif %}{{ today|date:"l d F Y" }}</div></div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'enregistrer_paiement' %}" class="btn btn-outline btn-sm">💳 Encaisser</a>
+    <a href="{% url 'ajouter_eleve' %}" class="btn btn-primary">+ Nouvel eleve</a>
+  </div>
+</div>
+<div class="stats-grid">
+  <div class="stat-card"><div class="stat-icon blue">👨‍🎓</div><div class="stat-body"><div class="stat-value">{{ stats.total_eleves|default:0 }}</div><div class="stat-label">Eleves inscrits</div>{% if stats.nouveaux_eleves %}<div class="stat-change up">↑ {{ stats.nouveaux_eleves }} ce mois</div>{% endif %}</div></div>
+  <div class="stat-card"><div class="stat-icon green">💰</div><div class="stat-body"><div class="stat-value">{{ stats.paiements_jour|default:0|floatformat:0 }}</div><div class="stat-label">Encaisses aujourd'hui (FCFA)</div>{% if stats.nb_paiements_jour %}<div class="stat-change up">↑ {{ stats.nb_paiements_jour }} paiement(s)</div>{% endif %}</div></div>
+  <div class="stat-card"><div class="stat-icon orange">📈</div><div class="stat-body"><div class="stat-value">{{ stats.recettes_mois|default:0|floatformat:0 }}</div><div class="stat-label">Recettes du mois (FCFA)</div></div></div>
+  <div class="stat-card"><div class="stat-icon purple">👩‍🏫</div><div class="stat-body"><div class="stat-value">{{ stats.total_enseignants|default:0 }}</div><div class="stat-label">Enseignants</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue">🏫</div><div class="stat-body"><div class="stat-value">{{ stats.total_classes|default:0 }}</div><div class="stat-label">Classes actives</div></div></div>
+  {% if stats.presents_today or stats.absents_today %}<div class="stat-card"><div class="stat-icon green">✅</div><div class="stat-body"><div class="stat-value">{{ stats.presents_today|default:0 }}</div><div class="stat-label">Presents aujourd'hui</div>{% if stats.absents_today %}<div class="stat-change down">↓ {{ stats.absents_today }} absent(s)</div>{% endif %}</div></div>{% endif %}
+</div>
+{% if stats.eleves_retard %}<div class="alert alert-warning">⚠️ <strong>{{ stats.eleves_retard }} eleve(s)</strong> sans paiement ce mois. <a href="{% url 'rapport_financier' %}" style="font-weight:700;color:var(--warning);">Voir →</a></div>{% endif %}
+{% if stats.notifs_non_lues and stats.notifs_non_lues > 0 %}<div class="alert alert-info">🔔 <strong>{{ stats.notifs_non_lues }} modification(s)</strong> de notes non lues. <a href="{% url 'logs_modifications' %}" style="font-weight:700;color:var(--info);">Voir les logs →</a></div>{% endif %}
+<div class="grid-2" style="margin-bottom:20px;align-items:start;">
+  <div class="card"><div class="card-header"><span class="card-title">📊 Recettes — 7 derniers jours</span></div><div class="card-body"><canvas id="chartPay" height="200"></canvas></div></div>
+  <div class="card"><div class="card-header"><span class="card-title">💳 Derniers paiements</span><a href="{% url 'liste_paiements' %}" class="btn btn-outline btn-sm">Voir tout</a></div>
+    {% if paiements_recent %}<table class="table-modern"><thead><tr><th>Eleve</th><th>Type</th><th>Montant</th></tr></thead><tbody>
+    {% for p in paiements_recent %}<tr><td><div style="font-weight:600;font-size:13px;">{{ p.eleve.nom }} {{ p.eleve.prenom }}</div><div style="font-size:11px;color:var(--text-muted);">{{ p.date_paiement|date:"d/m H:i" }}</div></td><td style="font-size:12.5px;">{{ p.type_frais.nom }}</td><td><strong>{{ p.montant|floatformat:0 }} F</strong></td></tr>{% endfor %}
+    </tbody></table>{% else %}<div style="text-align:center;padding:32px;color:var(--text-muted);"><div style="font-size:32px;margin-bottom:10px;">💳</div>Aucun paiement<br><a href="{% url 'enregistrer_paiement' %}" class="btn btn-primary btn-sm" style="margin-top:12px;">+ Enregistrer</a></div>{% endif %}
+  </div>
+</div>
+<div class="grid-2" style="align-items:start;">
+  <div class="card"><div class="card-header"><span class="card-title">🏫 Classes</span><a href="{% url 'liste_classes' %}" class="btn btn-outline btn-sm">Voir tout</a></div>
+    {% if classes_data %}{% for c in classes_data %}<a href="{% url 'detail_classe' c.pk %}" style="display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--border);text-decoration:none;transition:background 0.15s;" onmouseover="this.style.background='rgba(21,101,192,0.04)'" onmouseout="this.style.background=''"><div style="flex:1;"><div style="font-weight:700;color:var(--text);">{{ c.nom }}</div><div class="progress-bar-wrap" style="margin-top:5px;"><div class="progress-bar-fill" style="width:{% widthratio c.nb c.capacite_max 100 %}%;"></div></div></div><div style="font-weight:700;font-size:13.5px;color:var(--text);">{{ c.nb }}/{{ c.capacite_max }}</div></a>{% endfor %}
+    {% else %}<div style="text-align:center;padding:32px;color:var(--text-muted);">Aucune classe<br><a href="{% url 'ajouter_classe' %}" class="btn btn-primary btn-sm" style="margin-top:12px;">+ Creer</a></div>{% endif %}
+  </div>
+  <div class="card"><div class="card-header"><span class="card-title">⚡ Actions rapides</span></div><div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <a href="{% url 'ajouter_eleve' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;">👨‍🎓</span>Nouvel eleve</a>
+    <a href="{% url 'enregistrer_paiement' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;">💳</span>Paiement</a>
+    <a href="{% url 'appel_presences' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;">📋</span>Presences</a>
+    <a href="{% url 'saisie_notes_mali' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;">📝</span>Notes</a>
+    <a href="{% url 'bulletins_classe_mali' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;">📄</span>Bulletins</a>
+    <a href="{% url 'saisie_conduite' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;">📊</span>Conduite</a>
+  </div></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const data={{ chart_paiements|safe }};
+const ctx=document.getElementById("chartPay");
+if(ctx&&data.length){new Chart(ctx,{type:"bar",data:{labels:data.map(d=>d.jour),datasets:[{label:"Recettes",data:data.map(d=>d.total),backgroundColor:data.map((_,i)=>i===data.length-1?"rgba(255,111,0,0.85)":"rgba(21,101,192,0.7)"),borderRadius:5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString()+" F"},grid:{color:"rgba(0,0,0,0.05)"}},x:{grid:{display:false}}}}});}
+</script>
+{% endblock %}

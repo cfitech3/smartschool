@@ -1,0 +1,161 @@
+{% extends "base/base.html" %}
+{% block title %}{% if mode == "creer" %}Nouvelle division{% else %}{{ div.nom }}{% endif %}{% endblock %}
+{% block topbar_title %}{% if mode == "creer" %}Créer une division{% else %}Modifier la division{% endif %}{% endblock %}
+{% block nav_divisions %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'liste_divisions' %}" class="btn btn-outline btn-sm">← Retour</a>
+    <h1>{% if mode == "creer" %}Nouvelle division{% else %}{{ div.nom }}{% endif %}</h1>
+  </div>
+</div>
+
+<div style="max-width:640px;">
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+
+<!-- IDENTITE -->
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header"><span class="card-title">🏛️ Identité de la division</span></div>
+  <div class="card-body">
+    <div class="grid-2" style="margin-bottom:14px;">
+      <div class="form-group">
+        <label class="form-label">Nom de la division *</label>
+        <input type="text" name="nom" class="form-control" value="{% if div %}{{ div.nom }}{% endif %}" placeholder="Ex: Fondamental, Lycée, Section Technique..." required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Code court</label>
+        <input type="text" name="code" class="form-control" value="{% if div %}{{ div.code }}{% endif %}" placeholder="Ex: FOND, LYC" maxlength="10" style="text-transform:uppercase;">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label">Téléphone</label>
+        <input type="text" name="telephone" class="form-control" value="{% if div %}{{ div.telephone }}{% endif %}" placeholder="+223 20 XX XX XX">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Couleur principale</label>
+        <input type="color" name="couleur_principale" class="form-control" value="{% if div %}{{ div.couleur_principale }}{% else %}#1565C0{% endif %}" style="height:40px;">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Adresse (laissez vide pour hériter de l'établissement)</label>
+      <textarea name="adresse" class="form-control" rows="2">{% if div %}{{ div.adresse }}{% endif %}</textarea>
+    </div>
+  </div>
+</div>
+
+<!-- CYCLES COUVERTS -->
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header">
+    <span class="card-title">🎓 Cycles couverts par cette division</span>
+    <span style="font-size:12px;color:var(--text-muted);">Cochez tous les cycles gérés par cette division</span>
+  </div>
+  <div class="card-body">
+    {% if cycles_actifs %}
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      {% for ca in cycles_actifs %}
+      <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;"
+        id="cycle-label-{{ ca.cycle.pk }}"
+        onclick="toggleCycleStyle({{ ca.cycle.pk }})">
+        <input type="checkbox" name="cycles" value="{{ ca.cycle.pk }}" style="width:18px;height:18px;cursor:pointer;"
+          {% if div and ca.cycle.pk in div_cycles_ids %}checked{% endif %}>
+        <span style="font-size:20px;">{% if ca.cycle.type_cycle == 'premier_cycle' %}📚{% elif ca.cycle.type_cycle == 'second_cycle' %}📖{% elif ca.cycle.type_cycle == 'lycee' %}🎓{% else %}🏛️{% endif %}</span>
+        <div>
+          <div style="font-weight:700;font-size:13.5px;">{{ ca.cycle.nom }}</div>
+          <div style="font-size:12px;color:var(--text-muted);">{{ ca.cycle.get_mode_calcul_display }}{% if ca.cycle.diplome_prepare %} · {{ ca.cycle.diplome_prepare }}{% endif %}</div>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="color:var(--text-muted);font-size:13px;padding:10px;">
+      Aucun cycle actif. <a href="{% url 'liste_divisions' %}">Activez d'abord les cycles</a> dans la page des divisions.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ADMINISTRATION -->
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header"><span class="card-title">👤 Administration de la division</span></div>
+  <div class="card-body">
+    <div class="form-group">
+      <label class="form-label">Nom du directeur</label>
+      <input type="text" name="directeur_nom" class="form-control" value="{% if div %}{{ div.directeur_nom }}{% endif %}" placeholder="Ex: M. Mamadou Diallo">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Compte utilisateur du directeur</label>
+      <select name="directeur_user" class="form-control">
+        <option value="">— Choisir un compte —</option>
+        {% for admin in admins %}
+        <option value="{{ admin.pk }}"{% if div and div.directeur_user and div.directeur_user.pk == admin.pk %} selected{% endif %}>
+          {{ admin.get_full_name }} ({{ admin.get_role_display }})
+        </option>
+        {% endfor %}
+      </select>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Ce compte verra uniquement les données de cette division</div>
+    </div>
+  </div>
+</div>
+
+<!-- EN-TETE DOCUMENTS -->
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header">
+    <span class="card-title">📄 En-tête des documents officiels</span>
+    <span style="font-size:12px;color:var(--text-muted);">Bulletin, certificats... de cette division</span>
+  </div>
+  <div class="card-body">
+    <div class="form-group">
+      <label class="form-label">Ligne 1 (nom principal)</label>
+      <input type="text" name="entete_ligne1" class="form-control" value="{% if div %}{{ div.entete_ligne1 }}{% else %}{{ etab.nom }}{% endif %}" placeholder="{{ etab.nom }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Ligne 2 (sous-titre, cycle, ville...)</label>
+      <input type="text" name="entete_ligne2" class="form-control" value="{% if div %}{{ div.entete_ligne2 }}{% endif %}" placeholder="Ex: 2ème Cycle — Bamako, Mali">
+    </div>
+    <!-- Aperçu en-tête -->
+    <div style="margin-top:10px;padding:12px;border:1.5px solid var(--border);border-radius:8px;text-align:center;font-size:12px;" id="apercu-entete">
+      <div style="font-size:14px;font-weight:900;" id="ap-l1">{{ div.entete_ligne1|default:etab.nom }}</div>
+      <div style="color:var(--text-muted);" id="ap-l2">{{ div.entete_ligne2|default:"" }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- BOUTONS -->
+<div class="card"><div class="card-body" style="display:flex;gap:10px;">
+  <button type="submit" class="btn btn-primary">💾 {% if mode == "creer" %}Créer{% else %}Enregistrer{% endif %}</button>
+  <a href="{% url 'liste_divisions' %}" class="btn btn-outline">Annuler</a>
+  {% if mode == "modifier" %}
+  <button type="submit" name="action" value="supprimer" class="btn btn-outline" style="margin-left:auto;color:var(--danger);border-color:var(--danger);" onclick="return confirm('Supprimer cette division ?')">🗑 Supprimer</button>
+  {% endif %}
+</div></div>
+</form>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+// Style checkbox cycles
+document.querySelectorAll('[id^="cycle-label-"]').forEach(lbl => {
+  const cb = lbl.querySelector('input[type=checkbox]');
+  if(cb.checked){
+    lbl.style.borderColor = 'var(--primary)';
+    lbl.style.background = 'rgba(21,101,192,0.04)';
+  }
+});
+function toggleCycleStyle(pk){
+  const lbl = document.getElementById('cycle-label-'+pk);
+  const cb  = lbl.querySelector('input[type=checkbox]');
+  setTimeout(()=>{
+    lbl.style.borderColor = cb.checked ? 'var(--primary)' : 'var(--border)';
+    lbl.style.background  = cb.checked ? 'rgba(21,101,192,0.04)' : '';
+  }, 10);
+}
+// Aperçu en-tête en direct
+document.querySelector('[name=entete_ligne1]').addEventListener('input', function(){
+  document.getElementById('ap-l1').textContent = this.value || '{{ etab.nom|escapejs }}';
+});
+document.querySelector('[name=entete_ligne2]').addEventListener('input', function(){
+  document.getElementById('ap-l2').textContent = this.value;
+});
+</script>
+{% endblock %}

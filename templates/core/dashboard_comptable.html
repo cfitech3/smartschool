@@ -1,0 +1,87 @@
+{% extends "base/base.html" %}
+{% block title %}Tableau de bord{% endblock %}
+{% block topbar_title %}Tableau de bord — Comptable{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>💰 Bonjour, {{ request.user.first_name|default:request.user.username }}</h1>
+    <div class="page-subtitle">{{ today|date:"l d F Y" }}</div>
+  </div>
+  <a href="{% url 'enregistrer_paiement' %}" class="btn btn-primary">💵 Encaisser</a>
+</div>
+
+<!-- KPIs financiers -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+  <div class="card" style="padding:18px;text-align:center;border-top:3px solid var(--success);">
+    <div style="font-size:20px;font-weight:900;color:var(--success);">{{ stats.recettes_jour|floatformat:0 }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">FCFA encaissés aujourd'hui</div>
+    <div style="font-size:11px;font-weight:700;color:var(--success);">{{ stats.nb_paiements_jour }} paiement(s)</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;border-top:3px solid var(--primary);">
+    <div style="font-size:20px;font-weight:900;color:var(--primary);">{{ stats.recettes_mois|floatformat:0 }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">FCFA ce mois</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;border-top:3px solid var(--success);">
+    <div style="font-size:28px;font-weight:900;color:var(--success);">{{ stats.eleves_payes }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Élèves à jour</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;border-top:3px solid var(--danger);">
+    <div style="font-size:28px;font-weight:900;color:var(--danger);">{{ stats.eleves_retard }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Élèves en retard</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;border-top:3px solid var(--primary);">
+    <div style="font-size:24px;font-weight:900;color:var(--primary);">{{ stats.taux_recouvrement }}%</div>
+    <div style="font-size:11px;color:var(--text-muted);">Taux de recouvrement</div>
+    <div style="height:4px;background:var(--border);border-radius:99px;margin-top:6px;overflow:hidden;">
+      <div style="height:100%;width:{{ stats.taux_recouvrement }}%;background:{% if stats.taux_recouvrement >= 80 %}var(--success){% elif stats.taux_recouvrement >= 50 %}var(--warning){% else %}var(--danger){% endif %};border-radius:99px;"></div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+<!-- Derniers paiements -->
+<div class="card">
+  <div class="card-header"><span class="card-title">💳 Derniers paiements</span><a href="{% url 'liste_paiements' %}" style="font-size:12px;color:var(--primary);">Tous →</a></div>
+  <table class="table-modern">
+    <thead><tr><th>Élève</th><th>Type</th><th style="text-align:right;">Montant</th></tr></thead>
+    <tbody>
+    {% for pai in paiements_recent %}
+    <tr>
+      <td style="font-weight:600;font-size:13px;">{{ pai.eleve.nom }} {{ pai.eleve.prenom }}</td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ pai.type_frais.nom|truncatechars:14 }}</td>
+      <td style="text-align:right;font-weight:700;color:var(--success);">{{ pai.montant|floatformat:0 }} F</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="3" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun paiement</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Répartition par type de frais -->
+<div class="card">
+  <div class="card-header"><span class="card-title">📊 Répartition ce mois</span></div>
+  <div style="padding:14px 18px;">
+  {% for r in repartition %}
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
+    <span style="font-size:13px;font-weight:600;">{{ r.type_frais__nom|default:"Autre"|truncatechars:22 }}</span>
+    <span style="font-weight:800;color:var(--success);">{{ r.total|floatformat:0 }} F</span>
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucun paiement ce mois</div>
+  {% endfor %}
+  </div>
+</div>
+</div>
+
+<!-- Actions rapides comptable -->
+<div class="card" style="margin-top:16px;">
+  <div class="card-header"><span class="card-title">⚡ Actions rapides</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 18px;">
+    <a href="{% url 'enregistrer_paiement' %}" class="btn btn-primary">💵 Encaisser un paiement</a>
+    <a href="{% url 'liste_paiements' %}" class="btn btn-outline">📋 Tous les paiements</a>
+    <a href="{% url 'rapport_financier' %}" class="btn btn-outline">📈 Rapport financier</a>
+    <a href="{% url 'liste_enseignants' %}" class="btn btn-outline">👩‍🏫 Salaires enseignants</a>
+  </div>
+</div>
+{% endblock %}

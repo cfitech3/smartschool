@@ -1,0 +1,81 @@
+{% extends "base/base.html" %}
+{% block title %}Traiter reclamation{% endblock %}
+{% block topbar_title %}Traitement d'une reclamation{% endblock %}
+{% block nav_logs %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'liste_reclamations_admin' %}" class="btn btn-outline btn-sm">← Retour</a>
+    <h1>Reclamation — {{ reclamation.eleve.nom_complet }}</h1>
+  </div>
+</div>
+
+<div class="grid-2" style="align-items:start;">
+  <!-- Contexte de la reclamation -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📋 Details</span></div>
+    <div class="card-body">
+      <table style="width:100%;font-size:13px;">
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);width:38%;">Eleve</td><td style="padding:10px 0;font-weight:700;">{{ reclamation.eleve.nom }} {{ reclamation.eleve.prenom }}</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Deposee par</td><td style="padding:10px 0;">{{ reclamation.auteur.get_full_name|default:reclamation.auteur.username }} ({{ reclamation.role_auteur }})</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Matiere</td><td style="padding:10px 0;font-weight:600;">{{ reclamation.note_periode.matiere.nom }}</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Periode</td><td style="padding:10px 0;">{{ reclamation.note_periode.periode.libelle }}</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Note concernee</td>
+        <td style="padding:10px 0;font-weight:800;font-size:16px;color:{% if reclamation.note_periode.moyenne_finale and reclamation.note_periode.moyenne_finale >= 10 %}var(--success){% else %}var(--danger){% endif %};">
+          {% if reclamation.note_periode.note_conduite is not None %}{{ reclamation.note_periode.note_conduite|floatformat:1 }}/20
+          {% elif reclamation.note_periode.moy_classe is not None %}Moy.Classe : {{ reclamation.note_periode.moy_classe }}/20 | Moy.Compo : {{ reclamation.note_periode.moy_compo }}/40
+          {% else %}—{% endif %}
+        </td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Date depot</td><td style="padding:10px 0;">{{ reclamation.date_creation|date:"d/m/Y H:i" }}</td></tr>
+        <tr><td style="padding:10px 0;color:var(--text-muted);">Statut actuel</td><td style="padding:10px 0;">
+          {% if reclamation.statut == 'en_attente' %}<span class="badge badge-warning">⏳ En attente</span>
+          {% elif reclamation.statut == 'en_cours' %}<span class="badge badge-info">🔄 En cours</span>
+          {% elif reclamation.statut == 'acceptee' %}<span class="badge badge-success">✅ Acceptee</span>
+          {% else %}<span class="badge badge-danger">❌ Rejetee</span>{% endif %}
+        </td></tr>
+      </table>
+      <div style="margin-top:14px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);border-left:3px solid var(--primary);">
+        <div style="font-size:11.5px;font-weight:700;color:var(--text-muted);margin-bottom:5px;">MOTIF DE LA RECLAMATION</div>
+        <div style="font-size:13.5px;line-height:1.6;">{{ reclamation.motif }}</div>
+      </div>
+      {% if reclamation.reponse %}
+      <div style="margin-top:10px;padding:12px;background:rgba(46,125,50,0.05);border-radius:var(--radius-sm);border-left:3px solid var(--success);">
+        <div style="font-size:11.5px;font-weight:700;color:var(--success);margin-bottom:5px;">REPONSE DE L'ADMINISTRATION</div>
+        <div style="font-size:13.5px;line-height:1.6;">{{ reclamation.reponse }}</div>
+        {% if reclamation.traite_par %}<div style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">Traite par {{ reclamation.traite_par.get_full_name }} le {{ reclamation.date_traitement|date:"d/m/Y" }}</div>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Formulaire de traitement -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">✅ Traiter la reclamation</span></div>
+    <form method="post">{% csrf_token %}
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Nouveau statut *</label>
+        <select name="statut" class="form-control" required>
+          {% for v,l in reclamation.STATUTS %}
+          <option value="{{ v }}"{% if reclamation.statut == v %} selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reponse a envoyer a la famille *</label>
+        <textarea name="reponse" class="form-control" rows="5" placeholder="Expliquez la decision prise..." required>{{ reclamation.reponse }}</textarea>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Cette reponse sera visible par le parent et l'eleve dans leur espace.</div>
+      </div>
+      <div style="padding:12px;background:rgba(245,127,23,0.07);border-radius:var(--radius-sm);font-size:12.5px;color:var(--warning);border:1px solid rgba(245,127,23,0.2);">
+        ⚠️ <strong>Attention :</strong> Si vous acceptez la reclamation, pensez a corriger la note directement dans la saisie des notes.
+      </div>
+    </div>
+    <div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;">
+      <button type="submit" class="btn btn-primary">Envoyer la reponse</button>
+      <a href="{% url 'liste_reclamations_admin' %}" class="btn btn-outline">Annuler</a>
+      <a href="{% url 'saisie_notes_mali' %}" class="btn btn-outline btn-sm" style="margin-left:auto;color:var(--info);">📝 Corriger la note</a>
+    </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Fiche d'accès — {{ eleve.nom_complet }}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#e8eef4;padding:20px;}
+.actions{max-width:680px;margin:0 auto 14px;display:flex;gap:8px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;text-decoration:none;}
+.btn-primary{background:#1565C0;color:#fff;}.btn-outline{background:#fff;border:1.5px solid #ccc;color:#555;}
+.page{max-width:680px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.12);}
+.page-header{background:linear-gradient(135deg,#1565C0,#0D47A1);color:#fff;padding:20px 24px;}
+.page-header h1{font-size:16px;font-weight:800;} .page-header .sub{font-size:12px;opacity:0.8;margin-top:4px;}
+.section{padding:20px 24px;border-bottom:1px solid #e3e8ef;}
+.section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#546E7A;margin-bottom:14px;}
+.compte-box{border:2px dashed #c5d8f0;border-radius:10px;padding:16px 20px;background:#f8faff;margin-bottom:12px;}
+.compte-box .label{font-size:11px;font-weight:700;text-transform:uppercase;color:#546E7A;margin-bottom:8px;}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #eef2f7;}
+.info-row:last-child{border:none;}.info-lbl{font-size:12.5px;color:#546E7A;}.info-val{font-size:13.5px;font-weight:700;color:#1A237E;font-family:monospace;}
+.warning-box{background:#FFF3E0;border:1.5px solid #FFB300;border-radius:8px;padding:12px 16px;margin-top:16px;font-size:12px;color:#E65100;}
+.etab-footer{padding:16px 24px;background:#f0f4f8;text-align:center;font-size:11px;color:#546E7A;}
+@media print{body{background:#fff;padding:0;}.actions{display:none;}.page{box-shadow:none;border-radius:0;}@page{margin:8mm;}}
+</style></head><body>
+<div class="actions">
+  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer / PDF</button>
+</div>
+<div class="page">
+  <div class="page-header">
+    <h1>🔐 Fiche d'accès SmartSchool</h1>
+    <div class="sub">{{ etab.nom }} — Confidentiel, à remettre en main propre</div>
+  </div>
+
+  <!-- Infos élève -->
+  <div class="section">
+    <div class="section-title">Informations de l'élève</div>
+    <div class="info-row"><span class="info-lbl">Nom complet</span><span class="info-val">{{ eleve.nom }} {{ eleve.prenom }}</span></div>
+    <div class="info-row"><span class="info-lbl">Matricule</span><span class="info-val">{{ eleve.matricule }}</span></div>
+    {% if inscription %}<div class="info-row"><span class="info-lbl">Classe</span><span class="info-val">{{ inscription.classe.nom }}</span></div>{% endif %}
+    <div class="info-row"><span class="info-lbl">Année scolaire</span><span class="info-val">{% if inscription %}{{ inscription.annee.libelle }}{% else %}—{% endif %}</span></div>
+  </div>
+
+  <!-- Compte élève -->
+  {% if compte_eleve %}
+  <div class="section">
+    <div class="section-title">🎒 Compte de l'élève</div>
+    <div class="compte-box">
+      <div class="label">Connexion : espace.smartschool.ml/connexion</div>
+      <div class="info-row"><span class="info-lbl">Identifiant</span><span class="info-val" style="font-size:16px;letter-spacing:1px;">{{ compte_eleve.username }}</span></div>
+      <div class="info-row"><span class="info-lbl">Mot de passe</span><span class="info-val" style="font-size:16px;letter-spacing:1px;">{{ mdp_eleve }}</span></div>
+    </div>
+    <div style="font-size:12px;color:#546E7A;">L'élève peut consulter ses notes, absences, bulletin et emploi du temps.</div>
+  </div>
+  {% endif %}
+
+  <!-- Compte parent -->
+  {% if compte_parent %}
+  <div class="section">
+    <div class="section-title">👨‍👩‍👦 Compte parent / tuteur</div>
+    <div class="compte-box">
+      <div class="label">Connexion : espace.smartschool.ml/connexion</div>
+      <div class="info-row"><span class="info-lbl">Identifiant</span><span class="info-val" style="font-size:16px;letter-spacing:1px;">{{ compte_parent.username }}</span></div>
+      <div class="info-row"><span class="info-lbl">Mot de passe</span><span class="info-val" style="font-size:16px;letter-spacing:1px;">{{ mdp_parent }}</span></div>
+    </div>
+    <div style="font-size:12px;color:#546E7A;">Le parent peut suivre les notes, absences, paiements et contacter l'administration.</div>
+  </div>
+  {% endif %}
+
+  <div class="section">
+    <div class="warning-box">⚠️ <strong>Confidentiel</strong> — Changez votre mot de passe à la première connexion. Ne communiquez pas ces identifiants à d'autres personnes.</div>
+  </div>
+  <div class="etab-footer">{{ etab.nom }} — {{ etab.adresse }} — {{ etab.telephone }} — Imprimé le {{ today|date:"d/m/Y" }}</div>
+</div>
+</body></html>
