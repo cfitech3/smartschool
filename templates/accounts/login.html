@@ -1,13 +1,29 @@
 {% load static %}
 <!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Connexion — SmartSchool ERP</title>
+<title>{% if portail_etab %}{{ portail_etab.nom }}{% else %}Connexion — SmartSchool ERP{% endif %}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/smartschool.css' %}"></head>
+<link rel="stylesheet" href="{% static 'css/smartschool.css' %}">
+{% if portail_etab %}
+<style>
+.login-hero { background: linear-gradient(135deg, {{ portail_etab.couleur_principale|default:"#1565C0" }}, {{ portail_etab.couleur_secondaire|default:"#0D47A1" }}); }
+.login-btn { background: {{ portail_etab.couleur_principale|default:"#1565C0" }}; }
+</style>
+{% endif %}
+</head>
 <body>
 <div class="login-page">
   <div class="login-left">
     <div class="login-hero">
+      {% if portail_etab and portail_etab.logo %}
+      <img src="{{ portail_etab.logo.url }}" alt="Logo" style="max-height:80px; margin-bottom:16px; border-radius:8px; object-fit:contain;">
+      {% else %}
       <div style="font-size:48px;margin-bottom:16px;">🎓</div>
+      {% endif %}
+      
+      {% if portail_etab %}
+      <h1>{{ portail_etab.nom }}</h1>
+      <p>{{ portail_etab.slogan|default:"Portail de connexion pour notre établissement." }}</p>
+      {% else %}
       <h1>Gérez votre école en toute simplicité.</h1>
       <p>SmartSchool ERP centralise la gestion administrative, pédagogique et financière dans une seule plateforme.</p>
       <div class="feature-pills">
@@ -15,12 +31,13 @@
         <span class="feature-pill">💳 Paiements</span><span class="feature-pill">📊 Surveillant</span>
         <span class="feature-pill">🏫 Multi-établissements</span>
       </div>
+      {% endif %}
     </div>
   </div>
   <div class="login-right">
     <div class="login-box">
-      <div class="login-logo">🎓</div>
-      <div class="login-title">Bon retour !</div>
+      <div class="login-logo">{% if portail_etab %}🏫{% else %}🎓{% endif %}</div>
+      <div class="login-title">{% if portail_etab %}Bienvenue !{% else %}Bon retour !{% endif %}</div>
       <div class="login-sub">Connectez-vous à votre espace</div>
       {% for message in messages %}
       <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}" style="margin-bottom:14px;">❌ {{ message }}</div>
@@ -30,7 +47,9 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" name="password" class="form-control" placeholder="Votre mot de passe" required></div>
         <button type="submit" class="login-btn">Se connecter →</button>
       </form>
-      <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-muted);">SmartSchool ERP v1.5</div>
+      <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-muted);">
+        {% if portail_etab %}Propulsé par SmartSchool ERP{% else %}SmartSchool ERP v1.5{% endif %}
+      </div>
     </div>
   </div>
 </div>

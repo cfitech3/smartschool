@@ -9,4 +9,5 @@ urlpatterns = [
     path('rapport/', views.rapport_financier, name='rapport_financier'),
     path('eleve/<int:pk>/', views.situation_eleve, name='situation_eleve'),
     path('api/frais/', views.get_montant_frais, name='api_montant_frais'),
+    path('api/frais/<int:pk>/periodes/', views.api_periodes_frais, name='api_periodes_frais'),
 ]

@@ -107,10 +107,12 @@ def ajouter_type_frais(request):
     if request.method=="POST":
         nom=request.POST.get("nom","").strip(); montant=request.POST.get("montant_defaut",0)
         oblig=bool(request.POST.get("is_obligatoire")); desc=request.POST.get("description","")
+        periodicite=request.POST.get("periodicite","unique")
+        nb_tranches=int(request.POST.get("nombre_tranches",1) or 1)
         if not nom: messages.error(request,"Nom obligatoire.")
         elif TypeFrais.objects.filter(etablissement=etab,nom=nom,annee=annee).exists(): messages.error(request,f"{nom} existe deja pour cette annee.")
         else:
-            TypeFrais.objects.create(etablissement=etab,annee=annee,nom=nom,montant_defaut=montant,is_obligatoire=oblig,description=desc)
+            TypeFrais.objects.create(etablissement=etab,annee=annee,nom=nom,montant_defaut=montant,is_obligatoire=oblig,description=desc,periodicite=periodicite,nombre_tranches=nb_tranches)
             messages.success(request,f"Type {nom} cree."); return redirect("liste_types_frais")
     return render(request,"notes/config/form_type_frais.html",{"mode":"ajouter","annee":annee})
 
@@ -126,6 +128,8 @@ def modifier_type_frais(request,pk):
         if request.POST.get("action")=="supprimer": tf.delete(); messages.success(request,"Supprime."); return redirect("liste_types_frais")
         tf.nom=request.POST.get("nom",tf.nom); tf.montant_defaut=request.POST.get("montant_defaut",tf.montant_defaut)
         tf.is_obligatoire=bool(request.POST.get("is_obligatoire")); tf.description=request.POST.get("description","")
+        tf.periodicite=request.POST.get("periodicite",tf.periodicite)
+        tf.nombre_tranches=int(request.POST.get("nombre_tranches",tf.nombre_tranches) or 1)
         # Permettre de lier/délier l'année active
         lier_annee=request.POST.get("lier_annee_active")
         if lier_annee=="oui" and annee_active and tf.annee is None:

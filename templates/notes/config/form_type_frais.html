@@ -7,10 +7,34 @@
 <form method="post" style="max-width:480px;">{% csrf_token %}
 <div class="card"><div class="card-header"><span class="card-title">Informations</span></div><div class="card-body">
   <div class="form-group"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" value="{% if tf %}{{ tf.nom }}{% endif %}" placeholder="Ex: Inscription, Scolarite mensuelle..." required></div>
-  <div class="form-group"><label class="form-label">Montant par defaut (FCFA)</label><input type="number" name="montant_defaut" class="form-control" value="{% if tf %}{{ tf.montant_defaut }}{% else %}0{% endif %}" min="0" step="500"></div>
+  <div class="form-group"><label class="form-label">Montant par defaut (FCFA)</label><input type="number" name="montant_defaut" class="form-control" value="{% if tf %}{{ tf.montant_defaut|floatformat:0 }}{% else %}0{% endif %}" min="0" step="500"></div>
+  
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+    <div>
+      <label class="form-label">Periodicite</label>
+      <select name="periodicite" id="periodicite" class="form-control" onchange="toggleTranches()">
+        <option value="unique" {% if tf and tf.periodicite == 'unique' %}selected{% endif %}>Paiement Unique</option>
+        <option value="mensuel" {% if tf and tf.periodicite == 'mensuel' %}selected{% endif %}>Mensuel</option>
+        <option value="tranches" {% if tf and tf.periodicite == 'tranches' %}selected{% endif %}>Par Tranches</option>
+      </select>
+    </div>
+    <div id="div_tranches" style="{% if not tf or tf.periodicite != 'tranches' %}display:none;{% endif %}">
+      <label class="form-label">Nombre de tranches</label>
+      <input type="number" name="nombre_tranches" class="form-control" value="{% if tf %}{{ tf.nombre_tranches }}{% else %}1{% endif %}" min="1" max="10">
+    </div>
+  </div>
+
   <div class="form-group" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" name="is_obligatoire" id="oblig" style="width:18px;height:18px;" {% if not tf or tf.is_obligatoire %}checked{% endif %}><label for="oblig" class="form-label" style="margin:0;">Frais obligatoire</label></div>
   <div class="form-group"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="2">{% if tf %}{{ tf.description }}{% endif %}</textarea></div>
 </div>
+
+<script>
+function toggleTranches() {
+    const p = document.getElementById('periodicite').value;
+    document.getElementById('div_tranches').style.display = (p === 'tranches') ? 'block' : 'none';
+}
+</script>
+
 <div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;">
   <button type="submit" class="btn btn-primary">{% if mode == "ajouter" %}Creer{% else %}Enregistrer{% endif %}</button>
   <a href="{% url 'liste_types_frais' %}" class="btn btn-outline">Annuler</a>

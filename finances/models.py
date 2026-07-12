@@ -4,6 +4,7 @@ from django.core.validators import MinValueValidator
 import time
 
 class TypeFrais(models.Model):
+    PERIODICITES = [('unique', 'Paiement Unique'), ('mensuel', 'Mensuel'), ('tranches', 'Par Tranches')]
     etablissement = models.ForeignKey('etablissements.Etablissement', on_delete=models.CASCADE)
     annee = models.ForeignKey(
         'etablissements.AnneeScolaire', on_delete=models.CASCADE, null=True, blank=True,
@@ -12,6 +13,8 @@ class TypeFrais(models.Model):
     nom = models.CharField(max_length=100)
     montant_defaut = models.DecimalField(max_digits=12, decimal_places=0, default=0)
     is_obligatoire = models.BooleanField(default=True)
+    periodicite = models.CharField(max_length=20, choices=PERIODICITES, default='unique')
+    nombre_tranches = models.IntegerField(default=1, blank=True, help_text="Si périodicité par tranches, combien de tranches ?")
     description = models.TextField(blank=True)
 
     def __str__(self):
@@ -50,6 +53,7 @@ class Paiement(models.Model):
     mode_paiement = models.CharField(max_length=20, choices=MODES, default='especes')
     statut = models.CharField(max_length=20, choices=STATUTS, default='valide', db_index=True)
     reference = models.CharField(max_length=50, unique=True, blank=True)
+    periode_payee = models.CharField(max_length=50, blank=True, help_text="Mois ou Tranche réglée (ex: Novembre, Tranche 1)")
     date_paiement = models.DateTimeField(default=timezone.now, db_index=True)
     encaisse_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, related_name="encaissements")
     notes = models.TextField(blank=True)

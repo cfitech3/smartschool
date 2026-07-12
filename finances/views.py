@@ -22,6 +22,22 @@ def req(fn):
     w.__name__=fn.__name__; return w
 
 @login_required
+@req
+def api_periodes_frais(request, pk):
+    etab = request.etablissement
+    tf = get_object_or_404(TypeFrais, pk=pk, etablissement=etab)
+    periodes = []
+    if tf.periodicite == 'mensuel':
+        periodes = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"]
+    elif tf.periodicite == 'tranches':
+        nb = tf.nombre_tranches or 1
+        periodes = [f"Tranche {i}" for i in range(1, nb + 1)]
+    else:
+        periodes = ["Frais Global"]
+        
+    return JsonResponse({"periodes": periodes, "montant_defaut": float(tf.montant_defaut)})
+
+@login_required
 @permission_required("paiements")
 @req
 def liste_paiements(request):
@@ -68,8 +84,9 @@ def enregistrer_paiement(request):
             
             eleve=get_object_or_404(Eleve,pk=eid,etablissement=etab)
             tf=get_object_or_404(TypeFrais,pk=fid,etablissement=etab)
+            periode_payee=request.POST.get("periode_payee", "")
             p=Paiement.objects.create(etablissement=etab,eleve=eleve,annee=annee,type_frais=tf,
-                montant=val_montant,mode_paiement=mode,statut="valide",
+                montant=val_montant,mode_paiement=mode,statut="valide", periode_payee=periode_payee,
                 encaisse_par=request.user,notes=request.POST.get("notes",""))
             messages.success(request,f"Paiement {p.montant:,.0f} FCFA enregistre. Ref: {p.reference}")
             if request.POST.get("imprimer_recu"): return redirect("recu_paiement",pk=p.pk)

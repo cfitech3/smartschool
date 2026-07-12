@@ -29,7 +29,7 @@ body{font-family:{{ modele.police|default:"Arial" }},sans-serif;background:#f0f4
   <div class="recu-body">
     <div class="row"><span class="lbl">Eleve</span><span class="val">{{ paiement.eleve.nom }} {{ paiement.eleve.prenom }}</span></div>
     <div class="row"><span class="lbl">Matricule</span><span class="val">{{ paiement.eleve.matricule }}</span></div>
-    <div class="row"><span class="lbl">Type de frais</span><span class="val">{{ paiement.type_frais.nom }}</span></div>
+    <div class="row"><span class="lbl">Type de frais</span><span class="val">{{ paiement.type_frais.nom }}{% if paiement.periode_payee %} ({{ paiement.periode_payee }}){% endif %}</span></div>
     <div class="row"><span class="lbl">Mode</span><span class="val">{{ paiement.get_mode_paiement_display }}</span></div>
     <div class="row"><span class="lbl">Date</span><span class="val">{{ paiement.date_paiement|date:"d/m/Y H:i" }}</span></div>
     <div class="row"><span class="lbl">Encaisse par</span><span class="val">{{ paiement.encaisse_par.get_full_name|default:"—" }}</span></div>

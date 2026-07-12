@@ -35,6 +35,35 @@ def login_view(request):
             messages.error(request, f'Identifiant ou mot de passe incorrect. ({4 - attempts} essais restants)')
     return render(request, 'accounts/login.html', {})
 
+def login_portail(request, code_etab):
+    if request.user.is_authenticated: return redirect('dashboard')
+    from etablissements.models import Etablissement
+    from django.shortcuts import get_object_or_404
+    etab = get_object_or_404(Etablissement, code__iexact=code_etab, is_active=True)
+    
+    if request.method == 'POST':
+        # Same rate limiting logic
+        from django.core.cache import cache
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        ip = x_forwarded_for.split(',')[0] if x_forwarded_for else request.META.get('REMOTE_ADDR')
+        cache_key = f'login_attempts_{ip}'
+        attempts = cache.get(cache_key, 0)
+        
+        if attempts >= 5:
+            messages.error(request, 'Trop de tentatives infructueuses. Veuillez réessayer dans 15 minutes.')
+            return render(request, 'accounts/login.html', {'portail_etab': etab})
+            
+        user = authenticate(request, username=request.POST.get('username'), password=request.POST.get('password'))
+        if user:
+            cache.delete(cache_key)
+            login(request, user)
+            return redirect(request.GET.get('next','dashboard'))
+        else:
+            cache.set(cache_key, attempts + 1, 900)
+            messages.error(request, f'Identifiant ou mot de passe incorrect. ({4 - attempts} essais restants)')
+            
+    return render(request, 'accounts/login.html', {'portail_etab': etab})
+
 def logout_view(request):
     logout(request); return redirect('login')
 

@@ -25,7 +25,7 @@ tbody td{padding:9px 14px;border-bottom:1px solid #eee;font-size:12.5px;}
     {% endif %}
   </div>
   <table><thead><tr><th>Date</th><th>Type</th><th>Mode</th><th style="text-align:right;">Montant</th></tr></thead>
-  <tbody>{% for p in paiements %}<tr><td>{{ p.date_paiement|date:"d/m/Y" }}</td><td>{{ p.type_frais.nom }}</td><td>{{ p.get_mode_paiement_display }}</td><td style="text-align:right;font-weight:600;">{{ p.montant|floatformat:0 }} F</td></tr>{% empty %}<tr><td colspan="4" style="text-align:center;color:#999;padding:24px;">Aucun paiement</td></tr>{% endfor %}
+  <tbody>{% for p in paiements %}<tr><td>{{ p.date_paiement|date:"d/m/Y" }}</td><td>{{ p.type_frais.nom }}{% if p.periode_payee %} ({{ p.periode_payee }}){% endif %}</td><td>{{ p.get_mode_paiement_display }}</td><td style="text-align:right;font-weight:600;">{{ p.montant|floatformat:0 }} F</td></tr>{% empty %}<tr><td colspan="4" style="text-align:center;color:#999;padding:24px;">Aucun paiement</td></tr>{% endfor %}
   <tr class="total-row"><td colspan="3">TOTAL</td><td style="text-align:right;">{{ total|floatformat:0 }} F</td></tr></tbody>
   </table>
   <div class="footer">Document genere le {{ today|date:"d F Y" }}</div>
