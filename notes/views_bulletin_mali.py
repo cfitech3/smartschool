@@ -3,6 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from .models import Matiere, Periode, NotePeriode, Bulletin
+from .services import calculer_bulletin, get_matieres_pour_eleve, get_matieres_pour_classe
+from .views_notes import calculer_rangs_classe
 from etablissements.models import Classe, AnneeScolaire, ModeleDocument
 from eleves.models import Eleve, Inscription
 from decimal import Decimal, ROUND_HALF_UP
@@ -16,62 +18,6 @@ def require_etab(fn):
         return fn(request, *args, **kwargs)
     wrapper.__name__ = fn.__name__
     return wrapper
-
-
-def calculer_bulletin_mali(eleve, periode, matieres):
-    """
-    Calcule le bulletin selon le format malien :
-    - moy_classe (m) sur 20
-    - moy_compo (n) sur 40
-    - moyenne_finale = (m + n/2) / 2 ... ou plus précisément (m + n_ramene_20) / 2
-    - moy_coeffic = moyenne_finale × coefficient
-    - total_coeffic = somme des moy_coeffic
-    - total_coef = somme des coefficients
-    - moyenne_generale = total_coeffic / total_coef
-    """
-    lignes = []
-    total_coeffic = Decimal('0')
-    total_coef = 0
-
-    for matiere in matieres:
-        note = NotePeriode.objects.filter(
-            eleve=eleve, matiere=matiere, periode=periode
-        ).first()
-
-        if note:
-            moy_c = float(note.moy_classe) if note.moy_classe is not None else None
-            moy_n = float(note.moy_compo) if note.moy_compo is not None else None
-            moy_finale = note.moyenne_finale
-            moy_coeff = note.moy_coeffic
-            appre = note.appreciation
-            note_max_c = float(note.note_max_classe)
-            note_max_n = float(note.note_max_compo)
-        else:
-            moy_c = None
-            moy_n = None
-            moy_finale = None
-            moy_coeff = None
-            appre = ''
-            note_max_c = 20
-            note_max_n = 40
-
-        if moy_coeff is not None:
-            total_coeffic += Decimal(str(moy_coeff))
-            total_coef += matiere.coefficient
-
-        lignes.append({
-            'matiere': matiere,
-            'moy_classe': moy_c,
-            'moy_compo': moy_n,
-            'note_max_classe': note_max_c,
-            'note_max_compo': note_max_n,
-            'moyenne_finale': moy_finale,
-            'moy_coeffic': moy_coeff,
-            'appreciation': appre,
-        })
-
-    moy_generale = round(float(total_coeffic) / total_coef, 2) if total_coef > 0 else None
-    return lignes, moy_generale, float(total_coeffic), total_coef
 
 
 @login_required
@@ -135,11 +81,17 @@ def saisie_notes_mali(request):
         messages.success(request, f"{saved} note(s) enregistree(s) — {matiere.nom} — {classe.nom}")
         return redirect(f"{request.path}?classe={classe_id}&periode={periode_id}&matiere={matiere_id}")
 
+    # Récupérer le modèle de document actif pour le bulletin (utilisé éventuellement dans le template)
+    modele_actif = ModeleDocument.objects.filter(
+        etablissement=etab, type_document='bulletin', is_actif=True
+    ).first() if etab else None
+
     return render(request, 'notes/saisie_notes_mali.html', {
         'classes': classes, 'periodes': periodes, 'matieres': matieres,
         'classe': classe, 'periode': periode, 'matiere': matiere,
         'eleves_data': eleves_data,
-        'classe_id': classe_id, 'periode_id': periode_id, 'modele_actif': modele_actif, 'matiere_id': matiere_id,
+        'modele_actif': modele_actif,
+        'classe_id': classe_id, 'periode_id': periode_id, 'matiere_id': matiere_id,
     })
 
 
@@ -152,30 +104,32 @@ def bulletin_mali(request, eleve_pk, periode_pk):
     periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
     inscription = eleve.get_inscription_active()
-    matieres = Matiere.objects.filter(etablissement=etab).order_by('nom')
+    
+    classe_pour_matieres = inscription.classe if inscription else None
+    matieres = get_matieres_pour_eleve(eleve, periode, classe_pour_matieres)
 
-    lignes, moy_generale, total_coeffic, total_coef = calculer_bulletin_mali(eleve, periode, matieres)
+    lignes, moy_generale, total_coeffic, total_coef = calculer_bulletin(eleve, periode, matieres)
 
-    # Rang dans la classe
+    # Rang dans la classe : calcul O(n) via un seul batch SQL
     rang = None
     moy_premier = None
     effectif = 0
     if inscription:
         classe = inscription.classe
         effectif = classe.inscriptions.filter(is_active=True).count()
-        moyennes_classe = []
-        for insc in classe.inscriptions.filter(is_active=True).select_related('eleve'):
-            _, moy, _, _ = calculer_bulletin_mali(insc.eleve, periode, matieres)
-            if moy is not None:
-                moyennes_classe.append((insc.eleve.pk, moy))
 
-        moyennes_classe.sort(key=lambda x: x[1], reverse=True)
-        if moyennes_classe:
-            moy_premier = moyennes_classe[0][1]
-        for i, (epk, _) in enumerate(moyennes_classe, 1):
-            if epk == eleve.pk:
-                rang = i
-                break
+        rangs_classe = calculer_rangs_classe(classe, periode, matieres)
+        rang = rangs_classe.get(eleve.pk)
+
+        # Retrouver la moyenne du premier élève classé
+        if rangs_classe:
+            pk_premier = next(
+                (pk for pk, r in rangs_classe.items() if r == 1), None
+            )
+            if pk_premier is not None:
+                _, moy_premier, _, _ = calculer_bulletin(
+                    Eleve.objects.get(pk=pk_premier), periode, matieres
+                )
 
     # Appréciation directeur
     appre_directeur = ''
@@ -222,21 +176,34 @@ def bulletins_classe_mali(request):
 
     classe_id = request.GET.get('classe')
     periode_id = request.GET.get('periode')
-    classe = get_object_or_404(Classe, pk=classe_id, etablissement=etab) if classe_id else None
+    classe  = get_object_or_404(Classe,  pk=classe_id,  etablissement=etab) if classe_id  else None
     periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
 
     resultats = []
-    matieres = Matiere.objects.filter(etablissement=etab).order_by('nom')
+    moy_premier = None
+    modele_actif = ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()
 
     if classe and periode:
+        matieres = get_matieres_pour_classe(classe, periode)
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve').order_by('eleve__nom')
-        for insc in inscriptions:
-            _, moy, total_coeff, total_c = calculer_bulletin_mali(insc.eleve, periode, matieres)
-            resultats.append({'eleve': insc.eleve, 'moyenne': moy})
 
-        resultats.sort(key=lambda x: x['moyenne'] or 0, reverse=True)
-        for i, r in enumerate(resultats, 1):
-            r['rang'] = i
+        # P2.5 : Préchargement des notes pour éviter N+1 requêtes
+        toutes_notes = NotePeriode.objects.filter(classe=classe, periode=periode)
+        index_notes = {(n.eleve_id, n.matiere_id): n for n in toutes_notes}
+
+        # Calcul global des rangs en O(n)
+        rangs_dict = calculer_rangs_classe(classe, periode, matieres)
+
+        for insc in inscriptions:
+            _, moy, _, _ = calculer_bulletin(insc.eleve, periode, matieres, index_notes=index_notes)
+            resultats.append({
+                'eleve': insc.eleve,
+                'moyenne': moy,
+                'rang': rangs_dict.get(insc.eleve_id),
+            })
+
+        # Trier par rang croissant (les élèves sans notes n'ont pas de rang)
+        resultats.sort(key=lambda x: (x['rang'] is None, x['rang'] or 9999))
         moy_premier = resultats[0]['moyenne'] if resultats else None
     else:
         moy_premier = None

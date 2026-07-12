@@ -55,17 +55,21 @@ def liste_paiements(request):
 def enregistrer_paiement(request):
     etab=request.etablissement
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    types_frais=TypeFrais.objects.filter(etablissement=etab)
+    types_frais=TypeFrais.objects.filter(etablissement=etab).filter(Q(annee=annee) | Q(annee__isnull=True))
     eleve_id=request.GET.get("eleve")
     eleve_pre=get_object_or_404(Eleve,pk=eleve_id,etablissement=etab) if eleve_id else None
     if request.method=="POST":
         eid=request.POST.get("eleve"); fid=request.POST.get("type_frais")
         montant=request.POST.get("montant","").replace(" ",""); mode=request.POST.get("mode_paiement","especes")
         try:
+            val_montant = Decimal(montant.replace(",","."))
+            if val_montant <= 0:
+                raise ValueError("Le montant doit être strictement positif.")
+            
             eleve=get_object_or_404(Eleve,pk=eid,etablissement=etab)
             tf=get_object_or_404(TypeFrais,pk=fid,etablissement=etab)
             p=Paiement.objects.create(etablissement=etab,eleve=eleve,annee=annee,type_frais=tf,
-                montant=Decimal(montant.replace(",",".")),mode_paiement=mode,statut="valide",
+                montant=val_montant,mode_paiement=mode,statut="valide",
                 encaisse_par=request.user,notes=request.POST.get("notes",""))
             messages.success(request,f"Paiement {p.montant:,.0f} FCFA enregistre. Ref: {p.reference}")
             if request.POST.get("imprimer_recu"): return redirect("recu_paiement",pk=p.pk)
@@ -106,8 +110,81 @@ def situation_eleve(request,pk):
     eleve=get_object_or_404(Eleve,pk=pk,etablissement=etab)
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     paiements=eleve.paiements.filter(annee=annee).select_related("type_frais").order_by("-date_paiement") if annee else []
-    total=paiements.filter(statut="valide").aggregate(t=Sum("montant"))["t"] or 0
-    return render(request,"finances/situation_eleve.html",{"eleve":eleve,"paiements":paiements,"total_paye":total,"annee":annee})
+    total_paye = paiements.filter(statut="valide").aggregate(t=Sum("montant"))["t"] or Decimal('0')
+    
+    # P3.1 : Prise en compte des réductions
+    from .models import TypeFrais, ReductionFrais
+    reductions = ReductionFrais.objects.filter(eleve=eleve, annee=annee).select_related("type_frais")
+    total_reductions = reductions.aggregate(t=Sum("montant"))["t"] or Decimal('0')
+    
+    # Calcul du reste à payer basé sur les frais obligatoires
+    types_obligatoires = TypeFrais.objects.filter(etablissement=etab, is_obligatoire=True).filter(Q(annee=annee) | Q(annee__isnull=True))
+    total_obligatoire = types_obligatoires.aggregate(t=Sum("montant_defaut"))["t"] or Decimal('0')
+    
+    total_exige = total_obligatoire - total_reductions
+    if total_exige < 0: total_exige = Decimal('0')
+    reste_a_payer = total_exige - total_paye
+
+    return render(request, "finances/situation_eleve.html", {
+        "eleve": eleve, "paiements": paiements, "total_paye": total_paye, "annee": annee,
+        "reductions": reductions, "total_reductions": total_reductions,
+        "total_exige": total_exige, "reste_a_payer": reste_a_payer
+    })
+
+@login_required
+@permission_required("paiements")
+@req
+def ajouter_reduction(request):
+    etab=request.etablissement
+    annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
+    types_frais=TypeFrais.objects.filter(etablissement=etab).filter(Q(annee=annee)|Q(annee__isnull=True))
+    eleve_id=request.GET.get("eleve")
+    eleve_pre=get_object_or_404(Eleve,pk=eleve_id,etablissement=etab) if eleve_id else None
+
+    if request.method=="POST":
+        eid=request.POST.get("eleve"); fid=request.POST.get("type_frais")
+        montant=request.POST.get("montant","").replace(" ","")
+        try:
+            val_montant = Decimal(montant.replace(",","."))
+            if val_montant <= 0: raise ValueError("Le montant doit être positif.")
+            eleve=get_object_or_404(Eleve,pk=eid,etablissement=etab)
+            tf=get_object_or_404(TypeFrais,pk=fid,etablissement=etab)
+            
+            from .models import ReductionFrais
+            ReductionFrais.objects.update_or_create(
+                etablissement=etab, eleve=eleve, annee=annee, type_frais=tf,
+                defaults={'montant': val_montant, 'motif': request.POST.get('motif', '')}
+            )
+            messages.success(request, f"Réduction de {val_montant} FCFA enregistrée pour {eleve.nom_complet}.")
+            return redirect("situation_eleve", pk=eleve.pk)
+        except Exception as e: messages.error(request,f"Erreur: {e}")
+
+    eleves=get_eleves_actifs(etab).order_by("nom")
+    return render(request,"finances/ajouter_reduction.html",{"eleves":eleves,"types_frais":types_frais,"eleve_pre":eleve_pre})
+
+@login_required
+@permission_required("paiements")
+@req
+def annuler_paiement(request, pk):
+    etab = request.etablissement
+    paiement = get_object_or_404(Paiement, pk=pk, etablissement=etab)
+    
+    if request.method == "POST":
+        if paiement.statut == 'annule':
+            messages.error(request, "Ce paiement est déjà annulé.")
+        else:
+            motif = request.POST.get("motif_annulation", "").strip()
+            if not motif:
+                messages.error(request, "Le motif d'annulation est obligatoire.")
+            else:
+                paiement.statut = 'annule'
+                paiement.date_annulation = timezone.now()
+                paiement.motif_annulation = motif
+                paiement.annule_par = request.user
+                paiement.save()
+                messages.success(request, f"Paiement {paiement.reference} annulé avec succès.")
+                
+    return redirect("liste_paiements")
 
 @login_required
 @req

@@ -34,8 +34,30 @@ def emploi_du_temps(request):
             if ens_id:
                 try: ens_user=Enseignant.objects.get(pk=ens_id,etablissement=etab).user
                 except: pass
-            EmploiDuTemps.objects.create(etablissement=etab,classe=classe,matiere_id=mat_id,enseignant=ens_user,jour=jour,heure_debut=hd,heure_fin=hf,salle=salle)
-            messages.success(request,"Creneau ajoute.")
+            
+            # P3.3: Validation de chevauchement
+            if hd >= hf:
+                messages.error(request, "L'heure de fin doit être après l'heure de début.")
+            else:
+                chevauchement_classe = EmploiDuTemps.objects.filter(
+                    etablissement=etab, classe=classe, jour=jour,
+                    heure_debut__lt=hf, heure_fin__gt=hd
+                ).exists()
+                
+                chevauchement_prof = False
+                if ens_user:
+                    chevauchement_prof = EmploiDuTemps.objects.filter(
+                        etablissement=etab, enseignant=ens_user, jour=jour,
+                        heure_debut__lt=hf, heure_fin__gt=hd
+                    ).exists()
+                
+                if chevauchement_classe:
+                    messages.error(request, "Erreur : La classe a déjà cours sur ce créneau horaire.")
+                elif chevauchement_prof:
+                    messages.error(request, "Erreur : L'enseignant est déjà occupé sur ce créneau horaire.")
+                else:
+                    EmploiDuTemps.objects.create(etablissement=etab,classe=classe,matiere_id=mat_id,enseignant=ens_user,jour=jour,heure_debut=hd,heure_fin=hf,salle=salle)
+                    messages.success(request,"Creneau ajoute.")
         return redirect(f"/notes/emplois/?classe={classe_id}")
     return render(request,"notes/emploi_du_temps.html",{"classes":classes,"classe":classe,"matieres":matieres,"enseignants":enseignants,"creneaux":creneaux,"jours":EmploiDuTemps.JOURS,"jours_ordre":JOURS_ORDRE,"heures":HEURES,"classe_id":classe_id})
 

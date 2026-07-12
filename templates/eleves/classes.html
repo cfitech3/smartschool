@@ -20,7 +20,9 @@
       {% if annee %}{{ annee.libelle }} — {% endif %}{{ classes|length }} classe{{ classes|length|pluralize }}
     </div>
   </div>
+  {% if request.user.is_admin %}
   <a href="{% url 'ajouter_classe' %}" class="btn btn-primary">+ Nouvelle classe</a>
+  {% endif %}
 </div>
 
 {% if classes %}
@@ -47,12 +49,16 @@
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ c.niveau.nom }}</div>
           {% if c.serie %}<span class="badge badge-info" style="font-size:10.5px;margin-top:4px;">Série {{ c.serie.code }}</span>{% endif %}
         </div>
-        <!-- Actions rapides -->
+        <!-- Actions rapides (admin uniquement) -->
+        {% if request.user.is_admin %}
         <div style="display:flex;gap:4px;">
           <button onclick="openRename({{ c.pk }}, '{{ c.nom|escapejs }}')"
             class="btn btn-outline btn-sm" title="Renommer" style="padding:5px 8px;">✏️</button>
           <a href="{% url 'detail_classe' c.pk %}" class="btn btn-outline btn-sm" title="Voir" style="padding:5px 8px;">👁</a>
         </div>
+        {% else %}
+        <a href="{% url 'detail_classe' c.pk %}" class="btn btn-outline btn-sm" title="Voir" style="padding:5px 8px;">👁</a>
+        {% endif %}
       </div>
 
       <!-- Zone renommage inline -->
@@ -95,9 +101,11 @@
 <div class="card">
   <div style="text-align:center;padding:60px;color:var(--text-muted);">
     <div style="font-size:48px;margin-bottom:14px;">🏫</div>
-    <div style="font-size:16px;font-weight:700;color:var(--text);">Aucune classe créée</div>
-    <div style="font-size:13px;margin-top:6px;">Commencez par ajouter la première classe de l'année.</div>
+    <div style="font-size:16px;font-weight:700;color:var(--text);">Aucune classe disponible</div>
+    <div style="font-size:13px;margin-top:6px;">Vérifiez que des cycles sont activés dans les paramètres ou qu'une année est active.</div>
+    {% if request.user.is_admin %}
     <a href="{% url 'ajouter_classe' %}" class="btn btn-primary" style="margin-top:16px;">+ Créer la première classe</a>
+    {% endif %}
   </div>
 </div>
 {% endif %}

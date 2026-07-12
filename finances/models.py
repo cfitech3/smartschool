@@ -1,15 +1,38 @@
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
-import random, string
+from django.core.validators import MinValueValidator
+import time
 
 class TypeFrais(models.Model):
     etablissement = models.ForeignKey('etablissements.Etablissement', on_delete=models.CASCADE)
+    annee = models.ForeignKey(
+        'etablissements.AnneeScolaire', on_delete=models.CASCADE, null=True, blank=True,
+        help_text="Année scolaire concernée. Si vide, s'applique à toutes les années (legacy)."
+    )
     nom = models.CharField(max_length=100)
     montant_defaut = models.DecimalField(max_digits=12, decimal_places=0, default=0)
     is_obligatoire = models.BooleanField(default=True)
     description = models.TextField(blank=True)
 
-    def __str__(self): return self.nom
+    def __str__(self):
+        if self.annee:
+            return f"{self.nom} ({self.annee.libelle})"
+        return self.nom
+
+
+class ReductionFrais(models.Model):
+    etablissement = models.ForeignKey('etablissements.Etablissement', on_delete=models.CASCADE)
+    eleve = models.ForeignKey('eleves.Eleve', on_delete=models.CASCADE, related_name='reductions')
+    annee = models.ForeignKey('etablissements.AnneeScolaire', on_delete=models.CASCADE)
+    type_frais = models.ForeignKey(TypeFrais, on_delete=models.CASCADE)
+    montant = models.DecimalField(max_digits=12, decimal_places=0, default=0, help_text="Montant fixe réduit.")
+    motif = models.CharField(max_length=200, blank=True)
+    date_accord = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ['eleve', 'annee', 'type_frais']
+
+    def __str__(self): return f"Réduction de {self.montant} FCFA pour {self.eleve}"
 
 
 class Paiement(models.Model):
@@ -20,20 +43,55 @@ class Paiement(models.Model):
     eleve = models.ForeignKey('eleves.Eleve', on_delete=models.CASCADE, related_name='paiements')
     annee = models.ForeignKey('etablissements.AnneeScolaire', on_delete=models.CASCADE)
     type_frais = models.ForeignKey(TypeFrais, on_delete=models.CASCADE)
-    montant = models.DecimalField(max_digits=12, decimal_places=0)
+    montant = models.DecimalField(
+        max_digits=12, decimal_places=0,
+        validators=[MinValueValidator(1, message="Le montant doit être strictement positif.")]
+    )
     mode_paiement = models.CharField(max_length=20, choices=MODES, default='especes')
-    statut = models.CharField(max_length=20, choices=STATUTS, default='valide')
+    statut = models.CharField(max_length=20, choices=STATUTS, default='valide', db_index=True)
     reference = models.CharField(max_length=50, unique=True, blank=True)
-    date_paiement = models.DateTimeField(default=timezone.now)
-    encaisse_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+    date_paiement = models.DateTimeField(default=timezone.now, db_index=True)
+    encaisse_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, related_name="encaissements")
     notes = models.TextField(blank=True)
+    
+    # P3.9 : Traçabilité des annulations
+    date_annulation = models.DateTimeField(null=True, blank=True)
+    motif_annulation = models.CharField(max_length=255, blank=True)
+    annule_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name="annulations")
 
     class Meta:
         ordering = ['-date_paiement']
 
     def __str__(self): return f"{self.eleve.nom_complet} — {self.montant} FCFA"
 
+    @staticmethod
+    def _generer_reference_atomique():
+        """
+        Génère une référence de paiement unique et non-devinable de façon atomique.
+
+        Format : PAY-XXXXXXXX (8 chiffres basés sur timestamp en microsecondes
+        + compteur journalier pour garantir l'unicité).
+
+        La combinaison timestamp+select_for_update protège contre les conditions
+        de concurrence même avec plusieurs workers Gunicorn simultanés.
+        """
+        with transaction.atomic():
+            # Timestamp en microsecondes, réduit aux 8 derniers chiffres
+            ts_micro = str(int(time.time() * 1_000_000))[-8:]
+            reference = f"PAY-{ts_micro}"
+
+            # En cas de collision (très peu probable mais possible), ajouter
+            # un compteur croissant jusqu'à trouver une référence libre.
+            if Paiement.objects.filter(reference=reference).exists():
+                compteur = Paiement.objects.select_for_update().count()
+                reference = f"PAY-{ts_micro[:4]}{compteur:04d}"
+                # Dernière vérification de sécurité
+                while Paiement.objects.filter(reference=reference).exists():
+                    compteur += 1
+                    reference = f"PAY-{ts_micro[:4]}{compteur:04d}"
+            return reference
+
     def save(self, *args, **kwargs):
         if not self.reference:
-            self.reference = 'PAY-' + ''.join(random.choices(string.digits, k=8))
+            self.reference = self._generer_reference_atomique()
         super().save(*args, **kwargs)

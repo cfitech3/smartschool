@@ -1,0 +1,42 @@
+{% extends "base/base.html" %}
+{% block title %}Ajouter une réduction{% endblock %}
+{% block topbar_title %}Ajouter une réduction / bourse{% endblock %}
+{% block nav_paiements %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="javascript:history.back()" class="btn btn-outline btn-sm">← Retour</a>
+    <h1>🎁 Ajouter une réduction</h1>
+  </div>
+</div>
+<div style="max-width:600px;">
+<form method="post">{% csrf_token %}
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header"><span class="card-title">Détails de la réduction</span></div>
+  <div class="card-body">
+  <div class="form-group"><label class="form-label">Elève *</label>
+    <select name="eleve" class="form-control" required>
+      <option value="">-- Choisir un élève --</option>
+      {% for e in eleves %}<option value="{{ e.pk }}"{% if eleve_pre and e.pk == eleve_pre.pk %} selected{% endif %}>{{ e.nom_complet }} — {{ e.matricule }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Type de frais *</label>
+    <select name="type_frais" class="form-control" required>
+      <option value="">-- Choisir --</option>
+      {% for tf in types_frais %}<option value="{{ tf.pk }}">{{ tf.nom }} (Base: {{ tf.montant_defaut|floatformat:0 }} F)</option>{% endfor %}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Montant de la réduction (FCFA) *</label>
+    <input type="number" name="montant" class="form-control" min="1" placeholder="Ex: 25000" required>
+  </div>
+  <div class="form-group"><label class="form-label">Motif (Optionnel)</label>
+    <input type="text" name="motif" class="form-control" placeholder="Bourse d'excellence, Famille nombreuse...">
+  </div>
+</div></div>
+<div class="card"><div class="card-body" style="display:flex;gap:10px;">
+  <button type="submit" class="btn btn-primary">✅ Enregistrer</button>
+  <a href="javascript:history.back()" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
+</div></div>
+</form>
+</div>
+{% endblock %}

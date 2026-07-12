@@ -80,7 +80,7 @@ def supprimer_eleve(request,pk):
 def liste_classes(request):
     etab=request.etablissement
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    classes=get_classes_actives(etab, annee).select_related("niveau").annotate(nb=Count("inscriptions",filter=Q(inscriptions__is_active=True))) if annee else []
+    classes=get_classes_actives(etab, annee).select_related("niveau","niveau__cycle").annotate(nb=Count("inscriptions",filter=Q(inscriptions__is_active=True))).order_by("niveau__cycle__ordre","niveau__ordre","nom") if annee else []
     return render(request,"eleves/classes.html",{"classes":classes,"annee":annee})
 
 @login_required

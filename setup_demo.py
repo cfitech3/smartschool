@@ -309,7 +309,7 @@ print(f"   {nb_aff} affectations creees")
 
 print("\n[10/14] Types de frais...")
 frais_data = [("Frais d'inscription",25000,True),('Scolarite mensuelle',15000,True),('Cantine mensuelle',8000,False),('Transport mensuel',6000,False),('Frais examen',10000,True),('Tenue scolaire',5000,False)]
-types_frais = {nom: TypeFrais.objects.create(etablissement=etab, nom=nom, montant_defaut=m, is_obligatoire=o) for nom,m,o in frais_data}
+types_frais = {nom: TypeFrais.objects.create(etablissement=etab, annee=annee, nom=nom, montant_defaut=m, is_obligatoire=o) for nom,m,o in frais_data}
 print(f"   {len(types_frais)} types de frais")
 
 print("\n[11/14] Eleves + tuteurs + inscriptions...")

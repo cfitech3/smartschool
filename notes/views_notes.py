@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.db.models import Q
 from .models import Matiere, Periode, NotePeriode, LogModificationNote
 from django.utils import timezone as dj_timezone
+from .services import calculer_bulletin
 from etablissements.models import Classe, AnneeScolaire, ModeleDocument, AffectationMatiere
 from eleves.models import Eleve
 from decimal import Decimal
@@ -20,15 +21,26 @@ def require_etab(fn):
     return wrapper
 
 
-def peut_modifier_note(user, note_periode):
+def peut_modifier_note(user, note_periode=None, matiere=None, classe=None, periode=None):
     """
-    Sécurité : qui peut modifier une note ?
+    Sécurité : qui peut modifier/saisir une note ?
     - Super admin et admin : toujours
+    - Si la période est clôturée : bloqué pour tout le monde sauf admin
     - Enseignant : seulement ses propres matières affectées à cette classe
     - Surveillant : seulement la matière Conduite
     """
     if user.is_admin:
         return True, None
+
+    # Récupérer les objets depuis note_periode s'ils ne sont pas fournis
+    if note_periode:
+        matiere = matiere or note_periode.matiere
+        classe = classe or note_periode.classe
+        periode = periode or note_periode.periode
+
+    # P2.2 : Vérifier la clôture de la période
+    if periode and not periode.peut_saisir:
+        return False, "La saisie est clôturée pour cette période. Contactez l'administration."
     if user.is_enseignant:
         # Vérifier que l'enseignant est affecté à cette matière/classe
         from etablissements.models import AffectationMatiere, AnneeScolaire
@@ -36,15 +48,15 @@ def peut_modifier_note(user, note_periode):
         annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
         affectation = AffectationMatiere.objects.filter(
             enseignant__user=user,
-            matiere=note_periode.matiere,
-            classe=note_periode.classe,
+            matiere=matiere,
+            classe=classe,
             annee=annee
         ).exists()
         if affectation:
             return True, 'enseignant'
         return False, "Vous n'etes pas affecte a cette matiere pour cette classe."
     if user.is_surveillant:
-        if note_periode.matiere.is_conduite:
+        if matiere and matiere.is_conduite:
             return True, 'surveillant'
         return False, "Le surveillant ne peut modifier que la note de conduite."
     return False, "Acces non autorise."
@@ -63,42 +75,62 @@ def enregistrer_log(note, user, champ, avant, apres):
     )
 
 
-def calculer_bulletin(eleve, periode, matieres):
-    """Calcule les lignes du bulletin malien."""
-    lignes = []
-    total_coeffic = Decimal('0')
-    total_coef = 0
+def calculer_rangs_classe(classe, periode, matieres):
+    """
+    Calcule les rangs de tous les élèves d'une classe en O(n) — un seul batch SQL.
 
-    for mat in matieres:
-        note = NotePeriode.objects.filter(eleve=eleve, matiere=mat, periode=periode).first()
-        if note:
-            moy_finale = note.moyenne_finale
-            moy_coeff  = note.moy_coeffic
-            appre      = note.appreciation
-            if moy_coeff is not None:
-                total_coeffic += Decimal(str(moy_coeff))
-                total_coef += mat.coefficient
-            lignes.append({
-                'matiere': mat,
-                'moy_classe': float(note.moy_classe) if note.moy_classe is not None else None,
-                'moy_compo': float(note.moy_compo) if note.moy_compo is not None else None,
-                'note_conduite': float(note.note_conduite) if note.note_conduite is not None else None,
-                'moyenne_finale': moy_finale,
-                'moy_coeffic': moy_coeff,
-                'appreciation': appre,
-                'note_max_classe': float(note.note_max_classe),
-                'note_max_compo': float(note.note_max_compo),
-            })
-        else:
-            lignes.append({
-                'matiere': mat,
-                'moy_classe': None, 'moy_compo': None, 'note_conduite': None,
-                'moyenne_finale': None, 'moy_coeffic': None, 'appreciation': '',
-                'note_max_classe': 20, 'note_max_compo': 40,
-            })
+    Au lieu de recalculer le bulletin de chaque élève individuellement (ce qui
+    génère N × M requêtes SQL pour N élèves et M matières), on charge toutes
+    les notes de la classe/période en une seule requête, puis on calcule
+    les moyennes et le classement entièrement en Python.
 
-    moy_gen = round(float(total_coeffic) / total_coef, 2) if total_coef > 0 else None
-    return lignes, moy_gen, float(total_coeffic), total_coef
+    Retourne un dict : {eleve_pk: rang, ...}
+    Exemple : {42: 1, 17: 2, 35: 3, ...}
+    """
+    # Charger toutes les notes de la classe/période en un seul appel DB
+    toutes_notes = (
+        NotePeriode.objects
+        .filter(classe=classe, periode=periode)
+        .select_related('matiere')
+    )
+
+    # Indexer les notes par (eleve_pk, matiere_pk) pour un accès O(1)
+    index_notes = {(n.eleve_id, n.matiere_id): n for n in toutes_notes}
+
+    # Récupérer les élèves inscrits et actifs dans la classe
+    inscriptions = (
+        classe.inscriptions
+        .filter(is_active=True)
+        .select_related('eleve')
+        .only('eleve__id')
+    )
+
+    # Calculer la moyenne générale de chaque élève à partir de l'index
+    moyennes = []  # liste de (eleve_pk, moyenne_generale)
+    for insc in inscriptions:
+        eleve_pk = insc.eleve_id
+        total_coeffic = Decimal('0')
+        total_coef = 0
+
+        for mat in matieres:
+            note = index_notes.get((eleve_pk, mat.pk))
+            if note is not None:
+                moy_coeff = note.moy_coeffic
+                if moy_coeff is not None:
+                    total_coeffic += Decimal(str(moy_coeff))
+                    total_coef += mat.coefficient
+
+        if total_coef > 0:
+            moy_gen = round(float(total_coeffic) / total_coef, 2)
+            moyennes.append((eleve_pk, moy_gen))
+
+    # Trier par moyenne décroissante pour attribuer les rangs
+    moyennes.sort(key=lambda x: x[1], reverse=True)
+
+    # Construire le dictionnaire rang {eleve_pk: rang}
+    rangs = {eleve_pk: rang for rang, (eleve_pk, _) in enumerate(moyennes, start=1)}
+    return rangs
+
 
 
 @login_required
@@ -144,8 +176,10 @@ def saisie_notes_mali(request):
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve').order_by('eleve__nom')
         for insc in inscriptions:
             note = NotePeriode.objects.filter(eleve=insc.eleve, matiere=matiere, periode=periode, classe=classe).first()
-            peut, raison = peut_modifier_note(request.user, note) if note else (True, None)
-            eleves_data.append({'eleve': insc.eleve, 'note': note, 'peut_modifier': peut})
+            peut, raison = peut_modifier_note(
+                request.user, note_periode=note, matiere=matiere, classe=classe, periode=periode
+            )
+            eleves_data.append({'eleve': insc.eleve, 'note': note, 'peut_modifier': peut, 'raison': raison})
 
     if request.method == 'POST' and classe and periode and matiere:
         note_max_c = Decimal(request.POST.get('note_max_classe', '20'))
@@ -173,6 +207,10 @@ def saisie_notes_mali(request):
                         note_existante.save()
                         modifiees += 1
                     else:
+                        peut, raison = peut_modifier_note(request.user, matiere=matiere, classe=classe, periode=periode)
+                        if not peut:
+                            messages.error(request, raison)
+                            continue
                         note = NotePeriode.objects.create(
                             eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode,
                             note_conduite=valeur, saisi_par=request.user
@@ -191,22 +229,40 @@ def saisie_notes_mali(request):
                             messages.error(request, raison)
                             continue
                         if mc:
-                            avant = note_existante.moy_classe
-                            enregistrer_log(note_existante, request.user, 'moy_classe', avant, Decimal(mc.replace(',','.')))
-                            note_existante.moy_classe = Decimal(mc.replace(',','.'))
+                            val_mc = Decimal(mc.replace(',','.'))
+                            if 0 <= val_mc <= note_max_c:
+                                avant = note_existante.moy_classe
+                                enregistrer_log(note_existante, request.user, 'moy_classe', avant, val_mc)
+                                note_existante.moy_classe = val_mc
+                            else:
+                                messages.warning(request, f"Note classe hors plage (0-{note_max_c}) ignoree pour {insc.eleve.nom_complet}.")
                         if mn:
-                            avant = note_existante.moy_compo
-                            enregistrer_log(note_existante, request.user, 'moy_compo', avant, Decimal(mn.replace(',','.')))
-                            note_existante.moy_compo = Decimal(mn.replace(',','.'))
+                            val_mn = Decimal(mn.replace(',','.'))
+                            if 0 <= val_mn <= note_max_n:
+                                avant = note_existante.moy_compo
+                                enregistrer_log(note_existante, request.user, 'moy_compo', avant, val_mn)
+                                note_existante.moy_compo = val_mn
+                            else:
+                                messages.warning(request, f"Note compo hors plage (0-{note_max_n}) ignoree pour {insc.eleve.nom_complet}.")
                         note_existante.modifie_par = request.user
                         note_existante.note_max_classe = note_max_c
                         note_existante.note_max_compo  = note_max_n
                         note_existante.save()
                         modifiees += 1
                     else:
+                        peut, raison = peut_modifier_note(request.user, matiere=matiere, classe=classe, periode=periode)
+                        if not peut:
+                            messages.error(request, raison)
+                            continue
                         defaults = {'note_max_classe': note_max_c, 'note_max_compo': note_max_n, 'saisi_par': request.user}
-                        if mc: defaults['moy_classe'] = Decimal(mc.replace(',','.'))
-                        if mn: defaults['moy_compo']  = Decimal(mn.replace(',','.'))
+                        if mc:
+                            val_mc = Decimal(mc.replace(',','.'))
+                            if 0 <= val_mc <= note_max_c:
+                                defaults['moy_classe'] = val_mc
+                        if mn:
+                            val_mn = Decimal(mn.replace(',','.'))
+                            if 0 <= val_mn <= note_max_n:
+                                defaults['moy_compo'] = val_mn
                         NotePeriode.objects.create(eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode, **defaults)
                         saved += 1
 
@@ -249,11 +305,16 @@ def releve_notes_classe(request):
     tableau = []
     matieres = []
     if classe and periode:
-        matieres = Matiere.objects.filter(etablissement=etab)
+        from .services import get_matieres_pour_classe
+        matieres = get_matieres_pour_classe(classe, periode)
+        # P2.5 : Préchargement des notes pour éviter N+1 requêtes
+        toutes_notes = NotePeriode.objects.filter(classe=classe, periode=periode)
+        index_notes = {(n.eleve_id, n.matiere_id): n for n in toutes_notes}
+
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve').order_by('eleve__nom')
         resultats = []
         for insc in inscriptions:
-            lignes, moy, tc, tcoef = calculer_bulletin(insc.eleve, periode, matieres)
+            lignes, moy, tc, tcoef = calculer_bulletin(insc.eleve, periode, matieres, index_notes=index_notes)
             resultats.append({'eleve': insc.eleve, 'moyenne': moy, 'lignes': lignes})
         resultats_avec_moy = [r for r in resultats if r['moyenne'] is not None]
         resultats_avec_moy.sort(key=lambda x: x['moyenne'], reverse=True)
@@ -315,7 +376,10 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
     periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
     inscription = eleve.get_inscription_active()
-    matieres = Matiere.objects.filter(etablissement=etab).order_by('nom')
+    
+    from .services import get_matieres_pour_eleve
+    classe_pour_matieres = inscription.classe if inscription else None
+    matieres = get_matieres_pour_eleve(eleve, periode, classe_pour_matieres)
 
     if modele_pk:
         modele = get_object_or_404(ModeleDocument, pk=modele_pk, etablissement=etab)
@@ -330,18 +394,23 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
     if inscription:
         classe = inscription.classe
         effectif = classe.inscriptions.filter(is_active=True).count()
-        moyennes = []
-        for insc in classe.inscriptions.filter(is_active=True).select_related('eleve'):
-            _, moy, _, _ = calculer_bulletin(insc.eleve, periode, matieres)
-            if moy is not None:
-                moyennes.append((insc.eleve.pk, moy))
-        moyennes.sort(key=lambda x: x[1], reverse=True)
-        if moyennes:
-            moy_premier = moyennes[0][1]
-        for i, (epk, _) in enumerate(moyennes, 1):
-            if epk == eleve.pk:
-                rang = i
-                break
+
+        # Calcul de rang O(n) : un seul batch SQL pour toute la classe,
+        # au lieu de recalculer le bulletin de chaque élève individuellement.
+        rangs_classe = calculer_rangs_classe(classe, periode, matieres)
+        rang = rangs_classe.get(eleve.pk)
+
+        # Moyenne du premier : on relit le résultat trié depuis rangs_classe
+        if rangs_classe:
+            # Retrouver la moyenne du 1er élève classé
+            # (rang 1 = clé dont la valeur vaut 1)
+            pk_premier = next(
+                (pk for pk, r in rangs_classe.items() if r == 1), None
+            )
+            if pk_premier is not None:
+                _, moy_premier, _, _ = calculer_bulletin(
+                    Eleve.objects.get(pk=pk_premier), periode, matieres
+                )
 
     appre_dir = ''
     if moy_gen is not None:

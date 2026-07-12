@@ -245,7 +245,7 @@ def espace_emploi_du_temps(request, eleve_pk):
 
 @login_required
 def liste_reclamations_admin(request):
-    if not request.user.is_admin:
+    if not (request.user.is_admin or request.user.is_secretariat):
         messages.error(request, "Acces reserve aux administrateurs.")
         return redirect('dashboard')
     etab = request.etablissement
@@ -275,6 +275,19 @@ def traiter_reclamation(request, pk):
         reclamation.traite_par = request.user
         reclamation.date_traitement = timezone.now()
         reclamation.save()
+        
+        # P3.4 : Notification parent lors de réponse à réclamation
+        if reclamation.statut in ['traite', 'rejete']:
+            from notes.models import MessageFamille
+            MessageFamille.objects.create(
+                etablissement=etab,
+                eleve=reclamation.eleve,
+                auteur=request.user,
+                sujet=f"Suite à votre réclamation : {reclamation.note_periode.matiere.nom}",
+                contenu=f"Votre réclamation a été examinée. Statut : {reclamation.get_statut_display()}.\n\nRéponse : {reclamation.reponse}",
+                statut='non_lu'
+            )
+            
         messages.success(request, "Reclamation traitee.")
         return redirect('liste_reclamations_admin')
     return render(request, 'core/famille/admin_traiter_reclamation.html', {'reclamation': reclamation})
@@ -388,26 +401,31 @@ def envoyer_message(request, eleve_pk):
 
 @login_required
 def admin_messages(request):
-    """Liste des messages recus par l'administration."""
-    if not (request.user.is_admin or request.user.is_surveillant or request.user.is_comptable):
+    """Liste des messages recus par l'administration, filtrée selon le rôle."""
+    if not (request.user.is_admin or request.user.is_surveillant or request.user.is_comptable or request.user.is_secretariat):
         return redirect('dashboard')
+
     from notes.models import MessageFamille
+    from django.db.models import Q
+
     etab = request.etablissement
 
-    # Filtrer selon le rôle
+    # Construire le queryset de base selon le rôle de l'utilisateur connecté.
+    # L'admin voit tous les messages de l'établissement.
+    # Les autres rôles (surveillant, comptable) ne voient que les messages
+    # qui leur sont adressés directement ou diffusés à toute l'administration.
     if request.user.is_admin:
         msgs = MessageFamille.objects.filter(etablissement=etab)
     else:
-        msgs = MessageFamille.objects.filter(
-            etablissement=etab
-        ).filter(
-            models.Q(destinataire_user=request.user) |
-            models.Q(destinataire_role='administration')
+        msgs = MessageFamille.objects.filter(etablissement=etab).filter(
+            Q(destinataire_user=request.user) |
+            Q(destinataire_role='administration')
         )
 
-    from django.db import models as dj_models
-    msgs = MessageFamille.objects.filter(etablissement=etab).order_by('-date_envoi')
+    # Appliquer l'ordre et le filtre de statut sur le queryset restreint
+    msgs = msgs.order_by('-date_envoi')
     nb_non_lus = msgs.filter(statut='non_lu').count()
+
     statut_filtre = request.GET.get('statut', '')
     if statut_filtre:
         msgs = msgs.filter(statut=statut_filtre)

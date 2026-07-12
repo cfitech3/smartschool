@@ -27,12 +27,36 @@ class Periode(models.Model):
     date_debut = models.DateField()
     date_fin = models.DateField()
     is_active = models.BooleanField(default=False)
+    # P2.2 — Clôture de saisie : une fois verrouillée, aucun enseignant
+    # ne peut plus modifier les notes. Seul un admin peut réouvrir.
+    saisie_cloturee = models.BooleanField(
+        default=False,
+        help_text="Si vrai, toute saisie/modification de notes est bloquée sur cette période."
+    )
+    date_cloture = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Date à laquelle la saisie a été clôturée."
+    )
+    cloture_par = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='periodes_cloturees',
+        help_text="Administrateur ayant clôturé la saisie."
+    )
 
     class Meta:
         ordering = ['numero']
         unique_together = ['etablissement','annee','numero']
 
     def __str__(self): return f"{self.libelle} — {self.annee.libelle}"
+
+    @property
+    def peut_saisir(self):
+        """
+        Retourne True si la période autorise encore la saisie de notes.
+        Une période clôturée bloque toute modification par les enseignants.
+        Les admins peuvent forcer la saisie même après clôture en réouvrant.
+        """
+        return not self.saisie_cloturee
 
 
 class NoteUE(models.Model):

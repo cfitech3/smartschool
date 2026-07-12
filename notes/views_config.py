@@ -91,32 +91,44 @@ def modifier_periode(request,pk):
 def liste_types_frais(request):
     etab=request.etablissement
     from finances.models import TypeFrais
-    return render(request,"notes/config/types_frais.html",{"types":TypeFrais.objects.filter(etablissement=etab)})
+    from etablissements.models import AnneeScolaire
+    from django.db.models import Q
+    annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
+    types=TypeFrais.objects.filter(etablissement=etab).filter(Q(annee=annee)|Q(annee__isnull=True))
+    return render(request,"notes/config/types_frais.html",{"types":types,"annee":annee})
 
 @login_required
 @req
 def ajouter_type_frais(request):
     etab=request.etablissement
     from finances.models import TypeFrais
+    from etablissements.models import AnneeScolaire
+    annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     if request.method=="POST":
         nom=request.POST.get("nom","").strip(); montant=request.POST.get("montant_defaut",0)
         oblig=bool(request.POST.get("is_obligatoire")); desc=request.POST.get("description","")
         if not nom: messages.error(request,"Nom obligatoire.")
-        elif TypeFrais.objects.filter(etablissement=etab,nom=nom).exists(): messages.error(request,f"{nom} existe deja.")
+        elif TypeFrais.objects.filter(etablissement=etab,nom=nom,annee=annee).exists(): messages.error(request,f"{nom} existe deja pour cette annee.")
         else:
-            TypeFrais.objects.create(etablissement=etab,nom=nom,montant_defaut=montant,is_obligatoire=oblig,description=desc)
+            TypeFrais.objects.create(etablissement=etab,annee=annee,nom=nom,montant_defaut=montant,is_obligatoire=oblig,description=desc)
             messages.success(request,f"Type {nom} cree."); return redirect("liste_types_frais")
-    return render(request,"notes/config/form_type_frais.html",{"mode":"ajouter"})
+    return render(request,"notes/config/form_type_frais.html",{"mode":"ajouter","annee":annee})
 
 @login_required
 @req
 def modifier_type_frais(request,pk):
     etab=request.etablissement
     from finances.models import TypeFrais
+    from etablissements.models import AnneeScolaire
     tf=get_object_or_404(TypeFrais,pk=pk,etablissement=etab)
+    annee_active=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     if request.method=="POST":
         if request.POST.get("action")=="supprimer": tf.delete(); messages.success(request,"Supprime."); return redirect("liste_types_frais")
         tf.nom=request.POST.get("nom",tf.nom); tf.montant_defaut=request.POST.get("montant_defaut",tf.montant_defaut)
         tf.is_obligatoire=bool(request.POST.get("is_obligatoire")); tf.description=request.POST.get("description","")
+        # Permettre de lier/délier l'année active
+        lier_annee=request.POST.get("lier_annee_active")
+        if lier_annee=="oui" and annee_active and tf.annee is None:
+            tf.annee=annee_active
         tf.save(); messages.success(request,"Mis a jour."); return redirect("liste_types_frais")
-    return render(request,"notes/config/form_type_frais.html",{"mode":"modifier","tf":tf})
+    return render(request,"notes/config/form_type_frais.html",{"mode":"modifier","tf":tf,"annee_active":annee_active})

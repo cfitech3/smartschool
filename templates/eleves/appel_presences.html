@@ -1,73 +1,280 @@
 {% extends "base/base.html" %}
-{% block title %}Appel{% endblock %}
-{% block topbar_title %}Appel des presences{% endblock %}
-{% block nav_presences %}active{% endblock %}
+{% block title %}Appel Présences{% endblock %}
+{% block topbar_title %}Appel des présences{% endblock %}
+{% block extra_css %}
+<style>
+.presence-btn-group { display:flex; gap:6px; justify-content:center; flex-wrap:nowrap; }
+.presence-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 7px; border: 2px solid var(--border);
+  cursor: pointer; font-size: 12px; font-weight: 700;
+  background: var(--bg-card); color: var(--text-muted);
+  transition: all 0.15s ease; user-select: none; white-space: nowrap;
+}
+.presence-btn input[type="radio"] { display: none; }
+.presence-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.1); }
+.presence-btn.active-present { background:#e8f5e9; border-color:#2e7d32; color:#2e7d32; }
+.presence-btn.active-absent  { background:#ffebee; border-color:#c62828; color:#c62828; }
+.presence-btn.active-retard  { background:#fff3e0; border-color:#e65100; color:#e65100; }
+.presence-btn.active-justifie{ background:#e3f2fd; border-color:#1565c0; color:#1565c0; }
+.presence-row { transition: background 0.15s ease; }
+.presence-row.row-absent  { background: rgba(198,40,40,0.04) !important; }
+.presence-row.row-retard  { background: rgba(230,81,0,0.04) !important; }
+.presence-row.row-justifie{ background: rgba(21,101,192,0.04) !important; }
+.presence-row.row-present { background: transparent !important; }
+.stat-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+}
+.stat-pill.presents { background:#e8f5e9; color:#2e7d32; }
+.stat-pill.absents  { background:#ffebee; color:#c62828; }
+.stat-pill.retards  { background:#fff3e0; color:#e65100; }
+</style>
+{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1>📋 Appel des presences</h1></div>
+  <div>
+    <h1>📋 Appel des présences</h1>
+    {% if annee %}<div style="font-size:13px;color:var(--text-muted);margin-top:3px;">{{ annee.libelle }}</div>{% endif %}
+  </div>
   <a href="{% url 'historique_presences' %}" class="btn btn-outline btn-sm">📊 Historique</a>
 </div>
-<div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:14px 18px;">
-<form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-  <div style="flex:1;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Classe</label>
-    <select name="classe" class="form-control" onchange="this.form.submit()">
-      <option value="">-- Choisir --</option>
-      {% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}
-    </select>
-  </div>
-  <div style="flex:1;min-width:140px;"><label class="form-label" style="margin-bottom:4px;">Date</label><input type="date" name="date" value="{{ date_appel|date:'Y-m-d' }}" class="form-control" onchange="this.form.submit()"></div>
-  {% if date_appel == today %}<span style="align-self:flex-end;padding:9px 12px;background:rgba(46,125,50,0.1);border-radius:7px;font-size:12px;font-weight:700;color:var(--success);">📅 Aujourd'hui</span>{% endif %}
-</form></div></div>
-{% if classe %}
-  {% if appel_fait %}<div class="alert alert-info">✅ Appel deja enregistre pour cette date. Vous pouvez le modifier.</div>{% endif %}
-  <form method="post">{% csrf_token %}
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">{{ classe.nom }} — {{ date_appel|date:"d F Y" }}</span>
-      <div style="display:flex;gap:6px;">
-        <button type="button" onclick="setAll('present')" class="btn btn-outline btn-sm" style="color:var(--success);border-color:var(--success);">✅ Tous presents</button>
-        <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+
+<!-- Filtre classe + date -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body" style="padding:14px 18px;">
+    <form method="get" id="form-filtre" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <label class="form-label" style="margin-bottom:4px;font-weight:600;">Classe</label>
+        <select name="classe" class="form-control" id="select-classe" onchange="document.getElementById('form-filtre').submit()">
+          <option value="">-- Sélectionner une classe --</option>
+          {% for c in classes %}
+          <option value="{{ c.pk }}" {% if classe_id == c.pk|stringformat:"s" %}selected{% endif %}>
+            {{ c.nom }}{% if c.niveau %} — {{ c.niveau.nom }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        {% if not classes %}
+        <div style="color:var(--danger);font-size:12px;margin-top:4px;">⚠️ Aucune classe disponible</div>
+        {% endif %}
       </div>
-    </div>
-    <table class="table-modern">
-    <thead><tr><th>#</th><th>Eleve</th><th style="text-align:center;min-width:300px;">Statut</th><th>Motif</th></tr></thead>
-    <tbody>
-    {% for item in eleves_data %}
-    <tr id="row-{{ item.eleve.pk }}" style="{% if item.statut == 'absent' %}background:rgba(198,40,40,0.04);{% elif item.statut == 'retard' %}background:rgba(245,127,23,0.04);{% endif %}">
-      <td style="font-weight:600;color:var(--text-muted);">{{ forloop.counter }}</td>
-      <td><div style="font-weight:700;font-size:13.5px;">{{ item.eleve.nom }} {{ item.eleve.prenom }}</div><div style="font-size:11px;color:var(--text-muted);">{{ item.eleve.matricule }}</div></td>
-      <td>
-        <div style="display:flex;gap:5px;justify-content:center;">
-          <label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1.5px solid {% if item.statut == 'present' %}var(--success){% else %}var(--border){% endif %};cursor:pointer;font-size:12px;font-weight:600;">
-            <input type="radio" name="statut_{{ item.eleve.pk }}" value="present" {% if item.statut == 'present' %}checked{% endif %} style="display:none;" onchange="updateRow({{ item.eleve.pk }}, 'present')">
-            ✅ Present
-          </label>
-          <label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1.5px solid {% if item.statut == 'absent' %}var(--danger){% else %}var(--border){% endif %};cursor:pointer;font-size:12px;font-weight:600;">
-            <input type="radio" name="statut_{{ item.eleve.pk }}" value="absent" {% if item.statut == 'absent' %}checked{% endif %} style="display:none;" onchange="updateRow({{ item.eleve.pk }}, 'absent')">
-            ❌ Absent
-          </label>
-          <label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1.5px solid {% if item.statut == 'retard' %}var(--warning){% else %}var(--border){% endif %};cursor:pointer;font-size:12px;font-weight:600;">
-            <input type="radio" name="statut_{{ item.eleve.pk }}" value="retard" {% if item.statut == 'retard' %}checked{% endif %} style="display:none;" onchange="updateRow({{ item.eleve.pk }}, 'retard')">
-            ⏰ Retard
-          </label>
-          <label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1.5px solid {% if item.statut == 'justifie' %}var(--info){% else %}var(--border){% endif %};cursor:pointer;font-size:12px;font-weight:600;">
-            <input type="radio" name="statut_{{ item.eleve.pk }}" value="justifie" {% if item.statut == 'justifie' %}checked{% endif %} style="display:none;" onchange="updateRow({{ item.eleve.pk }}, 'justifie')">
-            📝 Justifie
-          </label>
-        </div>
-      </td>
-      <td><input type="text" name="motif_{{ item.eleve.pk }}" class="form-control" style="min-width:140px;font-size:12.5px;" value="{{ item.motif }}" placeholder="Motif..."></td>
-    </tr>
-    {% endfor %}
-    </tbody></table>
-    <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;"><button type="submit" class="btn btn-primary">💾 Enregistrer l'appel</button></div>
+      <div style="flex:1;min-width:160px;">
+        <label class="form-label" style="margin-bottom:4px;font-weight:600;">Date</label>
+        <input type="date" name="date" value="{{ date_appel|date:'Y-m-d' }}" class="form-control"
+               onchange="document.getElementById('form-filtre').submit()">
+      </div>
+      <div style="align-self:flex-end;">
+        {% if date_appel == today %}
+        <span class="stat-pill presents">📅 Aujourd'hui</span>
+        {% else %}
+        <span class="stat-pill" style="background:var(--bg-secondary);color:var(--text-muted);">
+          {{ date_appel|date:"d/m/Y" }}
+        </span>
+        {% endif %}
+      </div>
+    </form>
   </div>
+</div>
+
+{% if classe %}
+  {% if appel_fait %}
+  <div class="alert alert-info">✅ Appel déjà enregistré pour cette date — vous pouvez le modifier.</div>
+  {% endif %}
+
+  <!-- Compteurs temps réel -->
+  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;" id="stats-bar">
+    <span class="stat-pill presents">✅ Présents : <strong id="count-present">0</strong></span>
+    <span class="stat-pill absents">❌ Absents : <strong id="count-absent">0</strong></span>
+    <span class="stat-pill retards">⏰ Retards : <strong id="count-retard">0</strong></span>
+  </div>
+
+  <form method="post" id="form-appel">
+    {% csrf_token %}
+    <input type="hidden" name="classe" value="{{ classe.pk }}">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">{{ classe.nom }} — {{ date_appel|date:"d F Y" }}</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button type="button" onclick="setAll('present')" class="btn btn-outline btn-sm"
+                  style="color:var(--success);border-color:var(--success);">✅ Tous présents</button>
+          <button type="submit" class="btn btn-primary">💾 Enregistrer l'appel</button>
+        </div>
+      </div>
+
+      <table class="table-modern">
+        <thead>
+          <tr>
+            <th style="width:40px;">#</th>
+            <th>Élève</th>
+            <th style="text-align:center;">Statut</th>
+            <th>Motif (si absent/retard)</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in eleves_data %}
+        <tr class="presence-row row-{{ item.statut }}" id="row-{{ item.eleve.pk }}">
+          <td style="font-weight:600;color:var(--text-muted);">{{ forloop.counter }}</td>
+          <td>
+            <div style="font-weight:700;font-size:13.5px;">{{ item.eleve.nom }} {{ item.eleve.prenom }}</div>
+            <div style="font-size:11px;color:var(--text-muted);">{{ item.eleve.matricule }}</div>
+          </td>
+          <td>
+            <div class="presence-btn-group">
+              <!-- Présent -->
+              <label class="presence-btn {% if item.statut == 'present' %}active-present{% endif %}"
+                     id="btn-present-{{ item.eleve.pk }}"
+                     onclick="selectStatut({{ item.eleve.pk }}, 'present')">
+                <input type="radio" name="statut_{{ item.eleve.pk }}" value="present"
+                       {% if item.statut == 'present' %}checked{% endif %}>
+                ✅ Présent
+              </label>
+              <!-- Absent -->
+              <label class="presence-btn {% if item.statut == 'absent' %}active-absent{% endif %}"
+                     id="btn-absent-{{ item.eleve.pk }}"
+                     onclick="selectStatut({{ item.eleve.pk }}, 'absent')">
+                <input type="radio" name="statut_{{ item.eleve.pk }}" value="absent"
+                       {% if item.statut == 'absent' %}checked{% endif %}>
+                ❌ Absent
+              </label>
+              <!-- Retard -->
+              <label class="presence-btn {% if item.statut == 'retard' %}active-retard{% endif %}"
+                     id="btn-retard-{{ item.eleve.pk }}"
+                     onclick="selectStatut({{ item.eleve.pk }}, 'retard')">
+                <input type="radio" name="statut_{{ item.eleve.pk }}" value="retard"
+                       {% if item.statut == 'retard' %}checked{% endif %}>
+                ⏰ Retard
+              </label>
+              <!-- Justifié -->
+              <label class="presence-btn {% if item.statut == 'justifie' %}active-justifie{% endif %}"
+                     id="btn-justifie-{{ item.eleve.pk }}"
+                     onclick="selectStatut({{ item.eleve.pk }}, 'justifie')">
+                <input type="radio" name="statut_{{ item.eleve.pk }}" value="justifie"
+                       {% if item.statut == 'justifie' %}checked{% endif %}>
+                📝 Justifié
+              </label>
+            </div>
+          </td>
+          <td>
+            <input type="text" name="motif_{{ item.eleve.pk }}" class="form-control"
+                   style="min-width:130px;font-size:12.5px;" value="{{ item.motif }}"
+                   placeholder="Motif si nécessaire..."
+                   id="motif-{{ item.eleve.pk }}">
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" style="text-align:center;padding:30px;color:var(--text-muted);">
+          Aucun élève inscrit dans cette classe.
+        </td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+
+      {% if eleves_data %}
+      <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;">
+        <button type="button" onclick="setAll('present')" class="btn btn-outline"
+                style="color:var(--success);border-color:var(--success);">✅ Tous présents</button>
+        <button type="submit" class="btn btn-primary">💾 Enregistrer l'appel</button>
+      </div>
+      {% endif %}
+    </div>
   </form>
+
 {% else %}
-<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">📋</div><div style="font-size:16px;font-weight:700;">Selectionnez une classe</div></div></div>
+<div class="card">
+  <div style="text-align:center;padding:60px;color:var(--text-muted);">
+    <div style="font-size:48px;margin-bottom:14px;">📋</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px;">Sélectionnez une classe</div>
+    <div style="font-size:13px;">Choisissez une classe dans le menu ci-dessus pour commencer l'appel</div>
+    {% if not classes %}
+    <div style="margin-top:16px;padding:12px 20px;background:rgba(198,40,40,0.08);border-radius:8px;color:var(--danger);font-size:13px;font-weight:600;">
+      ⚠️ Aucune classe disponible — vérifiez que des cycles sont activés dans les paramètres.
+    </div>
+    {% endif %}
+  </div>
+</div>
 {% endif %}
 {% endblock %}
-{% block extra_js %}<script>
-function setAll(val){document.querySelectorAll('input[type=radio]').forEach(r=>{if(r.value===val){r.checked=true;const id=r.name.replace('statut_','');updateRow(id,val);}});}
-function updateRow(id,val){const row=document.getElementById('row-'+id);if(!row)return;row.style.background=val==='absent'?'rgba(198,40,40,0.04)':val==='retard'?'rgba(245,127,23,0.04)':'';}
-</script>{% endblock %}
+
+{% block extra_js %}
+<script>
+// Statuts disponibles et leurs classes CSS
+const STATUT_CLASSES = {
+  'present':  'active-present',
+  'absent':   'active-absent',
+  'retard':   'active-retard',
+  'justifie': 'active-justifie',
+};
+const ROW_CLASSES = {
+  'present':  'row-present',
+  'absent':   'row-absent',
+  'retard':   'row-retard',
+  'justifie': 'row-justifie',
+};
+
+function selectStatut(eleveId, statut) {
+  // Cocher le radio
+  const radio = document.querySelector(`input[name="statut_${eleveId}"][value="${statut}"]`);
+  if (radio) radio.checked = true;
+
+  // Mettre à jour les boutons visuels
+  ['present','absent','retard','justifie'].forEach(s => {
+    const btn = document.getElementById(`btn-${s}-${eleveId}`);
+    if (btn) {
+      Object.values(STATUT_CLASSES).forEach(c => btn.classList.remove(c));
+      if (s === statut) btn.classList.add(STATUT_CLASSES[statut]);
+    }
+  });
+
+  // Mettre à jour la ligne
+  const row = document.getElementById(`row-${eleveId}`);
+  if (row) {
+    Object.values(ROW_CLASSES).forEach(c => row.classList.remove(c));
+    row.classList.add(ROW_CLASSES[statut]);
+  }
+
+  // Afficher/masquer le motif
+  const motif = document.getElementById(`motif-${eleveId}`);
+  if (motif) {
+    motif.style.display = (statut === 'present') ? 'none' : '';
+    motif.placeholder = statut === 'absent' ? 'Raison de l\'absence...' :
+                        statut === 'retard' ? 'Raison du retard...' : 'Motif de justification...';
+  }
+
+  updateStats();
+}
+
+function setAll(statut) {
+  document.querySelectorAll('[id^="row-"]').forEach(row => {
+    const eleveId = row.id.replace('row-', '');
+    selectStatut(eleveId, statut);
+  });
+}
+
+function updateStats() {
+  const radios = document.querySelectorAll('input[type="radio"]:checked');
+  let counts = {present:0, absent:0, retard:0, justifie:0};
+  radios.forEach(r => { if (r.value in counts) counts[r.value]++; });
+  const p = document.getElementById('count-present');
+  const a = document.getElementById('count-absent');
+  const r = document.getElementById('count-retard');
+  if (p) p.textContent = counts.present;
+  if (a) a.textContent = counts.absent;
+  if (r) r.textContent = counts.retard + counts.justifie;
+}
+
+// Cacher les champs motif pour les "présents" au chargement + init stats
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[id^="motif-"]').forEach(inp => {
+    const eleveId = inp.id.replace('motif-', '');
+    const checkedRadio = document.querySelector(`input[name="statut_${eleveId}"]:checked`);
+    if (checkedRadio && checkedRadio.value === 'present') inp.style.display = 'none';
+  });
+  updateStats();
+
+  // Auto-dismiss des alertes
+  document.querySelectorAll('.alert').forEach(el => {
+    setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity 0.4s'; setTimeout(()=>el.remove(),400); }, 5000);
+  });
+});
+</script>
+{% endblock %}

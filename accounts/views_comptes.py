@@ -4,6 +4,9 @@ Gestion des comptes élève et parent :
 - Fiche d'accès imprimable individuelle
 - Génération en masse par classe
 """
+import secrets
+import string
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -13,72 +16,117 @@ from accounts.permissions import role_required
 from eleves.models import Eleve, Inscription
 
 
+# ── Génération de noms d'utilisateur ─────────────────────────────────────────
+
 def _generer_username(base, tentative=0):
-    """Génère un username unique."""
+    """Génère un username unique en ajoutant un suffixe numérique si nécessaire."""
     username = base if tentative == 0 else f"{base}{tentative}"
     if not User.objects.filter(username=username).exists():
         return username
     return _generer_username(base, tentative + 1)
 
 
-def _mdp_depuis_naissance(eleve):
-    """Mot de passe par défaut = date de naissance DDMMYYYY."""
-    return eleve.date_naissance.strftime('%d%m%Y')
+# ── Génération de mots de passe sécurisés ────────────────────────────────────
 
+# Alphabet utilisé pour les mots de passe : lettres minuscules + majuscules + chiffres.
+# Les caractères ambigus (0, O, l, I) sont exclus pour faciliter la lecture sur papier.
+_ALPHABET_MDP = (
+    string.ascii_lowercase.translate(str.maketrans('', '', 'lI'))
+    + string.ascii_uppercase.translate(str.maketrans('', '', 'IO'))
+    + string.digits.translate(str.maketrans('', '', '01'))
+)
+
+
+def _generer_mot_de_passe(longueur=10):
+    """
+    Génère un mot de passe aléatoire et cryptographiquement sûr.
+
+    Utilise le module `secrets` (stdlib Python) qui est conçu pour
+    la génération de tokens et mots de passe sécurisés, contrairement
+    à `random` qui ne doit pas être utilisé à des fins de sécurité.
+
+    Le mot de passe contient au minimum une lettre majuscule, une lettre
+    minuscule et un chiffre pour respecter les exigences de complexité.
+    """
+    while True:
+        mdp = ''.join(secrets.choice(_ALPHABET_MDP) for _ in range(longueur))
+        # Garantir la présence d'au moins un chiffre et une majuscule
+        a_majuscule = any(c.isupper() for c in mdp)
+        a_chiffre = any(c.isdigit() for c in mdp)
+        if a_majuscule and a_chiffre:
+            return mdp
+
+
+# ── Création des comptes ──────────────────────────────────────────────────────
 
 def creer_compte_eleve(eleve, etab):
-    """Crée ou récupère le compte de connexion d'un élève."""
-    if eleve.user_compte:
-        return eleve.user_compte, False  # déjà existant
+    """
+    Crée ou récupère le compte de connexion d'un élève.
 
-    # Username = matricule en minuscules sans tirets
+    Retourne : (user, cree, mot_de_passe_brut)
+    - cree (bool) : True si le compte vient d'être créé.
+    - mot_de_passe_brut (str | None) : le mot de passe en clair,
+      disponible uniquement à la création. None si le compte existait déjà.
+    """
+    if eleve.user_compte:
+        return eleve.user_compte, False, None  # Compte déjà existant
+
+    # Username = matricule en minuscules, sans tirets ni espaces
     username = eleve.matricule.lower().replace('-', '').replace(' ', '')
     username = _generer_username(username)
-    mdp = _mdp_depuis_naissance(eleve)
+    mdp = _generer_mot_de_passe()
 
     user = User.objects.create_user(
         username=username,
         password=mdp,
         first_name=eleve.prenom,
         last_name=eleve.nom,
-        role='eleve',
+        role=User.ROLE_ELEVE,
         etablissement=etab,
     )
     eleve.user_compte = user
     eleve.save()
-    return user, True
+    return user, True, mdp
 
 
 def creer_compte_parent(eleve, etab):
-    """Crée ou récupère le compte parent du tuteur d'un élève."""
+    """
+    Crée ou récupère le compte parent du tuteur d'un élève.
+
+    Retourne : (user, cree, mot_de_passe_brut)
+    - cree (bool) : True si le compte vient d'être créé.
+    - mot_de_passe_brut (str | None) : le mot de passe en clair,
+      disponible uniquement à la création. None si le compte existait déjà.
+    """
     tuteur = eleve.tuteur
     if not tuteur:
-        return None, False
+        return None, False, None
     if tuteur.user_compte:
-        return tuteur.user_compte, False
+        return tuteur.user_compte, False, None
 
-    # Username = tel sans espaces/+ ou nom.prenom
+    # Username basé sur le téléphone ou le nom
     tel = (tuteur.telephone or '').replace('+', '').replace(' ', '').replace('-', '')
     if tel:
         base = f"p{tel[-8:]}"
     else:
         base = f"{tuteur.nom[:4].lower()}{tuteur.prenom[:3].lower()}"
     username = _generer_username(base)
-    # Mot de passe = téléphone ou date naissance enfant
-    mdp = tel[-8:] if len(tel) >= 8 else _mdp_depuis_naissance(eleve)
+    mdp = _generer_mot_de_passe()
 
     user = User.objects.create_user(
         username=username,
         password=mdp,
         first_name=tuteur.prenom,
         last_name=tuteur.nom,
-        role='parent',
+        role=User.ROLE_PARENT,
         etablissement=etab,
     )
     tuteur.user_compte = user
     tuteur.save()
-    return user, True
+    return user, True, mdp
 
+
+# ── Vues ──────────────────────────────────────────────────────────────────────
 
 @login_required
 @role_required('admin', 'secretariat')
@@ -87,15 +135,15 @@ def generer_acces_eleve(request, eleve_pk):
     etab = request.etablissement
     eleve = get_object_or_404(Eleve, pk=eleve_pk, etablissement=etab)
 
-    compte_eleve, cree_eleve = creer_compte_eleve(eleve, etab)
-    compte_parent, cree_parent = creer_compte_parent(eleve, etab)
+    compte_eleve, cree_eleve, mdp_eleve = creer_compte_eleve(eleve, etab)
+    compte_parent, cree_parent, mdp_parent = creer_compte_parent(eleve, etab)
 
     if cree_eleve:
         messages.success(request, f"Compte élève créé : {compte_eleve.username}")
     if cree_parent:
         messages.success(request, f"Compte parent créé : {compte_parent.username}")
     if not cree_eleve and not cree_parent:
-        messages.info(request, "Les comptes existaient déjà.")
+        messages.info(request, "Les comptes existaient déjà. Les mots de passe ne sont pas ré-affichés par sécurité.")
 
     inscription = eleve.get_inscription_active()
     return render(request, 'accounts/fiche_acces.html', {
@@ -104,8 +152,10 @@ def generer_acces_eleve(request, eleve_pk):
         'inscription': inscription,
         'compte_eleve': compte_eleve,
         'compte_parent': compte_parent,
-        'mdp_eleve': _mdp_depuis_naissance(eleve),
-        'mdp_parent': (eleve.tuteur.telephone or '').replace('+', '').replace(' ', '')[-8:] if eleve.tuteur else '—',
+        # Les mots de passe ne sont disponibles qu'à la création.
+        # Si les comptes existaient déjà, mdp_eleve et mdp_parent valent None.
+        'mdp_eleve': mdp_eleve,
+        'mdp_parent': mdp_parent,
         'today': timezone.now().date(),
     })
 
@@ -113,7 +163,12 @@ def generer_acces_eleve(request, eleve_pk):
 @login_required
 @role_required('admin', 'secretariat')
 def generer_acces_classe(request, classe_pk):
-    """Génère les comptes pour toute une classe et affiche le récap."""
+    """
+    Génère les comptes pour toute une classe et affiche le récapitulatif.
+
+    Les mots de passe générés sont retournés uniquement à la création.
+    Ils doivent être imprimés immédiatement via la fiche d'accès classe.
+    """
     from etablissements.models import Classe
     etab = request.etablissement
     classe = get_object_or_404(Classe, pk=classe_pk, etablissement=etab)
@@ -122,14 +177,15 @@ def generer_acces_classe(request, classe_pk):
     resultats = []
     for insc in inscriptions:
         eleve = insc.eleve
-        ce, cre_e = creer_compte_eleve(eleve, etab)
-        cp, cre_p = creer_compte_parent(eleve, etab)
+        ce, cre_e, mdp_e = creer_compte_eleve(eleve, etab)
+        cp, cre_p, mdp_p = creer_compte_parent(eleve, etab)
         resultats.append({
             'eleve': eleve,
             'compte_eleve': ce,
             'compte_parent': cp,
-            'mdp_eleve': _mdp_depuis_naissance(eleve),
-            'mdp_parent': (eleve.tuteur.telephone or '').replace('+','').replace(' ','')[-8:] if eleve.tuteur else '—',
+            # mdp_eleve et mdp_parent valent None si les comptes existaient déjà.
+            'mdp_eleve': mdp_e,
+            'mdp_parent': mdp_p,
             'nouveau_eleve': cre_e,
             'nouveau_parent': cre_p,
         })

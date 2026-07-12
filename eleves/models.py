@@ -1,6 +1,5 @@
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
-import random
 
 
 class Eleve(models.Model):
@@ -18,7 +17,7 @@ class Eleve(models.Model):
     tuteur = models.ForeignKey('Tuteur', on_delete=models.SET_NULL, null=True, blank=True, related_name='eleves')
     user_compte = models.OneToOneField('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='profil_eleve', help_text="Compte de connexion de l'eleve (optionnel)")
     date_inscription = models.DateField(default=timezone.now)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True, db_index=True)
     date_creation = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -26,12 +25,44 @@ class Eleve(models.Model):
 
     def __str__(self): return f"{self.nom} {self.prenom} ({self.matricule})"
 
+    @staticmethod
+    def _generer_matricule_atomique(etablissement, annee_str):
+        """
+        Génère un matricule unique de façon atomique en utilisant un compteur
+        séquentiel basé sur les matricules existants.
+
+        Format : CODE_ETAB-ANNEE-XXXX (XXXX = numéro séquentiel à 4 chiffres)
+
+        L'utilisation de select_for_update() sur la requête COUNT garantit qu'en
+        cas d'inscriptions simultanées, chaque worker obtient un numéro différent
+        sans collision, même sous forte charge.
+        """
+        prefixe = f"{etablissement.code}-{annee_str}-"
+        with transaction.atomic():
+            # Compter les élèves existants avec ce préfixe pour déterminer
+            # le prochain numéro séquentiel. select_for_update() verrouille
+            # les lignes concernées pendant la transaction.
+            nb_existants = (
+                Eleve.objects
+                .select_for_update()
+                .filter(matricule__startswith=prefixe)
+                .count()
+            )
+            numero = nb_existants + 1
+            matricule = f"{prefixe}{numero:04d}"
+            # Vérification de sécurité : si par hasard ce matricule existe
+            # déjà (migration de données), incrémenter jusqu'à trouver un libre.
+            while Eleve.objects.filter(matricule=matricule).exists():
+                numero += 1
+                matricule = f"{prefixe}{numero:04d}"
+            return matricule
+
     def save(self, *args, **kwargs):
         if not self.matricule:
             from etablissements.models import AnneeScolaire
             annee = AnneeScolaire.objects.filter(etablissement=self.etablissement, is_active=True).first()
             annee_str = annee.libelle[-4:] if annee else str(timezone.now().year)
-            self.matricule = f"{self.etablissement.code}-{annee_str}-{random.randint(1000,9999)}"
+            self.matricule = self._generer_matricule_atomique(self.etablissement, annee_str)
         super().save(*args, **kwargs)
 
     @property

@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from etablissements.models import ModeleDocument, AnneeScolaire
 from eleves.models import Eleve
 from notes.models import Matiere, Periode
-from notes.views_bulletin_mali import calculer_bulletin_mali
+from notes.services import calculer_bulletin, get_matieres_pour_eleve
 
 
 def require_etab(fn):
@@ -27,7 +27,9 @@ def bulletin_custom(request, eleve_pk, periode_pk, modele_pk=None):
     periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
     inscription = eleve.get_inscription_active()
-    matieres = Matiere.objects.filter(etablissement=etab).order_by('nom')
+    
+    classe_pour_matieres = inscription.classe if inscription else None
+    matieres = get_matieres_pour_eleve(eleve, periode, classe_pour_matieres)
 
     # Récupérer le modèle actif ou spécifié
     if modele_pk:
@@ -39,7 +41,7 @@ def bulletin_custom(request, eleve_pk, periode_pk, modele_pk=None):
             is_actif=True
         ).first()
 
-    lignes, moy_generale, total_coeffic, total_coef = calculer_bulletin_mali(eleve, periode, matieres)
+    lignes, moy_generale, total_coeffic, total_coef = calculer_bulletin(eleve, periode, matieres)
 
     # Rang + moy premier
     rang = None
@@ -48,18 +50,18 @@ def bulletin_custom(request, eleve_pk, periode_pk, modele_pk=None):
     if inscription:
         classe = inscription.classe
         effectif = classe.inscriptions.filter(is_active=True).count()
-        moyennes_classe = []
-        for insc in classe.inscriptions.filter(is_active=True).select_related('eleve'):
-            _, moy, _, _ = calculer_bulletin_mali(insc.eleve, periode, matieres)
-            if moy is not None:
-                moyennes_classe.append((insc.eleve.pk, moy))
-        moyennes_classe.sort(key=lambda x: x[1], reverse=True)
-        if moyennes_classe:
-            moy_premier = moyennes_classe[0][1]
-        for i, (epk, _) in enumerate(moyennes_classe, 1):
-            if epk == eleve.pk:
-                rang = i
-                break
+        
+        # P2.5 : Utilisation de calculer_rangs_classe en O(n)
+        from notes.views_notes import calculer_rangs_classe
+        rangs_classe = calculer_rangs_classe(classe, periode, matieres)
+        rang = rangs_classe.get(eleve.pk)
+
+        if rangs_classe:
+            # Retrouver la moyenne du premier élève
+            pk_premier = next((pk for pk, r in rangs_classe.items() if r == 1), None)
+            if pk_premier is not None:
+                _, moy_premier, _, _ = calculer_bulletin(Eleve.objects.get(pk=pk_premier), periode, matieres)
+
 
     appre_directeur = ''
     if moy_generale is not None:

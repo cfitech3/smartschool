@@ -20,14 +20,14 @@
     <nav class="sidebar-nav">
       <div class="nav-section-label">Mon espace</div>
       <a href="{% url 'espace_accueil' %}" class="nav-link {% block nav_accueil %}{% endblock %}"><span class="nav-icon">🏠</span><span>{% if request.user.is_parent %}Mes enfants{% else %}Accueil{% endif %}</span></a>
-      {% if eleve_courant %}
-      <a href="{% url 'espace_eleve_detail' eleve_courant.pk %}" class="nav-link {% block nav_detail %}{% endblock %}"><span class="nav-icon">👤</span><span>{{ eleve_courant.prenom }}</span></a>
-      <a href="{% url 'espace_notes' eleve_courant.pk %}" class="nav-link {% block nav_notes %}{% endblock %}"><span class="nav-icon">📝</span><span>Notes</span></a>
-      <a href="{% url 'espace_emploi_du_temps' eleve_courant.pk %}" class="nav-link {% block nav_edt %}{% endblock %}"><span class="nav-icon">🗓️</span><span>Emploi du temps</span></a>
-      <a href="{% url 'espace_absences' eleve_courant.pk %}" class="nav-link {% block nav_absences %}{% endblock %}"><span class="nav-icon">📋</span><span>Absences</span></a>
-      <a href="{% url 'espace_paiements' eleve_courant.pk %}" class="nav-link {% block nav_paiements %}{% endblock %}"><span class="nav-icon">💳</span><span>Paiements</span></a>
-      <a href="{% url 'espace_messages' eleve_courant.pk %}" class="nav-link {% block nav_messages %}{% endblock %}"><span class="nav-icon">💬</span><span>Contacter</span></a>
-      <a href="{% url 'espace_reclamations' eleve_courant.pk %}" class="nav-link {% block nav_reclamations %}{% endblock %}"><span class="nav-icon">✉️</span><span>Reclamations</span></a>
+      {% if eleve %}
+      <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="nav-link {% block nav_detail %}{% endblock %}"><span class="nav-icon">👤</span><span>{{ eleve.prenom }}</span></a>
+      <a href="{% url 'espace_notes' eleve.pk %}" class="nav-link {% block nav_notes %}{% endblock %}"><span class="nav-icon">📝</span><span>Notes</span></a>
+      <a href="{% url 'espace_emploi_du_temps' eleve.pk %}" class="nav-link {% block nav_edt %}{% endblock %}"><span class="nav-icon">🗓️</span><span>Emploi du temps</span></a>
+      <a href="{% url 'espace_absences' eleve.pk %}" class="nav-link {% block nav_absences %}{% endblock %}"><span class="nav-icon">📋</span><span>Absences</span></a>
+      <a href="{% url 'espace_paiements' eleve.pk %}" class="nav-link {% block nav_paiements %}{% endblock %}"><span class="nav-icon">💳</span><span>Paiements</span></a>
+      <a href="{% url 'espace_messages' eleve.pk %}" class="nav-link {% block nav_messages %}{% endblock %}"><span class="nav-icon">💬</span><span>Contacter</span></a>
+      <a href="{% url 'espace_reclamations' eleve.pk %}" class="nav-link {% block nav_reclamations %}{% endblock %}"><span class="nav-icon">✉️</span><span>Reclamations</span></a>
       {% endif %}
       <a href="{% url 'logout' %}" class="nav-link" style="color:#ef5350;margin-top:8px;"><span class="nav-icon">🚪</span><span>Deconnexion</span></a>
     </nav>

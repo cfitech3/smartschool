@@ -82,9 +82,12 @@ def saisie_conduite(request):
                             defaults={
                                 'note_conduite': valeur,
                                 'saisi_par': request.user,
-                                'modifie_par': request.user if not created else None,
                             }
                         )
+                        # Appliquer modifie_par seulement si c'est une mise à jour (pas une création)
+                        if not created:
+                            note.modifie_par = request.user
+                            note.save(update_fields=['modifie_par'])
                         from .views_notes import enregistrer_log
                         enregistrer_log(note, request.user, 'note_conduite', None, valeur)
                         saved += 1
@@ -152,7 +155,7 @@ def rapport_absences(request):
                     'absents': absents,
                     'retards': retards,
                     'justifies': justifies,
-                    'non_justifies': absents - justifies,
+                    'non_justifies': max(0, absents - justifies),
                     'alerte': absents >= 3,
                 })
             stats_eleves.sort(key=lambda x: x['absents'], reverse=True)
