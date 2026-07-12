@@ -39,15 +39,28 @@
 {% if not is_apercu %}
 <div class="actions">
   <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+  <a href="{% url 'telecharger_bulletin_pdf_mali' eleve.pk periode.pk %}" class="btn btn-outline">📥 Télécharger PDF</a>
   <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button>
 </div>
 {% endif %}
+{% load dict_extras %}
 <div class="bulletin">
   <!-- EN-TETE -->
-  <div class="entete">
-    <div>{% if modele and modele.ligne1_gauche %}{{ modele.ligne1_gauche }}<br>{% endif %}{% if modele and modele.ligne2_gauche %}{{ modele.ligne2_gauche }}<br>{% endif %}{% if modele and modele.ligne3_gauche %}{{ modele.ligne3_gauche }}{% endif %}</div>
-    <div class="entete-d">{% if modele and modele.ligne1_droite %}{{ modele.ligne1_droite }}<br>{% endif %}{% if modele and modele.ligne2_droite %}{{ modele.ligne2_droite }}<br>{% endif %}{% if modele and modele.ligne3_droite %}{{ modele.ligne3_droite }}{% endif %}</div>
-  </div>
+  {% if modele and modele.entete_personnalise %}
+    <div style="margin-bottom:12px;">
+      {{ modele.entete_personnalise|render_tags:eleve }}
+    </div>
+  {% else %}
+    <div class="entete" style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="flex:1;">{% if modele and modele.ligne1_gauche %}{{ modele.ligne1_gauche }}<br>{% endif %}{% if modele and modele.ligne2_gauche %}{{ modele.ligne2_gauche }}<br>{% endif %}{% if modele and modele.ligne3_gauche %}{{ modele.ligne3_gauche }}{% endif %}</div>
+      {% if modele and modele.afficher_logo and etab.logo %}
+      <div style="flex:1; text-align:center;">
+        <img src="{{ etab.logo.url }}" alt="Logo" style="max-height:80px; max-width:120px; object-fit:contain;">
+      </div>
+      {% endif %}
+      <div class="entete-d" style="flex:1; text-align:right;">{% if modele and modele.ligne1_droite %}{{ modele.ligne1_droite }}<br>{% endif %}{% if modele and modele.ligne2_droite %}{{ modele.ligne2_droite }}<br>{% endif %}{% if modele and modele.ligne3_droite %}{{ modele.ligne3_droite }}{% endif %}</div>
+    </div>
+  {% endif %}
   <div class="etab-nom">{{ modele.nom_etablissement_custom|default:etab.nom }}</div>
   <div class="titre-bloc">{{ modele.titre_document|default:"BULLETIN DE NOTES" }} — {{ periode.libelle }}</div>
 
@@ -120,8 +133,14 @@
     <div class="sign-bloc"><div>{{ modele.label_signature_gauche|default:"Le Directeur" }}</div><div class="sign-ligne">Signature et cachet</div></div>
     <div class="sign-bloc"><div>{{ modele.label_signature_droite|default:"Le Parent ou Tuteur" }}</div><div class="sign-ligne">Signature</div></div>
   </div>
-
-  <div class="pied">{% if modele and modele.texte_pied_page %}{{ modele.texte_pied_page }} — {% endif %}Bamako, le {{ today|date:"d F Y" }}</div>
+  
+  {% if modele and modele.pied_personnalise %}
+    <div style="margin-top:20px; border-top:1px solid #eee; padding-top:10px;">
+      {{ modele.pied_personnalise|render_tags:eleve }}
+    </div>
+  {% else %}
+    <div class="pied">{% if modele and modele.texte_pied_page %}{{ modele.texte_pied_page }} — {% endif %}Bamako, le {{ request.etablissement.get_date_jour|date:"d F Y"|default:"___ / ___ / 20__" }}</div>
+  {% endif %}
 </div>
 </body>
 </html>

@@ -145,6 +145,11 @@ class ModeleDocument(models.Model):
     sous_titre_etablissement = models.CharField(max_length=200, blank=True)
     afficher_adresse = models.BooleanField(default=True)
     afficher_telephone = models.BooleanField(default=True)
+    # Contenu riche pour documents personnalisés (Certificats, Attestations...)
+    contenu_personnalise = models.TextField(blank=True, help_text="Texte libre avec balises [NOM_ELEVE], [CLASSE]...")
+    # Contenu riche pour en-tête et pied de page des bulletins
+    entete_personnalise = models.TextField(blank=True, help_text="En-tête HTML pour le bulletin")
+    pied_personnalise = models.TextField(blank=True, help_text="Pied de page HTML pour le bulletin")
     # Titre
     titre_document = models.CharField(max_length=100, blank=True)
     couleur_titre_bg = models.CharField(max_length=7, default='#555555')

@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, views_presences, views_modifier
+from . import views, views_presences, views_modifier, views_import, views_fin_annee
 
 urlpatterns = [
     # Elèves
@@ -8,6 +8,10 @@ urlpatterns = [
     path('<int:pk>/', views.detail_eleve, name='detail_eleve'),
     path('<int:pk>/modifier/', views_modifier.modifier_eleve_complet, name='modifier_eleve'),
     path('<int:pk>/supprimer/', views.supprimer_eleve, name='supprimer_eleve'),
+    # Import
+    path('import/', views_import.import_eleves_excel, name='import_eleves_excel'),
+    path('import/modele/', views_import.telecharger_modele_excel, name='telecharger_modele_excel'),
+    path('assistant-fin-annee/', views_fin_annee.assistant_fin_annee, name='assistant_fin_annee'),
     # Classes
     path('classes/', views.liste_classes, name='liste_classes'),
     path('classes/ajouter/', views.ajouter_classe, name='ajouter_classe'),

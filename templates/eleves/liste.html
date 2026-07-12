@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-header">
   <div><h1>👨‍🎓 Eleves</h1><div class="page-subtitle">{{ total }} eleve{{ total|pluralize }} inscrit{{ total|pluralize }}</div></div>
-  <div style="display:flex;gap:8px;"><a href="{% url 'export_eleves' %}" class="btn btn-outline btn-sm">📥 Excel</a><a href="{% url 'ajouter_eleve' %}" class="btn btn-primary">+ Inscrire</a></div>
+  <div style="display:flex;gap:8px;"><a href="{% url 'import_eleves_excel' %}" class="btn btn-outline btn-sm">📥 Import Excel</a><a href="{% url 'export_eleves' %}" class="btn btn-outline btn-sm">📤 Export</a><a href="{% url 'ajouter_eleve' %}" class="btn btn-primary">+ Inscrire</a></div>
 </div>
 <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:14px 18px;">
 <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">

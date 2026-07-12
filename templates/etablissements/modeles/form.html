@@ -13,6 +13,7 @@
 .preview-frame{width:100%;height:680px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;}
 .type-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11.5px;font-weight:700;background:rgba(21,101,192,0.1);color:var(--primary);}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js" referrerpolicy="origin"></script>
 {% endblock %}
 {% block content %}
 <div class="page-header">
@@ -113,6 +114,25 @@
   </div>
 </div>
 
+<!-- EDITEURS AVANCES (Seulement pour bulletin / releve_notes) -->
+<div class="card section-card section-advanced-bulletin" style="{% if modele and modele.type_document not in 'bulletin,releve_notes' %}display:none;{% endif %}">
+  <div class="card-header"><span class="card-title">📝 En-tête et Pied de page (Avancé)</span></div>
+  <div class="card-body">
+    <div style="background: rgba(21,101,192,0.05); padding:10px; border-radius:6px; margin-bottom:10px; font-size:12px; color:var(--text-muted); border:1px solid rgba(21,101,192,0.2);">
+      <strong>Mots-clés magiques :</strong> <code>[NOM_ELEVE]</code>, <code>[CLASSE]</code>, <code>[MATRICULE]</code>, <code>[ANNEE_SCOLAIRE]</code>, <code>[NOM_ECOLE]</code>.
+    </div>
+    <div style="margin-bottom:12px;">
+      <label class="form-label" style="font-size:11.5px;font-weight:bold;">En-tête personnalisé</label>
+      <textarea name="entete_personnalise" id="tinymce-entete" class="form-control" rows="4">{% if modele %}{{ modele.entete_personnalise }}{% endif %}</textarea>
+      <div style="font-size:11px;color:#666;margin-top:4px;">Si rempli, remplace l'en-tête standard. (Fonctionne parfaitement en impression Web).</div>
+    </div>
+    <div>
+      <label class="form-label" style="font-size:11.5px;font-weight:bold;">Pied de page personnalisé</label>
+      <textarea name="pied_personnalise" id="tinymce-pied" class="form-control" rows="4">{% if modele %}{{ modele.pied_personnalise }}{% endif %}</textarea>
+    </div>
+  </div>
+</div>
+
 <!-- RECU : style spécifique -->
 <div class="card section-card section-recu" style="{% if not modele or modele.type_document != 'recu' %}display:none;{% endif %}">
   <div class="card-header"><span class="card-title">🧾 Style du recu</span></div>
@@ -126,6 +146,24 @@
         </select>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- EDITEUR AVANCE (Pour certificats, attestations, etc.) -->
+<div class="card section-card section-personnalise" style="{% if modele and modele.type_document in 'bulletin,releve_notes' %}display:none;{% endif %}">
+  <div class="card-header"><span class="card-title">📝 Contenu Personnalisé (Avancé)</span></div>
+  <div class="card-body">
+    <div style="background: rgba(21,101,192,0.05); padding:10px; border-radius:6px; margin-bottom:10px; font-size:12px; color:var(--text-muted); border:1px solid rgba(21,101,192,0.2);">
+      <strong>Mots-clés magiques utilisables :</strong><br>
+      <code>[NOM_ELEVE]</code> : Nom complet de l'élève<br>
+      <code>[CLASSE]</code> : Classe de l'élève<br>
+      <code>[MATRICULE]</code> : Matricule<br>
+      <code>[DATE_NAISSANCE]</code> : Date de naissance<br>
+      <code>[LIEU_NAISSANCE]</code> : Lieu de naissance<br>
+      <code>[ANNEE_SCOLAIRE]</code> : Année scolaire active<br>
+      <code>[NOM_ECOLE]</code> : Nom de l'établissement
+    </div>
+    <textarea name="contenu_personnalise" id="tinymce-editor" class="form-control" rows="10">{% if modele %}{{ modele.contenu_personnalise }}{% endif %}</textarea>
   </div>
 </div>
 
@@ -200,7 +238,42 @@ function showSections(t){
       el.style.display=t===typ?'':'none';
     });
   });
+  
+  // Masquer ou afficher l'éditeur avancé pour les certificats
+  const sectionPerso = document.querySelector('.section-personnalise');
+  if(sectionPerso) {
+      if(t === 'bulletin' || t === 'releve_notes') {
+          sectionPerso.style.display = 'none';
+      } else {
+          sectionPerso.style.display = '';
+      }
+  }
+
+  // Masquer ou afficher l'éditeur avancé pour les bulletins
+  const sectionAdvBull = document.querySelector('.section-advanced-bulletin');
+  if(sectionAdvBull) {
+      if(t === 'bulletin' || t === 'releve_notes') {
+          sectionAdvBull.style.display = '';
+      } else {
+          sectionAdvBull.style.display = 'none';
+      }
+  }
 }
+
+tinymce.init({
+  selector: '#tinymce-editor, #tinymce-entete, #tinymce-pied',
+  height: 200,
+  menubar: false,
+  plugins: ['advlist', 'autolink', 'lists', 'link', 'charmap', 'preview', 'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen', 'insertdatetime', 'media', 'table', 'help', 'wordcount'],
+  toolbar: 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+  content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
+  setup: function (editor) {
+      editor.on('change', function () {
+          tinymce.triggerSave();
+          buildPreview();
+      });
+  }
+});
 
 // Initialiser la sélection visuelle au chargement
 document.querySelectorAll('[id^="type_label_"]').forEach(l=>{

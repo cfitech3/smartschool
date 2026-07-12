@@ -1,0 +1,51 @@
+{% extends "base/base.html" %}
+
+{% block title %}Importation Élèves{% endblock %}
+{% block topbar_title %}Importation massive (Excel){% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📥 Importation Massive</h1>
+    <div class="page-subtitle">Ajoutez plusieurs élèves et leurs parents en une seule fois via un fichier Excel.</div>
+  </div>
+  <a href="{% url 'liste_eleves' %}" class="btn btn-outline">Retour à la liste</a>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+  <!-- Colonne Explications -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📖 Comment ça marche ?</span></div>
+    <div class="card-body">
+      <ol style="margin-left: 20px; line-height: 1.8; color: var(--text-muted);">
+        <li><strong>Téléchargez le modèle :</strong> Cliquez sur le bouton ci-dessous pour obtenir le fichier Excel pré-formaté.</li>
+        <li><strong>Remplissez les données :</strong> Ouvrez le fichier et saisissez les informations des élèves. Ne modifiez pas la première ligne (les en-têtes).</li>
+        <li><strong>Attention à la classe :</strong> Le nom de la classe doit correspondre <em>exactement</em> au nom de la classe dans SmartSchool pour l'année scolaire en cours.</li>
+        <li><strong>Importez :</strong> Uploadez le fichier rempli ici. Le système créera automatiquement les profils Élèves, Parents (avec leurs accès) et les Inscriptions.</li>
+      </ol>
+      <div style="margin-top: 20px; text-align:center;">
+        <a href="{% url 'telecharger_modele_excel' %}" class="btn btn-outline">📄 Télécharger le Modèle Vierge</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Colonne Upload -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📤 Uploader le fichier rempli</span></div>
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Sélectionnez le fichier Excel (.xlsx)</label>
+          <div style="border: 2px dashed var(--border); padding: 40px; text-align:center; border-radius: var(--radius); background: var(--bg);">
+            <input type="file" name="fichier_excel" accept=".xlsx" required style="max-width: 100%; cursor: pointer;">
+          </div>
+        </div>
+        <div style="margin-top:20px; text-align:right;">
+          <button type="submit" class="btn btn-primary">🚀 Lancer l'importation</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

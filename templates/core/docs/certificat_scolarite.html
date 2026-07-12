@@ -22,15 +22,27 @@ strong.val{text-decoration:underline;}
 </style></head><body>
 <div class="actions"><a href="javascript:history.back()" class="btn btn-outline">← Retour</a><button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button></div>
 <div class="doc">
-  <div class="entete"><div>{% if modele.ligne1_gauche %}{{ modele.ligne1_gauche }}<br>{% endif %}{% if modele.ligne2_gauche %}{{ modele.ligne2_gauche }}{% endif %}</div><div class="entete-d">{% if modele.ligne1_droite %}{{ modele.ligne1_droite }}{% else %}Un Peuple — Un But — Une Foi{% endif %}</div></div>
+  <div class="entete" style="display:flex; justify-content:space-between; align-items:center;">
+    <div style="flex:1;">{% if modele.ligne1_gauche %}{{ modele.ligne1_gauche }}<br>{% endif %}{% if modele.ligne2_gauche %}{{ modele.ligne2_gauche }}{% endif %}</div>
+    {% if modele.afficher_logo and etab.logo %}
+    <div style="flex:1; text-align:center;">
+      <img src="{{ etab.logo.url }}" alt="Logo" style="max-height:80px; max-width:120px; object-fit:contain;">
+    </div>
+    {% endif %}
+    <div class="entete-d" style="flex:1; text-align:right;">{% if modele.ligne1_droite %}{{ modele.ligne1_droite }}{% else %}Un Peuple — Un But — Une Foi{% endif %}</div>
+  </div>
   <div class="ecole-nom">{{ modele.nom_etablissement_custom|default:etab.nom }}</div>
   <div class="titre">{{ modele.titre_document|default:"CERTIFICAT DE SCOLARITE" }}</div>
   <div class="sous-titre">Annee scolaire {{ annee.libelle|default:"—" }}</div>
   <div class="corps">
-    <p>Le soussigne, <strong class="val">{{ etab.directeur|default:"Le Directeur" }}</strong>, Directeur de l'etablissement <strong class="val">{{ modele.nom_etablissement_custom|default:etab.nom }}</strong>, certifie que :</p>
-    <div class="eleve-bloc"><div class="eleve-nom">{{ eleve.nom }} {{ eleve.prenom }}</div><div style="font-size:12.5px;color:#555;margin-top:5px;">Ne(e) le {{ eleve.date_naissance|date:"d F Y" }}{% if eleve.lieu_naissance %} a {{ eleve.lieu_naissance }}{% endif %}<br>Matricule : {{ eleve.matricule }}</div></div>
-    <p>est regulierement inscrit(e) en classe de <strong class="val">{% if inscription %}{{ inscription.classe.nom }}{% else %}—{% endif %}</strong> pour l'annee scolaire <strong class="val">{{ annee.libelle|default:"—" }}</strong>.</p>
-    <p>Ce certificat est delivre pour servir et valoir ce que de droit.</p>
+    {% if contenu_personnalise_rendu %}
+      {{ contenu_personnalise_rendu|safe }}
+    {% else %}
+      <p>Le soussigne, <strong class="val">{{ etab.directeur|default:"Le Directeur" }}</strong>, Directeur de l'etablissement <strong class="val">{{ modele.nom_etablissement_custom|default:etab.nom }}</strong>, certifie que :</p>
+      <div class="eleve-bloc"><div class="eleve-nom">{{ eleve.nom }} {{ eleve.prenom }}</div><div style="font-size:12.5px;color:#555;margin-top:5px;">Ne(e) le {{ eleve.date_naissance|date:"d F Y" }}{% if eleve.lieu_naissance %} a {{ eleve.lieu_naissance }}{% endif %}<br>Matricule : {{ eleve.matricule }}</div></div>
+      <p>est regulierement inscrit(e) en classe de <strong class="val">{% if inscription %}{{ inscription.classe.nom }}{% else %}—{% endif %}</strong> pour l'annee scolaire <strong class="val">{{ annee.libelle|default:"—" }}</strong>.</p>
+      <p>Ce certificat est delivre pour servir et valoir ce que de droit.</p>
+    {% endif %}
   </div>
   <div class="signatures"><div class="sign-bloc"><div>{{ modele.label_signature_gauche|default:"Le Directeur" }}</div><div class="sign-ligne">Signature et cachet</div></div><div class="sign-bloc"><div>{{ modele.label_signature_droite|default:"Lu et approuve" }}</div><div class="sign-ligne">Signature</div></div></div>
   <div class="pied">{% if modele.texte_pied_page %}{{ modele.texte_pied_page }} — {% endif %}Bamako, le {{ today|date:"d F Y" }}</div>

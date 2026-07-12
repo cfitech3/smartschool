@@ -6,7 +6,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
   <title>{% block title %}SmartSchool{% endblock %} — SmartSchool ERP</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/smartschool.css' %}">
+  <link rel="stylesheet" href="{% static 'css/smartschool.css' %}?v=2">
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
   {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -42,6 +44,7 @@
       <button class="topbar-btn" id="menu-btn" onclick="toggleSidebar()">☰</button>
       <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
       <div style="display:flex;align-items:center;gap:10px;margin-left:auto;">
+        <button onclick="toggleTheme()" class="topbar-btn" title="Mode sombre/clair" id="theme-btn">🌙</button>
         <a href="{% url 'recherche' %}" class="topbar-btn" title="Rechercher">🔍</a>
         {% if request.user.role == 'admin' or request.user.role == 'secretariat' %}
         <a href="{% url 'notifications' %}" class="topbar-btn" style="position:relative;" title="Notifications">
@@ -51,16 +54,50 @@
       </div>
     </header>
     <main class="page-content">
-      {% for message in messages %}
-      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %}">
-        {% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}❌{% elif message.tags == 'warning' %}⚠️{% else %}ℹ️{% endif %}
-        {{ message }}
-      </div>
-      {% endfor %}
+      {% if messages %}
+      <script>
+        document.addEventListener("DOMContentLoaded", function() {
+          {% for message in messages %}
+          Toastify({
+            text: "{{ message|escapejs }}",
+            duration: 4000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            style: {
+              background: "{% if message.tags == 'success' %}var(--success){% elif message.tags == 'error' %}var(--danger){% elif message.tags == 'warning' %}var(--warning){% else %}var(--info){% endif %}",
+              color: "#fff",
+              borderRadius: "8px",
+              boxShadow: "var(--shadow-md)",
+              fontSize: "13px",
+              fontWeight: "600"
+            }
+          }).showToast();
+          {% endfor %}
+        });
+      </script>
+      {% endif %}
       {% block content %}{% endblock %}
     </main>
   </div>
 </div>
+
+<!-- Gestion du thème -->
+<script>
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  document.getElementById('theme-btn').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const newTheme = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  document.getElementById('theme-btn').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+}
+initTheme();
+</script>
 
 <!-- Données contexte pour la sidebar JS -->
 <script>
@@ -80,6 +117,7 @@ const MENUS = {
     {section: "Scolarité"},
     {icon:"👨‍🎓", label:"Élèves", url:"/eleves/"},
     {icon:"🏫", label:"Classes", url:"/eleves/classes/"},
+    {icon:"🎓", label:"Fin d'année", url:"/eleves/assistant-fin-annee/"},
     {icon:"👩‍🏫", label:"Enseignants", url:"/etablissements/enseignants/"},
     {icon:"📋", label:"Présences", url:"/eleves/presences/"},
     {icon:"🗓️", label:"Emplois du temps", url:"/notes/emplois/"},

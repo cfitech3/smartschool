@@ -38,6 +38,14 @@
   </div>
 </div>
 
+<!-- Graphique Évolution 30 jours -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">📊 Évolution des recettes (30 jours)</span></div>
+  <div style="padding:16px; height:250px;">
+    <canvas id="recettesChart"></canvas>
+  </div>
+</div>
+
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
 <!-- Derniers paiements -->
 <div class="card">
@@ -61,15 +69,8 @@
 <!-- Répartition par type de frais -->
 <div class="card">
   <div class="card-header"><span class="card-title">📊 Répartition ce mois</span></div>
-  <div style="padding:14px 18px;">
-  {% for r in repartition %}
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
-    <span style="font-size:13px;font-weight:600;">{{ r.type_frais__nom|default:"Autre"|truncatechars:22 }}</span>
-    <span style="font-weight:800;color:var(--success);">{{ r.total|floatformat:0 }} F</span>
-  </div>
-  {% empty %}
-  <div style="text-align:center;padding:20px;color:var(--text-muted);">Aucun paiement ce mois</div>
-  {% endfor %}
+  <div style="padding:16px; height:220px; display:flex; justify-content:center;">
+    <canvas id="repartitionChart"></canvas>
   </div>
 </div>
 </div>
@@ -84,4 +85,78 @@
     <a href="{% url 'liste_enseignants' %}" class="btn btn-outline">👩‍🏫 Salaires enseignants</a>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Chart 1: Évolution 30 jours
+  const chartDataRaw = '{{ chart_paiements|escapejs }}';
+  if(chartDataRaw && chartDataRaw !== '[]') {
+    const rawData = JSON.parse(chartDataRaw);
+    const labels = rawData.map(d => d.jour);
+    const totals = rawData.map(d => d.total);
+    
+    const ctx = document.getElementById('recettesChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Recettes (FCFA)',
+          data: totals,
+          borderColor: '#1E88E5',
+          backgroundColor: 'rgba(30, 136, 229, 0.1)',
+          borderWidth: 2,
+          pointBackgroundColor: '#1565C0',
+          pointRadius: 2,
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: 'rgba(150, 150, 150, 0.1)' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // Chart 2: Répartition Doughnut
+  const repLabels = [];
+  const repData = [];
+  {% for r in repartition %}
+    repLabels.push("{{ r.type_frais__nom|default:'Autre'|escapejs }}");
+    repData.push({{ r.total|floatformat:0 }});
+  {% endfor %}
+  
+  if(repData.length > 0) {
+    const ctx2 = document.getElementById('repartitionChart').getContext('2d');
+    new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: repLabels,
+        datasets: [{
+          data: repData,
+          backgroundColor: ['#1E88E5', '#4CAF50', '#FFA000', '#EF5350', '#8E24AA', '#26A69A'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } }
+        },
+        cutout: '65%'
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

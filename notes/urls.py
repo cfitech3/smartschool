@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, views_notes, views_universite, views_emplois, views_config, views_surveillant
+from . import views, views_notes, views_universite, views_emplois, views_config, views_surveillant, views_bulletin_mali
 
 urlpatterns = [
     # Notes
@@ -8,6 +8,7 @@ urlpatterns = [
     path('bulletins/', views_notes.bulletins_classe_mali, name='bulletins_classe_mali'),
     path('bulletin/<int:eleve_pk>/<int:periode_pk>/', views_notes.bulletin_eleve, name='bulletin_eleve'),
     path('bulletin/<int:eleve_pk>/<int:periode_pk>/<int:modele_pk>/', views_notes.bulletin_eleve, name='bulletin_eleve_modele'),
+    path('bulletin/<int:eleve_pk>/<int:periode_pk>/pdf/', views_bulletin_mali.telecharger_bulletin_pdf_mali, name='telecharger_bulletin_pdf_mali'),
     path('logs/', views_notes.logs_modifications, name='logs_modifications'),
     # Surveillant
     path('conduite/', views_surveillant.saisie_conduite, name='saisie_conduite'),

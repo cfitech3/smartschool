@@ -61,9 +61,23 @@ def generer_document(request, eleve_pk, type_doc):
     inscription=eleve.get_inscription_active(); today=timezone.now().date()
     # Récupérer le bon modèle selon le type
     modele=get_modele(etab, type_doc)
+    # Remplacement des balises si un contenu personnalisé existe
+    contenu_rendu = None
+    if modele and modele.contenu_personnalise:
+        contenu_rendu = modele.contenu_personnalise
+        contenu_rendu = contenu_rendu.replace('[NOM_ELEVE]', f"{eleve.nom} {eleve.prenom}")
+        contenu_rendu = contenu_rendu.replace('[CLASSE]', inscription.classe.nom if inscription else '')
+        contenu_rendu = contenu_rendu.replace('[MATRICULE]', eleve.matricule or '')
+        date_n = eleve.date_naissance.strftime('%d/%m/%Y') if eleve.date_naissance else ''
+        contenu_rendu = contenu_rendu.replace('[DATE_NAISSANCE]', date_n)
+        contenu_rendu = contenu_rendu.replace('[LIEU_NAISSANCE]', eleve.lieu_naissance or '')
+        contenu_rendu = contenu_rendu.replace('[ANNEE_SCOLAIRE]', annee.libelle if annee else '')
+        contenu_rendu = contenu_rendu.replace('[NOM_ECOLE]', etab.nom)
+    
     ctx={"eleve":eleve,"etab":etab,"annee":annee,"inscription":inscription,
          "today":today,"modele":modele,
-         "ref":f"{type_doc[:4].upper()}-{eleve.matricule[-4:]}-{today.year}"}
+         "ref":f"{type_doc[:4].upper()}-{eleve.matricule[-4:]}-{today.year}",
+         "contenu_personnalise_rendu": contenu_rendu}
 
     if type_doc=="certificat_scolarite":
         return render(request,"core/docs/certificat_scolarite.html",ctx)

@@ -66,6 +66,14 @@
 </div>
 {% endif %}
 
+<!-- Graphique -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">📊 Recettes des 7 derniers jours</span></div>
+  <div style="padding:16px; height:250px;">
+    <canvas id="recettesChart"></canvas>
+  </div>
+</div>
+
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
 <!-- Classes -->
 <div class="card">
@@ -120,4 +128,51 @@
     <a href="{% url 'parametres' %}" class="btn btn-outline">⚙️ Paramètres</a>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const chartDataRaw = '{{ chart_paiements|escapejs }}';
+  if(chartDataRaw && chartDataRaw !== '[]') {
+    const rawData = JSON.parse(chartDataRaw);
+    const labels = rawData.map(d => d.jour);
+    const totals = rawData.map(d => d.total);
+    
+    const ctx = document.getElementById('recettesChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Recettes (FCFA)',
+          data: totals,
+          borderColor: '#1E88E5',
+          backgroundColor: 'rgba(30, 136, 229, 0.1)',
+          borderWidth: 3,
+          pointBackgroundColor: '#1565C0',
+          pointRadius: 4,
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { 
+            beginAtZero: true,
+            grid: { color: 'rgba(150, 150, 150, 0.1)' }
+          },
+          x: {
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

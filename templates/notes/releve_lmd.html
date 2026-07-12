@@ -39,9 +39,14 @@ tbody td{border:1px solid #d0dce8;padding:5px 8px;}
   <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button>
 </div>
 <div class="doc">
-  <div class="entete">
-    <div><strong>{% if modele and modele.ligne1_gauche %}{{ modele.ligne1_gauche }}{% else %}{{ etab.nom }}{% endif %}</strong><br>{% if modele and modele.ligne2_gauche %}{{ modele.ligne2_gauche }}{% endif %}</div>
-    <div class="entete-d">{% if modele and modele.ligne1_droite %}{{ modele.ligne1_droite }}{% else %}Republique du Mali{% endif %}<br>{% if modele and modele.ligne2_droite %}{{ modele.ligne2_droite }}{% else %}Un Peuple — Un But — Une Foi{% endif %}</div>
+  <div class="entete" style="display:flex; justify-content:space-between; align-items:center;">
+    <div style="flex:1;"><strong>{% if modele and modele.ligne1_gauche %}{{ modele.ligne1_gauche }}{% else %}{{ etab.nom }}{% endif %}</strong><br>{% if modele and modele.ligne2_gauche %}{{ modele.ligne2_gauche }}{% endif %}</div>
+    {% if modele and modele.afficher_logo and etab.logo %}
+    <div style="flex:1; text-align:center;">
+      <img src="{{ etab.logo.url }}" alt="Logo" style="max-height:80px; max-width:120px; object-fit:contain;">
+    </div>
+    {% endif %}
+    <div class="entete-d" style="flex:1; text-align:right;">{% if modele and modele.ligne1_droite %}{{ modele.ligne1_droite }}{% else %}Republique du Mali{% endif %}<br>{% if modele and modele.ligne2_droite %}{{ modele.ligne2_droite }}{% else %}Un Peuple — Un But — Une Foi{% endif %}</div>
   </div>
   <div class="etab-nom">{{ modele.nom_etablissement_custom|default:etab.nom }}</div>
   <div class="titre">RELEVÉ DE NOTES — SYSTÈME LMD — {{ periode.libelle }}</div>

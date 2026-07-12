@@ -1,0 +1,116 @@
+{% extends "base/base.html" %}
+
+{% block title %}Assistant de Fin d'Année{% endblock %}
+{% block topbar_title %}Passages de classes{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🎓 Assistant de Fin d'Année</h1>
+    <div class="page-subtitle">Préparez l'année scolaire suivante en validant les passages, redoublements ou exclusions.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-body">
+    <form method="GET" style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+      <div style="flex:1; min-width:200px;">
+        <label class="form-label">Classe Actuelle (Année en cours)</label>
+        <select name="classe_actuelle" class="form-control" required>
+          <option value="">-- Sélectionnez une classe --</option>
+          {% for c in classes %}
+            <option value="{{ c.pk }}" {% if classe_actuelle_id == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div style="flex:1; min-width:200px;">
+        <label class="form-label">Année Scolaire de Destination</label>
+        <select name="annee_suivante" class="form-control" required>
+          <option value="">-- Sélectionnez l'année cible --</option>
+          {% for a in annees %}
+            {% if a.pk != annee_active.pk %}
+              <option value="{{ a.pk }}" {% if annee_suivante_id == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.libelle }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div>
+        <button type="submit" class="btn btn-primary">Charger les élèves</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if classe_actuelle and annee_suivante %}
+<form method="POST">
+  {% csrf_token %}
+  <div class="card" style="margin-bottom: 24px; background: rgba(21,101,192,0.05); border: 1px solid rgba(21,101,192,0.2);">
+    <div class="card-body" style="display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <h3 style="margin-bottom:4px; font-size:16px;">Classe de destination (pour les "Admis")</h3>
+        <span style="font-size:13px; color:var(--text-muted);">Dans quelle classe iront tous les élèves marqués comme "Admis" ? (Ex: de 6ème A vers 5ème A)</span>
+      </div>
+      <div>
+        <select name="classe_suivante_globale" class="form-control" style="min-width:250px;">
+          <option value="">-- Choisir la classe cible --</option>
+          {% for c in classes %}
+            <option value="{{ c.pk }}">{{ c.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <table class="table-modern">
+      <thead>
+        <tr>
+          <th>Élève</th>
+          <th>Matricule</th>
+          <th>Statut Actuel</th>
+          <th style="width:250px;">Décision pour {{ annee_suivante.libelle }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for data in eleves_data %}
+        <tr>
+          <td style="font-weight:600;">{{ data.eleve.nom }} {{ data.eleve.prenom }}</td>
+          <td><code style="font-size:12px; background:var(--bg); padding:2px 6px; border-radius:4px;">{{ data.eleve.matricule }}</code></td>
+          <td>
+            {% if data.deja_inscrit %}
+              <span class="badge badge-success">Déjà inscrit en {{ annee_suivante.libelle }}</span>
+            {% else %}
+              <span class="badge badge-warning">En attente</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if data.deja_inscrit %}
+              <span style="color:var(--text-muted); font-style:italic;">Aucune action requise</span>
+            {% else %}
+              <select name="decision_{{ data.eleve.pk }}" class="form-control" style="padding:6px;">
+                <option value="admis" selected>✅ Admis (Passe en classe sup.)</option>
+                <option value="redouble">🔄 Redouble (Reste en {{ classe_actuelle.nom }})</option>
+                <option value="exclu">❌ Exclu / Départ</option>
+              </select>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Aucun élève trouvé dans cette classe pour l'année active.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    
+    {% if eleves_data %}
+    <div style="padding: 20px; text-align: right; border-top: 1px solid var(--border);">
+      <button type="submit" class="btn btn-primary" style="font-size:15px; padding:10px 20px;">💾 Valider les passages</button>
+    </div>
+    {% endif %}
+  </div>
+</form>
+{% endif %}
+{% endblock %}

@@ -19,14 +19,26 @@ strong.val{text-decoration:underline;}
 </style></head><body>
 <div class="actions"><a href="javascript:history.back()" class="btn btn-outline">← Retour</a><button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button></div>
 <div class="doc">
-  <div class="entete"><div>{% if modele.ligne1_gauche %}{{ modele.ligne1_gauche }}{% else %}Republique du Mali{% endif %}</div><div style="text-align:right;">Ref: {{ ref }}<br>Bamako, le {{ today|date:"d F Y" }}</div></div>
+  <div class="entete" style="display:flex; justify-content:space-between; align-items:center;">
+    <div style="flex:1;">{% if modele.ligne1_gauche %}{{ modele.ligne1_gauche }}{% else %}Republique du Mali{% endif %}</div>
+    {% if modele.afficher_logo and etab.logo %}
+    <div style="flex:1; text-align:center;">
+      <img src="{{ etab.logo.url }}" alt="Logo" style="max-height:80px; max-width:120px; object-fit:contain;">
+    </div>
+    {% endif %}
+    <div style="flex:1; text-align:right;">Ref: {{ ref }}<br>Bamako, le {{ today|date:"d F Y" }}</div>
+  </div>
   <div class="titre">{{ modele.titre_document|default:"ATTESTATION DE FREQUENTATION" }}</div>
   <div class="sous-titre">Annee scolaire {{ annee.libelle|default:"—" }}</div>
   <div class="corps">
-    <p>Je soussigne(e), <strong class="val">{{ etab.directeur|default:"Le Directeur" }}</strong>, Directeur(trice) de <strong class="val">{{ modele.nom_etablissement_custom|default:etab.nom }}</strong>, atteste que :</p>
-    <div class="eleve-bloc"><div class="eleve-nom">{{ eleve.nom }} {{ eleve.prenom }}</div><div style="font-size:12.5px;margin-top:5px;">Ne(e) le {{ eleve.date_naissance|date:"d F Y" }} — Matricule : {{ eleve.matricule }}</div></div>
-    <p>a bien frequente notre etablissement durant l'annee scolaire <strong class="val">{{ annee.libelle|default:"—" }}</strong> en classe de <strong class="val">{% if inscription %}{{ inscription.classe.nom }}{% else %}—{% endif %}</strong>.</p>
-    <p>Cette attestation est delivree pour servir et valoir ce que de droit.</p>
+    {% if contenu_personnalise_rendu %}
+      {{ contenu_personnalise_rendu|safe }}
+    {% else %}
+      <p>Je soussigne(e), <strong class="val">{{ etab.directeur|default:"Le Directeur" }}</strong>, Directeur(trice) de <strong class="val">{{ modele.nom_etablissement_custom|default:etab.nom }}</strong>, atteste que :</p>
+      <div class="eleve-bloc"><div class="eleve-nom">{{ eleve.nom }} {{ eleve.prenom }}</div><div style="font-size:12.5px;margin-top:5px;">Ne(e) le {{ eleve.date_naissance|date:"d F Y" }} — Matricule : {{ eleve.matricule }}</div></div>
+      <p>a bien frequente notre etablissement durant l'annee scolaire <strong class="val">{{ annee.libelle|default:"—" }}</strong> en classe de <strong class="val">{% if inscription %}{{ inscription.classe.nom }}{% else %}—{% endif %}</strong>.</p>
+      <p>Cette attestation est delivree pour servir et valoir ce que de droit.</p>
+    {% endif %}
   </div>
   <div class="signatures"><div class="sign-bloc"><div>{{ modele.label_signature_gauche|default:"Le Directeur" }}</div><div class="sign-ligne">Signature et cachet</div></div><div class="sign-bloc"><div>{{ modele.label_signature_droite|default:"Lu et approuve" }}</div><div class="sign-ligne">Signature</div></div></div>
   {% if modele.texte_pied_page %}<div class="pied">{{ modele.texte_pied_page }}</div>{% endif %}

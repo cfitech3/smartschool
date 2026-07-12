@@ -11,7 +11,7 @@ def req_admin(fn):
     w.__name__ = fn.__name__; return w
 
 def _sauvegarder_modele(request, modele):
-    for f in ["nom","ligne1_gauche","ligne2_gauche","ligne3_gauche","ligne1_droite","ligne2_droite","ligne3_droite","nom_etablissement_custom","titre_document","couleur_titre_bg","couleur_titre_texte","couleur_tableau_header","couleur_bordure","police","label_signature_gauche","label_signature_droite","texte_pied_page","couleur_accent_recu","format_recu"]:
+    for f in ["nom","ligne1_gauche","ligne2_gauche","ligne3_gauche","ligne1_droite","ligne2_droite","ligne3_droite","nom_etablissement_custom","titre_document","couleur_titre_bg","couleur_titre_texte","couleur_tableau_header","couleur_bordure","police","label_signature_gauche","label_signature_droite","texte_pied_page","couleur_accent_recu","format_recu","contenu_personnalise","entete_personnalise","pied_personnalise"]:
         v = request.POST.get(f)
         if v is not None: setattr(modele, f, v)
     for f in ["taille_police","note_max_classe","note_max_compo"]:
