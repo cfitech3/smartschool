@@ -1,0 +1,96 @@
+{% extends "base/base.html" %}
+{% block title %}Gestion des Établissements{% endblock %}
+{% block topbar_title %}🏫 Établissements{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🏫 Gestion des Établissements</h1>
+    <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">Réseau SmartSchool — {{ etablissements|length }} établissement(s)</p>
+  </div>
+  <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">+ Nouvel établissement</a>
+</div>
+
+{% if etablissements %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px;">
+  {% for e in etablissements %}
+  <div class="card" style="border-radius:14px;overflow:hidden;border:1.5px solid var(--border);transition:box-shadow .2s,transform .2s;" 
+       onmouseover="this.style.boxShadow='0 8px 32px rgba(0,0,0,0.13)';this.style.transform='translateY(-2px)'" 
+       onmouseout="this.style.boxShadow='';this.style.transform=''">
+    <!-- Header coloré -->
+    <div style="background:linear-gradient(135deg,{{ e.couleur_principale }},{{ e.couleur_secondaire }});padding:20px 20px 14px;display:flex;align-items:center;gap:14px;">
+      {% if e.logo %}
+        <img src="{{ e.logo.url }}" alt="Logo" style="width:52px;height:52px;border-radius:10px;object-fit:contain;background:#fff;padding:4px;">
+      {% else %}
+        <div style="width:52px;height:52px;border-radius:10px;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:26px;">🏫</div>
+      {% endif %}
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:800;font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.nom }}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:2px;">{{ e.get_type_display }} — Code : <strong>{{ e.code }}</strong></div>
+      </div>
+      {% if e.is_active %}
+        <span style="background:rgba(255,255,255,0.2);color:#fff;font-size:10px;padding:3px 8px;border-radius:20px;font-weight:700;">ACTIF</span>
+      {% else %}
+        <span style="background:rgba(0,0,0,0.25);color:rgba(255,255,255,0.7);font-size:10px;padding:3px 8px;border-radius:20px;">INACTIF</span>
+      {% endif %}
+    </div>
+
+    <!-- Corps -->
+    <div class="card-body" style="padding:14px 18px;">
+      {% if e.directeur %}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;">
+        <span style="color:var(--text-muted);">👤</span>
+        <span>{{ e.directeur }}</span>
+      </div>
+      {% endif %}
+      {% if e.telephone %}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;">
+        <span style="color:var(--text-muted);">📞</span>
+        <span>{{ e.telephone }}</span>
+      </div>
+      {% endif %}
+      {% if e.adresse %}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:var(--text-muted);">
+        <span>📍</span>
+        <span>{{ e.adresse|truncatechars:50 }}</span>
+      </div>
+      {% endif %}
+
+      <!-- Lien portail -->
+      <div style="background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:9px 12px;margin-bottom:12px;">
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;font-weight:700;margin-bottom:4px;">🔗 Lien Portail de Connexion</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <code style="font-size:12px;flex:1;word-break:break-all;color:var(--primary);">/auth/portail/{{ e.code }}/</code>
+          <button onclick="copyPortail('{{ e.code }}')" class="btn btn-outline btn-sm" style="padding:3px 9px;font-size:11px;" title="Copier">📋</button>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:8px;">
+        <a href="{% url 'modifier_etablissement' e.pk %}" class="btn btn-primary btn-sm" style="flex:1;text-align:center;">✏️ Gérer</a>
+        <a href="{% url 'changer_etablissement' e.pk %}" class="btn btn-outline btn-sm" title="Voir comme cet établissement">👁️ Voir</a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card" style="text-align:center;padding:60px 24px;">
+  <div style="font-size:56px;margin-bottom:16px;">🏫</div>
+  <h2 style="margin-bottom:8px;">Aucun établissement enregistré</h2>
+  <p style="color:var(--text-muted);margin-bottom:24px;">Commencez par créer votre premier établissement.</p>
+  <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">+ Créer le premier établissement</a>
+</div>
+{% endif %}
+
+<script>
+function copyPortail(code) {
+  const url = window.location.origin + '/auth/portail/' + code + '/';
+  navigator.clipboard.writeText(url).then(() => {
+    Toastify({text:"✅ Lien copié : " + url, duration:3000, gravity:"top", position:"right",
+      style:{background:"var(--success)",color:"#fff",borderRadius:"8px",fontSize:"13px",fontWeight:"600"}
+    }).showToast();
+  });
+}
+</script>
+{% endblock %}

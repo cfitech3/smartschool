@@ -7,5 +7,5 @@ class CustomUserAdmin(UserAdmin):
     list_display = ('username', 'email', 'first_name', 'last_name', 'role', 'is_staff')
     list_filter = ('role', 'is_staff', 'is_superuser', 'is_active')
     fieldsets = UserAdmin.fieldsets + (
-        ('SmartSchool Info', {'fields': ('role', 'etablissements', 'telephone', 'adresse')}),
+        ('SmartSchool Info', {'fields': ('role', 'etablissement', 'division', 'telephone', 'photo')}),
     )

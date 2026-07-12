@@ -1,6 +1,10 @@
 from django.urls import path
-from . import views, views_parametres, views_modeles, views_cycles, views_divisions
+from . import views, views_parametres, views_modeles, views_cycles, views_divisions, views_superadmin
 urlpatterns = [
+    # Super Admin — Gestion des établissements
+    path('gerer/', views_superadmin.liste_etablissements, name='liste_etablissements'),
+    path('gerer/creer/', views_superadmin.creer_etablissement, name='creer_etablissement'),
+    path('gerer/<int:pk>/modifier/', views_superadmin.modifier_etablissement, name='modifier_etablissement'),
     path('enseignants/', views.liste_enseignants, name='liste_enseignants'),
     path('enseignants/ajouter/', views.ajouter_enseignant, name='ajouter_enseignant'),
     path('enseignants/<int:pk>/', views.detail_enseignant, name='detail_enseignant'),

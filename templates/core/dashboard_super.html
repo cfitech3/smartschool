@@ -7,7 +7,10 @@
     <h1>🌐 Vue globale</h1>
     <div class="page-subtitle">{{ today|date:"l d F Y" }} — Tous les établissements</div>
   </div>
-  <a href="{% url 'liste_utilisateurs' %}" class="btn btn-primary">👥 Utilisateurs</a>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">+ Nouvel établissement</a>
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline">🏫 Tous les établissements</a>
+  </div>
 </div>
 
 <!-- KPIs globaux -->
@@ -38,19 +41,22 @@
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><span class="card-title">🏫 Établissements</span></div>
   <table class="table-modern">
-    <thead><tr><th>Établissement</th><th>Code</th><th style="text-align:center;">Élèves</th><th style="text-align:center;">Utilisateurs</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Établissement</th><th>Code</th><th>Lien portail</th><th style="text-align:center;">Élèves</th><th>Actions</th></tr></thead>
     <tbody>
     {% for etab in etablissements %}
     <tr>
       <td>
         <div style="font-weight:700;">{{ etab.nom }}</div>
-        {% if etab.adresse %}<div style="font-size:11.5px;color:var(--text-muted);">{{ etab.adresse }}</div>{% endif %}
+        {% if etab.directeur %}<div style="font-size:11px;color:var(--text-muted);">{{ etab.directeur }}</div>{% endif %}
       </td>
-      <td><code style="font-size:12px;">{{ etab.code }}</code></td>
+      <td><code style="font-size:12px;background:var(--bg);padding:2px 6px;border-radius:4px;">{{ etab.code }}</code></td>
+      <td style="font-size:12px;color:var(--primary);">/auth/portail/{{ etab.code }}/</td>
       <td style="text-align:center;font-weight:700;">{{ etab.nb_eleves }}</td>
-      <td style="text-align:center;">{{ etab.nb_users }}</td>
       <td>
-        <a href="{% url 'changer_etablissement' etab.pk %}" class="btn btn-outline btn-sm">🔀 Gérer</a>
+        <div style="display:flex;gap:6px;">
+          <a href="{% url 'modifier_etablissement' etab.pk %}" class="btn btn-primary btn-sm" title="Modifier cet établissement">✏️ Gérer</a>
+          <a href="{% url 'changer_etablissement' etab.pk %}" class="btn btn-outline btn-sm" title="Basculer sur cet établissement">👁️ Voir</a>
+        </div>
       </td>
     </tr>
     {% empty %}
@@ -84,10 +90,10 @@
 <div class="card" style="margin-top:16px;">
   <div class="card-header"><span class="card-title">⚡ Actions</span></div>
   <div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 18px;">
-    <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">👥 Gérer utilisateurs</a>
+    <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">🏫 + Nouvelle école</a>
+    <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">👥 Utilisateurs</a>
     <a href="{% url 'parametres' %}" class="btn btn-outline">⚙️ Paramètres</a>
     <a href="{% url 'liste_divisions' %}" class="btn btn-outline">🏛️ Divisions</a>
-    <a href="{% url 'liste_cycles' %}" class="btn btn-outline">🎓 Cycles</a>
     <a href="{% url 'liste_modeles' %}" class="btn btn-outline">🖨️ Modèles docs</a>
   </div>
 </div>

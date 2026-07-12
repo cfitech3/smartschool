@@ -1,0 +1,140 @@
+{% extends "base/base.html" %}
+{% block title %}{% if mode == 'creer' %}Nouvel Établissement{% else %}{{ etab.nom }}{% endif %}{% endblock %}
+{% block topbar_title %}{% if mode == 'creer' %}Créer un établissement{% else %}Modifier {{ etab.nom }}{% endif %}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline btn-sm">← Retour</a>
+    <h1>{% if mode == 'creer' %}🏫 Nouvel Établissement{% else %}✏️ {{ etab.nom }}{% endif %}</h1>
+  </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" style="max-width:680px;">
+{% csrf_token %}
+
+<!-- Identité -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">🏷️ Identité</span></div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Nom complet *</label>
+        <input type="text" name="nom" class="form-control" value="{% if etab %}{{ etab.nom }}{% endif %}" placeholder="Complexe Scolaire Excellence..." required>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Code (abréviation) *</label>
+        <input type="text" name="code" class="form-control" value="{% if etab %}{{ etab.code }}{% endif %}" placeholder="CSE" maxlength="20" required style="text-transform:uppercase;" oninput="updatePortailPreview(this.value)">
+        <small style="color:var(--text-muted);font-size:11px;">Servira pour le lien de connexion</small>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Type</label>
+        <select name="type" class="form-control">
+          {% for val, lib in types %}
+            <option value="{{ val }}" {% if etab and etab.type == val %}selected{% endif %}>{{ lib }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Directeur / Proviseur</label>
+        <input type="text" name="directeur" class="form-control" value="{% if etab %}{{ etab.directeur }}{% endif %}" placeholder="M. Amadou Diallo">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Slogan</label>
+      <input type="text" name="slogan" class="form-control" value="{% if etab %}{{ etab.slogan }}{% endif %}" placeholder="L'excellence au cœur de notre mission">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Adresse</label>
+      <input type="text" name="adresse" class="form-control" value="{% if etab %}{{ etab.adresse }}{% endif %}" placeholder="Bamako, Mali">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Téléphone</label>
+        <input type="text" name="telephone" class="form-control" value="{% if etab %}{{ etab.telephone }}{% endif %}" placeholder="+223 XX XX XX XX">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control" value="{% if etab %}{{ etab.email }}{% endif %}" placeholder="contact@ecole.ml">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Apparence -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">🎨 Apparence & Branding</span></div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Couleur principale</label>
+        <input type="color" name="couleur_principale" class="form-control" value="{% if etab %}{{ etab.couleur_principale }}{% else %}#1565C0{% endif %}" style="height:42px;padding:4px;" oninput="updatePreview()">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Couleur secondaire</label>
+        <input type="color" name="couleur_secondaire" class="form-control" value="{% if etab %}{{ etab.couleur_secondaire }}{% else %}#0D47A1{% endif %}" style="height:42px;padding:4px;" oninput="updatePreview()">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Logo</label>
+        <input type="file" name="logo" class="form-control" accept="image/*">
+        {% if etab and etab.logo %}<div style="margin-top:6px;"><img src="{{ etab.logo.url }}" style="height:36px;border-radius:6px;"></div>{% endif %}
+      </div>
+    </div>
+    <!-- Aperçu portail -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;">
+      <div style="font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:10px;">Aperçu du portail de connexion</div>
+      <div id="portail-preview" style="border-radius:8px;padding:14px 18px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,{% if etab %}{{ etab.couleur_principale }}{% else %}#1565C0{% endif %},{% if etab %}{{ etab.couleur_secondaire }}{% else %}#0D47A1{% endif %});">
+        <div style="font-size:28px;">🏫</div>
+        <div>
+          <div id="prev-nom" style="color:#fff;font-weight:800;font-size:14px;">{% if etab %}{{ etab.nom }}{% else %}Nom de l'école{% endif %}</div>
+          <div id="prev-lien" style="color:rgba(255,255,255,0.8);font-size:11px;margin-top:2px;">/auth/portail/{% if etab %}{{ etab.code }}{% else %}CODE{% endif %}/</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Statut -->
+{% if mode == 'modifier' %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body" style="display:flex;align-items:center;gap:12px;">
+    <input type="checkbox" name="is_active" id="is_active" style="width:18px;height:18px;" {% if etab.is_active %}checked{% endif %}>
+    <label for="is_active" class="form-label" style="margin:0;">Établissement actif</label>
+  </div>
+</div>
+{% endif %}
+
+<!-- Actions -->
+<div class="card">
+  <div class="card-body" style="display:flex;gap:10px;">
+    <button type="submit" class="btn btn-primary">{% if mode == 'creer' %}✅ Créer{% else %}💾 Enregistrer{% endif %}</button>
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline">Annuler</a>
+    {% if mode == 'modifier' %}
+    <button type="submit" name="action" value="supprimer" class="btn btn-outline" style="margin-left:auto;color:var(--danger);border-color:var(--danger);" onclick="return confirm('Supprimer définitivement {{ etab.nom }} ? Cette action est irréversible.')">🗑 Supprimer</button>
+    {% endif %}
+  </div>
+</div>
+
+</form>
+
+<script>
+function updatePortailPreview(val) {
+  const code = val.toUpperCase();
+  document.getElementById('prev-lien').textContent = '/auth/portail/' + (code || 'CODE') + '/';
+}
+
+function updatePreview() {
+  const c1 = document.querySelector('[name=couleur_principale]').value;
+  const c2 = document.querySelector('[name=couleur_secondaire]').value;
+  document.getElementById('portail-preview').style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+}
+
+document.querySelector('[name=nom]').addEventListener('input', function() {
+  document.getElementById('prev-nom').textContent = this.value || "Nom de l'école";
+});
+document.querySelector('[name=code]').addEventListener('input', function() {
+  updatePortailPreview(this.value);
+});
+</script>
+{% endblock %}
