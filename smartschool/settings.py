@@ -51,6 +51,9 @@ SECRET_KEY = _get_env(
 _allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '')
 if _allowed_hosts_env:
     ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
+    # Toujours autoriser PythonAnywhere
+    if 'cfitech2.pythonanywhere.com' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('cfitech2.pythonanywhere.com')
 elif DEBUG:
     # Développement local : accepte localhost et 127.0.0.1
     ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']

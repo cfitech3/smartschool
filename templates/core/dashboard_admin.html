@@ -134,9 +134,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-  const chartDataRaw = '{{ chart_paiements|escapejs }}';
-  if(chartDataRaw && chartDataRaw !== '[]') {
-    const rawData = JSON.parse(chartDataRaw);
+  const rawData = {{ chart_paiements|safe }};
     const labels = rawData.map(d => d.jour);
     const totals = rawData.map(d => d.total);
     
@@ -172,7 +170,6 @@ document.addEventListener("DOMContentLoaded", function() {
         }
       }
     });
-  }
 });
 </script>
 {% endblock %}

@@ -92,11 +92,9 @@
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   // Chart 1: Évolution 30 jours
-  const chartDataRaw = '{{ chart_paiements|escapejs }}';
-  if(chartDataRaw && chartDataRaw !== '[]') {
-    const rawData = JSON.parse(chartDataRaw);
-    const labels = rawData.map(d => d.jour);
-    const totals = rawData.map(d => d.total);
+  const rawData = {{ chart_paiements|safe }};
+  const labels = rawData.map(d => d.jour);
+  const totals = rawData.map(d => d.total);
     
     const ctx = document.getElementById('recettesChart').getContext('2d');
     new Chart(ctx, {
@@ -125,7 +123,6 @@ document.addEventListener("DOMContentLoaded", function() {
         }
       }
     });
-  }
 
   // Chart 2: Répartition Doughnut
   const repLabels = [];
