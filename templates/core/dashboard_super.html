@@ -5,96 +5,149 @@
 <div class="page-header">
   <div>
     <h1>🌐 Vue globale</h1>
-    <div class="page-subtitle">{{ today|date:"l d F Y" }} — Tous les établissements</div>
+    <div class="page-subtitle">{{ today|date:"l d F Y" }} — Réseau SmartSchool</div>
   </div>
   <div style="display:flex;gap:8px;">
     <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">+ Nouvel établissement</a>
-    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline">🏫 Tous les établissements</a>
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline">🏫 Gérer</a>
   </div>
 </div>
 
 <!-- KPIs globaux -->
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
   <div class="card" style="padding:18px;text-align:center;">
     <div style="font-size:32px;font-weight:900;color:var(--primary);">{{ stats.total_etablissements }}</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Établissements</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Établissements actifs</div>
   </div>
+  {% if stats.inactifs > 0 %}
+  <div class="card" style="padding:18px;text-align:center;border-color:var(--border-danger);">
+    <div style="font-size:32px;font-weight:900;color:var(--danger);">{{ stats.inactifs }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Suspendus</div>
+  </div>
+  {% endif %}
   <div class="card" style="padding:18px;text-align:center;">
     <div style="font-size:32px;font-weight:900;color:var(--primary);">{{ stats.total_eleves }}</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Élèves au total</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Élèves total</div>
   </div>
   <div class="card" style="padding:18px;text-align:center;">
     <div style="font-size:32px;font-weight:900;color:var(--primary);">{{ stats.total_users }}</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Comptes staff</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Comptes staff</div>
   </div>
   <div class="card" style="padding:18px;text-align:center;">
-    <div style="font-size:32px;font-weight:900;color:var(--primary);">{{ stats.total_parents }}</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Comptes parents</div>
-  </div>
-  <div class="card" style="padding:18px;text-align:center;">
-    <div style="font-size:20px;font-weight:900;color:var(--success);">{{ stats.recettes_mois|floatformat:0 }} <span style="font-size:12px;">FCFA</span></div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Recettes globales ce mois</div>
+    <div style="font-size:18px;font-weight:900;color:var(--success);">{{ stats.recettes_mois|floatformat:0 }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">FCFA ce mois (réseau)</div>
   </div>
 </div>
 
-<!-- Liste des établissements -->
+<!-- Établissements -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title">🏫 Établissements</span></div>
+  <div class="card-header">
+    <span class="card-title">🏫 Établissements</span>
+    <a href="{% url 'liste_etablissements' %}" style="font-size:12px;color:var(--primary);">Gestion complète →</a>
+  </div>
   <table class="table-modern">
-    <thead><tr><th>Établissement</th><th>Code</th><th>Lien portail</th><th style="text-align:center;">Élèves</th><th>Actions</th></tr></thead>
+    <thead>
+      <tr>
+        <th>Établissement</th>
+        <th>Portail</th>
+        <th style="text-align:center;">Élèves</th>
+        <th style="text-align:right;">Recettes mois</th>
+        <th>Statut</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
     <tbody>
-    {% for etab in etablissements %}
-    <tr>
+    {% for e in etablissements %}
+    <tr style="{% if not e.is_active %}opacity:0.55;{% endif %}">
       <td>
-        <div style="font-weight:700;">{{ etab.nom }}</div>
-        {% if etab.directeur %}<div style="font-size:11px;color:var(--text-muted);">{{ etab.directeur }}</div>{% endif %}
+        <div style="font-weight:700;">{{ e.nom }}</div>
+        {% if e.directeur %}<div style="font-size:11px;color:var(--text-muted);">{{ e.directeur }}</div>{% endif %}
       </td>
-      <td><code style="font-size:12px;background:var(--bg);padding:2px 6px;border-radius:4px;">{{ etab.code }}</code></td>
-      <td style="font-size:12px;color:var(--primary);">/auth/portail/{{ etab.code }}/</td>
-      <td style="text-align:center;font-weight:700;">{{ etab.nb_eleves }}</td>
       <td>
-        <div style="display:flex;gap:6px;">
-          <a href="{% url 'modifier_etablissement' etab.pk %}" class="btn btn-primary btn-sm" title="Modifier cet établissement">✏️ Gérer</a>
-          <a href="{% url 'changer_etablissement' etab.pk %}" class="btn btn-outline btn-sm" title="Basculer sur cet établissement">👁️ Voir</a>
+        <code style="font-size:11px;color:var(--primary);">/portail/{{ e.code }}/</code>
+        <button onclick="copyLink('{{ e.code }}')" style="background:none;border:none;cursor:pointer;font-size:13px;" title="Copier">📋</button>
+      </td>
+      <td style="text-align:center;font-weight:700;">{{ e.nb_eleves }}</td>
+      <td style="text-align:right;font-weight:600;color:var(--success);">{{ e.recettes_mois|floatformat:0 }} FCFA</td>
+      <td>
+        {% if e.is_active %}
+          <span style="background:var(--bg-success);color:var(--text-success);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">Actif</span>
+        {% else %}
+          <span style="background:var(--bg-danger);color:var(--text-danger);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">Suspendu</span>
+        {% endif %}
+      </td>
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <a href="{% url 'voir_etablissement' e.pk %}" class="btn btn-outline btn-sm">👁️ Voir</a>
+          <a href="{% url 'gestion_comptes_etab' e.pk %}" class="btn btn-outline btn-sm">👥 Comptes</a>
+          <a href="{% url 'changer_etablissement' e.pk %}" class="btn btn-outline btn-sm" title="Basculer sur cet établissement">🔀</a>
+          <form method="post" action="{% url 'toggle_etablissement' e.pk %}" style="margin:0;"
+                onsubmit="return confirm('{% if e.is_active %}Suspendre{% else %}Réactiver{% endif %} {{ e.nom }} ?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm"
+                    style="background:{% if e.is_active %}var(--warning){% else %}var(--success){% endif %};color:#fff;">
+              {% if e.is_active %}🔒{% else %}✅{% endif %}
+            </button>
+          </form>
         </div>
       </td>
     </tr>
     {% empty %}
-    <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted);">Aucun établissement</td></tr>
+    <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-muted);">Aucun établissement — <a href="{% url 'creer_etablissement' %}">Créer le premier</a></td></tr>
     {% endfor %}
     </tbody>
   </table>
 </div>
 
-<!-- Derniers utilisateurs créés -->
-<div class="card">
-  <div class="card-header"><span class="card-title">👥 Derniers comptes créés</span><a href="{% url 'liste_utilisateurs' %}" style="font-size:12px;color:var(--primary);">Tous →</a></div>
+<!-- Derniers comptes créés -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <span class="card-title">👥 Derniers comptes créés</span>
+  </div>
   <table class="table-modern">
-    <thead><tr><th>Utilisateur</th><th>Rôle</th><th>Établissement</th><th>Créé le</th></tr></thead>
+    <thead><tr><th>Utilisateur</th><th>Rôle</th><th>Établissement</th><th>Créé le</th><th>Statut</th></tr></thead>
     <tbody>
     {% for u in derniers_users %}
     <tr>
       <td style="font-weight:600;">{{ u.get_full_name|default:u.username }}</td>
       <td><span class="badge badge-primary" style="font-size:11px;">{{ u.get_role_display }}</span></td>
-      <td style="font-size:12px;color:var(--text-muted);">{{ u.etablissement.nom|default:"—"|truncatechars:20 }}</td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ u.etablissement.nom|default:"—"|truncatechars:22 }}</td>
       <td style="font-size:12px;color:var(--text-muted);">{{ u.date_creation|date:"d/m/Y" }}</td>
+      <td>
+        {% if u.is_active %}
+          <span style="color:var(--success);font-size:11px;">✅</span>
+        {% else %}
+          <span style="color:var(--danger);font-size:11px;">🔒</span>
+        {% endif %}
+      </td>
     </tr>
     {% empty %}
-    <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun utilisateur</td></tr>
+    <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun utilisateur</td></tr>
     {% endfor %}
     </tbody>
   </table>
 </div>
 
-<!-- Actions rapides super admin -->
-<div class="card" style="margin-top:16px;">
-  <div class="card-header"><span class="card-title">⚡ Actions</span></div>
+<!-- Actions rapides -->
+<div class="card">
+  <div class="card-header"><span class="card-title">⚡ Actions rapides</span></div>
   <div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 18px;">
     <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">🏫 + Nouvelle école</a>
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline">📋 Gérer les établissements</a>
     <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">👥 Utilisateurs</a>
     <a href="{% url 'parametres' %}" class="btn btn-outline">⚙️ Paramètres</a>
-    <a href="{% url 'liste_divisions' %}" class="btn btn-outline">🏛️ Divisions</a>
-    <a href="{% url 'liste_modeles' %}" class="btn btn-outline">🖨️ Modèles docs</a>
+    <a href="{% url 'liste_modeles' %}" class="btn btn-outline">🖨️ Modèles documents</a>
   </div>
 </div>
+
+<script>
+function copyLink(code) {
+  const url = window.location.origin + '/auth/portail/' + code + '/';
+  navigator.clipboard.writeText(url).then(() => {
+    Toastify({text:"✅ Lien copié : " + url, duration:3000, gravity:"top", position:"right",
+      style:{background:"var(--success)",color:"#fff",borderRadius:"8px",fontSize:"13px"}
+    }).showToast();
+  });
+}
+</script>
 {% endblock %}

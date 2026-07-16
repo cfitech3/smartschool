@@ -1,0 +1,144 @@
+{% extends "base/base.html" %}
+{% block title %}{{ etab.nom }} — Vue Super Admin{% endblock %}
+{% block topbar_title %}👁️ {{ etab.nom }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>👁️ {{ etab.nom }}</h1>
+    <div class="page-subtitle">Vue super admin — données isolées de cet établissement</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'gestion_comptes_etab' etab.pk %}" class="btn btn-outline">👥 Gérer les comptes</a>
+    <a href="{% url 'changer_etablissement' etab.pk %}" class="btn btn-outline">🔀 Basculer dessus</a>
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-primary">← Retour</a>
+  </div>
+</div>
+
+<!-- Badge statut -->
+<div style="margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+  {% if etab.is_active %}
+    <span style="background:var(--bg-success);color:var(--text-success);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">✅ ACTIF</span>
+  {% else %}
+    <span style="background:var(--bg-danger);color:var(--text-danger);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">🔒 SUSPENDU</span>
+  {% endif %}
+  <span style="font-size:13px;color:var(--text-muted);">Portail : <code>/auth/portail/{{ etab.code }}/</code></span>
+  {% if not etab.is_active %}
+  <form method="post" action="{% url 'toggle_etablissement' etab.pk %}" style="margin:0;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary btn-sm">✅ Réactiver</button>
+  </form>
+  {% else %}
+  <form method="post" action="{% url 'toggle_etablissement' etab.pk %}" style="margin:0;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="return confirm('Suspendre cet établissement ?')">🔒 Suspendre</button>
+  </form>
+  {% endif %}
+</div>
+
+<!-- KPIs -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:28px;font-weight:900;color:var(--primary);">{{ nb_eleves }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Élèves actifs</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:28px;font-weight:900;color:var(--primary);">{{ nb_users }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Comptes staff</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:20px;font-weight:900;color:var(--success);">{{ recettes_mois|floatformat:0 }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">FCFA ce mois</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:20px;font-weight:900;color:var(--primary);">{{ annee.libelle|default:"—" }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Année active</div>
+  </div>
+</div>
+
+<!-- Graphique 7 jours -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">📊 Recettes — 7 derniers jours</span></div>
+  <div style="padding:16px 18px;"><canvas id="chartEtab" height="80"></canvas></div>
+</div>
+
+<!-- Comptes staff -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <span class="card-title">👥 Comptes staff</span>
+    <a href="{% url 'gestion_comptes_etab' etab.pk %}" style="font-size:12px;color:var(--primary);">Gérer →</a>
+  </div>
+  <table class="table-modern">
+    <thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Statut</th></tr></thead>
+    <tbody>
+    {% for u in users %}
+    <tr>
+      <td style="font-weight:600;">{{ u.get_full_name|default:u.username }}</td>
+      <td><code style="font-size:12px;">{{ u.username }}</code></td>
+      <td><span class="badge badge-primary" style="font-size:11px;">{{ u.get_role_display }}</span></td>
+      <td>
+        {% if u.is_active %}
+          <span style="color:var(--success);font-size:12px;font-weight:600;">✅ Actif</span>
+        {% else %}
+          <span style="color:var(--danger);font-size:12px;font-weight:600;">🔒 Bloqué</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">Aucun compte staff</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Derniers paiements -->
+<div class="card">
+  <div class="card-header"><span class="card-title">💳 Derniers paiements</span></div>
+  <table class="table-modern">
+    <thead><tr><th>Élève</th><th>Type</th><th>Montant</th><th>Date</th><th>Mode</th></tr></thead>
+    <tbody>
+    {% for p in paiements_recents %}
+    <tr>
+      <td style="font-weight:600;">{{ p.eleve.nom_complet }}</td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ p.type_frais.nom }}</td>
+      <td style="font-weight:700;color:var(--success);">{{ p.montant|floatformat:0 }} FCFA</td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ p.date_paiement|date:"d/m/Y H:i" }}</td>
+      <td style="font-size:12px;">{{ p.get_mode_paiement_display }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">Aucun paiement</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const rawData = {{ chart|safe }};
+  const ctx = document.getElementById('chartEtab');
+  if(!ctx || !rawData.length) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: rawData.map(d => d.jour),
+      datasets: [{
+        label: 'Recettes (FCFA)',
+        data: rawData.map(d => d.total),
+        backgroundColor: 'rgba(21,101,192,0.25)',
+        borderColor: 'rgba(21,101,192,0.9)',
+        borderWidth: 2, borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('fr-FR') } }
+      }
+    }
+  });
+});
+</script>
+{% endblock %}
+{% endblock %}

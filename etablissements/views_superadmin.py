@@ -1,7 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db.models import Count, Sum, Q
+from django.utils import timezone
 from .models import Etablissement, AnneeScolaire
+from accounts.models import User
+from eleves.models import Eleve
+from finances.models import Paiement
+import datetime
 
 
 def superadmin_required(fn):
@@ -14,14 +20,166 @@ def superadmin_required(fn):
     return w
 
 
+# ── CHANTIER 2 : Dashboard super admin enrichi ───────────────────────────────
+
 @login_required
 @superadmin_required
 def liste_etablissements(request):
-    etablissements = Etablissement.objects.all().order_by('nom')
+    today = timezone.now().date()
+    etablissements = Etablissement.objects.all().order_by('nom').annotate(
+        nb_eleves=Count('eleves', filter=Q(eleves__is_active=True)),
+        nb_users=Count('utilisateurs', filter=Q(utilisateurs__is_active=True)),
+    )
+
+    # Stats globales
+    stats = {
+        'total_etablissements': etablissements.count(),
+        'actifs': etablissements.filter(is_active=True).count(),
+        'inactifs': etablissements.filter(is_active=False).count(),
+        'total_eleves': Eleve.objects.filter(is_active=True).count(),
+        'total_users': User.objects.filter(is_active=True).exclude(role='super_admin').count(),
+        'recettes_mois': float(Paiement.objects.filter(
+            statut='valide',
+            date_paiement__month=today.month,
+            date_paiement__year=today.year,
+        ).aggregate(t=Sum('montant'))['t'] or 0),
+    }
+
+    # Recettes par établissement ce mois
+    for e in etablissements:
+        e.recettes_mois = float(Paiement.objects.filter(
+            etablissement=e, statut='valide',
+            date_paiement__month=today.month,
+            date_paiement__year=today.year,
+        ).aggregate(t=Sum('montant'))['t'] or 0)
+        e.nb_paiements_jour = Paiement.objects.filter(
+            etablissement=e, statut='valide',
+            date_paiement__date=today,
+        ).count()
+
+    derniers_users = User.objects.exclude(role='super_admin').select_related('etablissement').order_by('-date_creation')[:8]
+
     return render(request, 'etablissements/superadmin/liste.html', {
         'etablissements': etablissements,
+        'stats': stats,
+        'derniers_users': derniers_users,
+        'today': today,
     })
 
+
+# ── CHANTIER 1 : Vue données d'un établissement (isolation vérifiée) ─────────
+
+@login_required
+@superadmin_required
+def voir_etablissement(request, pk):
+    """Super admin voit les données complètes d'un établissement sans y basculer."""
+    etab = get_object_or_404(Etablissement, pk=pk)
+    today = timezone.now().date()
+    annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
+
+    eleves = Eleve.objects.filter(etablissement=etab, is_active=True)
+    users = User.objects.filter(etablissement=etab, is_active=True).exclude(role__in=['parent', 'eleve'])
+    paiements_recents = Paiement.objects.filter(
+        etablissement=etab, statut='valide'
+    ).select_related('eleve', 'type_frais').order_by('-date_paiement')[:10]
+
+    recettes_mois = float(Paiement.objects.filter(
+        etablissement=etab, statut='valide',
+        date_paiement__month=today.month,
+        date_paiement__year=today.year,
+    ).aggregate(t=Sum('montant'))['t'] or 0)
+
+    # Chart 7 derniers jours
+    chart = []
+    for i in range(6, -1, -1):
+        d = today - datetime.timedelta(days=i)
+        total = float(Paiement.objects.filter(
+            etablissement=etab, date_paiement__date=d, statut='valide'
+        ).aggregate(t=Sum('montant'))['t'] or 0)
+        chart.append({'jour': d.strftime('%d/%m'), 'total': total})
+
+    import json
+    return render(request, 'etablissements/superadmin/voir_etab.html', {
+        'etab': etab,
+        'annee': annee,
+        'nb_eleves': eleves.count(),
+        'nb_users': users.count(),
+        'users': users.order_by('role', 'last_name'),
+        'paiements_recents': paiements_recents,
+        'recettes_mois': recettes_mois,
+        'chart': json.dumps(chart),
+        'today': today,
+    })
+
+
+# ── CHANTIER 4 : Gestion comptes à distance (reset mdp, bloquer) ─────────────
+
+@login_required
+@superadmin_required
+def gestion_comptes_etab(request, pk):
+    """Super admin gère tous les comptes d'un établissement."""
+    etab = get_object_or_404(Etablissement, pk=pk)
+    users = User.objects.filter(etablissement=etab).exclude(role='super_admin').order_by('role', 'last_name')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        u_pk = request.POST.get('user_pk')
+
+        if not u_pk:
+            messages.error(request, "Utilisateur non spécifié.")
+            return redirect('gestion_comptes_etab', pk=pk)
+
+        # Vérifier que l'utilisateur appartient bien à cet établissement
+        user_cible = get_object_or_404(User, pk=u_pk, etablissement=etab)
+
+        if action == 'reset_mdp':
+            nouveau_mdp = request.POST.get('nouveau_mdp', '').strip()
+            if len(nouveau_mdp) < 6:
+                messages.error(request, "Le mot de passe doit faire au moins 6 caractères.")
+            else:
+                user_cible.set_password(nouveau_mdp)
+                user_cible.save()
+                messages.success(request, f"✅ Mot de passe réinitialisé pour {user_cible.get_full_name() or user_cible.username}.")
+
+        elif action == 'bloquer':
+            user_cible.is_active = False
+            user_cible.save()
+            messages.warning(request, f"🔒 Compte de {user_cible.get_full_name() or user_cible.username} bloqué.")
+
+        elif action == 'debloquer':
+            user_cible.is_active = True
+            user_cible.save()
+            messages.success(request, f"✅ Compte de {user_cible.get_full_name() or user_cible.username} réactivé.")
+
+        elif action == 'supprimer':
+            nom = user_cible.get_full_name() or user_cible.username
+            user_cible.delete()
+            messages.success(request, f"🗑️ Compte de {nom} supprimé.")
+
+        return redirect('gestion_comptes_etab', pk=pk)
+
+    return render(request, 'etablissements/superadmin/gestion_comptes.html', {
+        'etab': etab,
+        'users': users,
+        'roles': User.ROLES,
+    })
+
+
+# ── Toggle rapide actif/inactif établissement ─────────────────────────────────
+
+@login_required
+@superadmin_required
+def toggle_etablissement(request, pk):
+    """Active ou désactive un établissement en un clic."""
+    etab = get_object_or_404(Etablissement, pk=pk)
+    etab.is_active = not etab.is_active
+    etab.save()
+    statut = "réactivé ✅" if etab.is_active else "suspendu 🔒"
+    messages.success(request, f"Établissement '{etab.nom}' {statut}.")
+    return redirect('liste_etablissements')
+
+
+# ── Créer / modifier établissement ───────────────────────────────────────────
 
 @login_required
 @superadmin_required
@@ -52,7 +210,7 @@ def creer_etablissement(request):
             if request.FILES.get('logo'):
                 etab.logo = request.FILES['logo']
                 etab.save()
-            messages.success(request, f"Établissement '{nom}' créé avec succès !")
+            messages.success(request, f"Établissement '{nom}' créé ! Portail : /auth/portail/{code}/")
             return redirect('liste_etablissements')
 
     return render(request, 'etablissements/superadmin/form.html', {
@@ -84,7 +242,7 @@ def modifier_etablissement(request, pk):
         etab.slogan = request.POST.get('slogan', etab.slogan)
         etab.couleur_principale = request.POST.get('couleur_principale', etab.couleur_principale)
         etab.couleur_secondaire = request.POST.get('couleur_secondaire', etab.couleur_secondaire)
-        etab.is_active = bool(request.POST.get('is_active'))
+        etab.is_active = 'is_active' in request.POST
         if request.FILES.get('logo'):
             etab.logo = request.FILES['logo']
         etab.save()

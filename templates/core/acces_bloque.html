@@ -1,0 +1,36 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Accès suspendu — SmartSchool</title>
+  <link rel="stylesheet" href="{% static 'css/smartschool.css' %}?v=2">
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); }
+    .bloc { max-width:460px; text-align:center; padding:48px 36px; background:var(--surface-1); border-radius:20px; border:1.5px solid var(--border-danger); }
+    .icon { font-size:64px; margin-bottom:20px; }
+    h1 { font-size:22px; font-weight:700; color:var(--text-primary); margin-bottom:10px; }
+    p { color:var(--text-secondary); font-size:14px; line-height:1.7; margin-bottom:6px; }
+    .etab-nom { font-weight:700; color:var(--danger); }
+    .contact { margin-top:24px; padding:16px; background:var(--bg-danger); border-radius:10px; font-size:13px; color:var(--text-danger); }
+    .btn-deconnexion { display:inline-block; margin-top:24px; padding:10px 28px; background:var(--danger); color:#fff; border-radius:8px; text-decoration:none; font-weight:600; font-size:14px; }
+  </style>
+</head>
+<body>
+<div class="bloc">
+  <div class="icon">🔒</div>
+  <h1>Accès suspendu</h1>
+  {% if etab %}
+  <p>L'accès à <span class="etab-nom">{{ etab.nom }}</span> a été temporairement suspendu par l'administrateur réseau.</p>
+  {% else %}
+  <p>L'accès à cet établissement a été suspendu.</p>
+  {% endif %}
+  <p>Vos données sont conservées et resteront accessibles dès la réactivation.</p>
+  <div class="contact">
+    📞 Contactez l'administrateur SmartSchool pour plus d'informations.
+  </div>
+  <a href="{% url 'logout' %}" class="btn-deconnexion">Se déconnecter</a>
+</div>
+</body>
+</html>

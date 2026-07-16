@@ -60,23 +60,31 @@ def dashboard(request):
 
 # ══════════════════════════════════════════════════════════════
 def _dashboard_super_admin(request, today):
-    etabs = Etablissement.objects.filter(is_active=True).annotate(
+    etabs = Etablissement.objects.all().order_by('nom').annotate(
         nb_eleves=Count('eleves', filter=Q(eleves__is_active=True)),
         nb_users=Count('utilisateurs', filter=Q(utilisateurs__is_active=True)),
     )
     stats = {
-        'total_etablissements': etabs.count(),
-        'total_eleves':  Eleve.objects.filter(is_active=True).count(),
-        'total_users':   User.objects.filter(is_active=True).exclude(role__in=['parent','eleve']).count(),
+        'total_etablissements': etabs.filter(is_active=True).count(),
+        'inactifs': etabs.filter(is_active=False).count(),
+        'total_eleves': Eleve.objects.filter(is_active=True).count(),
+        'total_users': User.objects.filter(is_active=True).exclude(role__in=['parent','eleve','super_admin']).count(),
         'total_parents': User.objects.filter(is_active=True, role='parent').count(),
         'recettes_mois': float(Paiement.objects.filter(
             statut='valide', date_paiement__month=today.month,
             date_paiement__year=today.year
         ).aggregate(t=Sum('montant'))['t'] or 0),
     }
-    derniers_users = User.objects.filter(is_active=True).exclude(
-        role__in=['parent','eleve']
-    ).order_by('-date_creation')[:8]
+    for e in etabs:
+        e.recettes_mois = float(Paiement.objects.filter(
+            etablissement=e, statut='valide',
+            date_paiement__month=today.month,
+            date_paiement__year=today.year,
+        ).aggregate(t=Sum('montant'))['t'] or 0)
+        e.nb_paiements_jour = Paiement.objects.filter(
+            etablissement=e, statut='valide', date_paiement__date=today,
+        ).count()
+    derniers_users = User.objects.exclude(role='super_admin').select_related('etablissement').order_by('-date_creation')[:8]
     return render(request, 'core/dashboard_super.html', {
         'stats': stats, 'etablissements': etabs,
         'derniers_users': derniers_users, 'today': today,

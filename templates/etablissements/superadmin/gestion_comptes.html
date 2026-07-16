@@ -1,0 +1,129 @@
+{% extends "base/base.html" %}
+{% block title %}Comptes — {{ etab.nom }}{% endblock %}
+{% block topbar_title %}👥 Comptes — {{ etab.nom }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>👥 Gestion des comptes</h1>
+    <div class="page-subtitle">{{ etab.nom }} — {{ users.count }} compte(s)</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'voir_etablissement' etab.pk %}" class="btn btn-outline">← Retour</a>
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-primary">🏫 Tous les établissements</a>
+  </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags }}" style="margin-bottom:12px;padding:12px 16px;border-radius:8px;background:var(--bg-{{ msg.tags }});color:var(--text-{{ msg.tags }});border:1px solid var(--border-{{ msg.tags }});">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<div class="card">
+  <table class="table-modern">
+    <thead>
+      <tr>
+        <th>Utilisateur</th>
+        <th>Identifiant</th>
+        <th>Rôle</th>
+        <th>Statut</th>
+        <th style="text-align:center;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for u in users %}
+    <tr style="{% if not u.is_active %}opacity:0.6;{% endif %}">
+      <td>
+        <div style="font-weight:600;">{{ u.get_full_name|default:u.username }}</div>
+        {% if u.telephone %}<div style="font-size:11px;color:var(--text-muted);">{{ u.telephone }}</div>{% endif %}
+      </td>
+      <td><code style="font-size:12px;">{{ u.username }}</code></td>
+      <td><span class="badge badge-primary" style="font-size:11px;">{{ u.get_role_display }}</span></td>
+      <td>
+        {% if u.is_active %}
+          <span style="color:var(--success);font-size:12px;font-weight:600;">✅ Actif</span>
+        {% else %}
+          <span style="color:var(--danger);font-size:12px;font-weight:600;">🔒 Bloqué</span>
+        {% endif %}
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+
+          <!-- Reset mot de passe -->
+          <button onclick="openReset({{ u.pk }}, '{{ u.get_full_name|default:u.username }}')"
+                  class="btn btn-outline btn-sm" title="Réinitialiser le mot de passe">🔑 Reset mdp</button>
+
+          <!-- Bloquer / Débloquer -->
+          {% if u.is_active %}
+          <form method="post" style="margin:0;" onsubmit="return confirm('Bloquer ce compte ?')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="bloquer">
+            <input type="hidden" name="user_pk" value="{{ u.pk }}">
+            <button type="submit" class="btn btn-sm" style="background:var(--warning);color:#fff;">🔒 Bloquer</button>
+          </form>
+          {% else %}
+          <form method="post" style="margin:0;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="debloquer">
+            <input type="hidden" name="user_pk" value="{{ u.pk }}">
+            <button type="submit" class="btn btn-sm" style="background:var(--success);color:#fff;">✅ Débloquer</button>
+          </form>
+          {% endif %}
+
+          <!-- Supprimer -->
+          <form method="post" style="margin:0;" onsubmit="return confirm('Supprimer définitivement ce compte ?')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="supprimer">
+            <input type="hidden" name="user_pk" value="{{ u.pk }}">
+            <button type="submit" class="btn btn-sm" style="background:var(--danger);color:#fff;">🗑️</button>
+          </form>
+
+        </div>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px;">Aucun compte</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal reset mdp -->
+<div id="modal-reset" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface-1);border-radius:16px;padding:32px;width:100%;max-width:420px;margin:0 16px;">
+    <h3 style="margin-bottom:8px;">🔑 Réinitialiser le mot de passe</h3>
+    <p id="modal-nom" style="color:var(--text-muted);font-size:13px;margin-bottom:20px;"></p>
+    <form method="post" id="form-reset">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="reset_mdp">
+      <input type="hidden" name="user_pk" id="reset-user-pk">
+      <div style="margin-bottom:16px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Nouveau mot de passe</label>
+        <input type="text" name="nouveau_mdp" id="input-mdp" minlength="6" required
+               style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text-primary);"
+               placeholder="Minimum 6 caractères">
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <button type="button" onclick="closeReset()" class="btn btn-outline" style="flex:1;">Annuler</button>
+        <button type="submit" class="btn btn-primary" style="flex:1;">✅ Confirmer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openReset(pk, nom) {
+  document.getElementById('reset-user-pk').value = pk;
+  document.getElementById('modal-nom').textContent = 'Utilisateur : ' + nom;
+  document.getElementById('input-mdp').value = '';
+  const m = document.getElementById('modal-reset');
+  m.style.display = 'flex';
+}
+function closeReset() {
+  document.getElementById('modal-reset').style.display = 'none';
+}
+document.getElementById('modal-reset').addEventListener('click', function(e) {
+  if(e.target === this) closeReset();
+});
+</script>
+{% endblock %}

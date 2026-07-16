@@ -83,9 +83,10 @@ def dashboard(request):
 
 @login_required
 def changer_etablissement(request, etab_id):
+    """Super admin bascule sur un établissement (actif ou suspendu)."""
     if request.user.role == 'super_admin':
         try:
-            etab = Etablissement.objects.get(pk=etab_id, is_active=True)
+            etab = Etablissement.objects.get(pk=etab_id)  # Sans filtre is_active
             request.session['etablissement_id'] = etab.pk
         except Etablissement.DoesNotExist:
             pass

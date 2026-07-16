@@ -1,7 +1,8 @@
 from django.urls import path
-from . import views, views_documents, views_espace_famille, views_dashboard
+from . import views, views_documents, views_espace_famille, views_dashboard, views_acces_bloque
 urlpatterns = [
     path('', views.dashboard, name='home'),
+    path('acces-bloque/', views_acces_bloque.acces_bloque, name='acces_bloque'),
     path('dashboard/', views_dashboard.dashboard, name='dashboard'),
     path('changer-etablissement/<int:etab_id>/', views.changer_etablissement, name='changer_etablissement'),
     path('recherche/', views_documents.recherche_globale, name='recherche'),
