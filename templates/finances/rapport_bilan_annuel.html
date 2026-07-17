@@ -1,0 +1,146 @@
+{% extends "base/base.html" %}
+{% block title %}Bilan annuel {{ annee_val }}{% endblock %}
+{% block topbar_title %}📊 Bilan annuel{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📊 Bilan annuel {{ annee_val }}</h1>
+    <div class="page-subtitle">{{ nb_eleves }} élèves · Taux de paiement {{ taux_paiement }}%</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="/finances/export/?type=bilan&annee={{ annee_val }}" class="btn btn-primary">⬇️ Export Excel</a>
+    <a href="{% url 'rapport_financier' %}" class="btn btn-outline">← Rapport</a>
+  </div>
+</div>
+
+<!-- Filtre année -->
+<div class="card" style="margin-bottom:16px;padding:16px 18px;">
+  <form method="get" style="display:flex;gap:12px;align-items:center;">
+    <label style="font-size:13px;font-weight:600;">Année :</label>
+    <select name="annee" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      {% for a in annees %}
+      <option value="{{ a }}" {% if a == annee_val %}selected{% endif %}>{{ a }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Afficher</button>
+  </form>
+</div>
+
+<!-- KPIs -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+  <div class="card" style="padding:20px;text-align:center;">
+    <div style="font-size:22px;font-weight:900;color:var(--success);">{{ total_annee|floatformat:0 }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">FCFA recettes {{ annee_val }}</div>
+  </div>
+  <div class="card" style="padding:20px;text-align:center;">
+    <div style="font-size:28px;font-weight:900;color:var(--primary);">{{ taux_paiement }}%</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Taux de recouvrement</div>
+  </div>
+  <div class="card" style="padding:20px;text-align:center;">
+    <div style="font-size:28px;font-weight:900;color:var(--primary);">{{ nb_eleves }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Élèves actifs</div>
+  </div>
+  <div class="card" style="padding:20px;text-align:center;">
+    <div style="font-size:28px;font-weight:900;color:var(--danger);">{{ eleves_jamais_payes }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">N'ont jamais payé</div>
+  </div>
+</div>
+
+<!-- Graphique évolution mensuelle -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">📈 Évolution mensuelle {{ annee_val }}</span></div>
+  <div style="padding:16px 18px;"><canvas id="chartBilan" height="80"></canvas></div>
+</div>
+
+<!-- Tableau mensuel -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">📅 Détail mensuel</span></div>
+  <table class="table-modern">
+    <thead>
+      <tr>
+        <th>Mois</th>
+        <th style="text-align:right;">Recettes (FCFA)</th>
+        <th>Proportion</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in recettes_mois %}
+    <tr>
+      <td style="font-weight:600;">{{ r.mois }}</td>
+      <td style="text-align:right;font-weight:700;color:{% if r.total > 0 %}var(--success){% else %}var(--text-muted){% endif %};">
+        {{ r.total|floatformat:0 }}
+      </td>
+      <td style="width:200px;">
+        {% if total_annee > 0 %}
+        {% widthratio r.total total_annee 100 as pct %}
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="flex:1;background:var(--border);border-radius:4px;height:8px;">
+            <div style="width:{{ pct }}%;background:var(--primary);border-radius:4px;height:8px;"></div>
+          </div>
+          <span style="font-size:11px;color:var(--text-muted);width:32px;">{{ pct }}%</span>
+        </div>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    <tr style="font-weight:700;background:var(--bg);">
+      <td>TOTAL</td>
+      <td style="text-align:right;color:var(--success);font-size:15px;">{{ total_annee|floatformat:0 }}</td>
+      <td>100%</td>
+    </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Recettes par type de frais -->
+<div class="card">
+  <div class="card-header"><span class="card-title">🗂️ Par type de frais</span></div>
+  <table class="table-modern">
+    <thead><tr><th>Type</th><th style="text-align:center;">Nb paiements</th><th style="text-align:right;">Total (FCFA)</th></tr></thead>
+    <tbody>
+    {% for t in par_type %}
+    <tr>
+      <td style="font-weight:600;">{{ t.type_frais__nom|default:"Sans type" }}</td>
+      <td style="text-align:center;color:var(--text-muted);">{{ t.nb }}</td>
+      <td style="text-align:right;font-weight:700;color:var(--success);">{{ t.total|floatformat:0 }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:20px;">Aucun paiement cette année</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const raw = {{ chart_data|safe }};
+  const ctx = document.getElementById('chartBilan');
+  if(!ctx || !raw.length) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: raw.map(d => d.mois),
+      datasets: [{
+        label: 'Recettes (FCFA)',
+        data: raw.map(d => d.total),
+        backgroundColor: raw.map(d => d.total > 0 ? 'rgba(46,125,50,0.25)' : 'rgba(200,200,200,0.2)'),
+        borderColor: raw.map(d => d.total > 0 ? 'rgba(46,125,50,0.9)' : 'rgba(200,200,200,0.5)'),
+        borderWidth: 2, borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => c.parsed.y.toLocaleString('fr-FR') + ' FCFA' }}
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => v>=1000000?(v/1000000).toFixed(1)+'M':(v>=1000?(v/1000).toFixed(0)+'k':v) }}
+      }
+    }
+  });
+});
+</script>
+{% endblock %}
+{% endblock %}

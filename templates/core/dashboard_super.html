@@ -8,6 +8,7 @@
     <div class="page-subtitle">{{ today|date:"l d F Y" }} — Réseau SmartSchool</div>
   </div>
   <div style="display:flex;gap:8px;">
+    <a href="{% url 'dashboard_saas' %}" class="btn btn-outline">📊 Vue SaaS</a>
     <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">+ Nouvel établissement</a>
     <a href="{% url 'liste_etablissements' %}" class="btn btn-outline">🏫 Gérer</a>
   </div>

@@ -1,0 +1,189 @@
+{% extends "base/base.html" %}
+{% block title %}Dashboard SaaS — Super Admin{% endblock %}
+{% block topbar_title %}🌐 Réseau SmartSchool{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🌐 Dashboard SaaS</h1>
+    <div class="page-subtitle">{{ today|date:"l d F Y" }} — Vue propriétaire réseau</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">+ Nouvel établissement</a>
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline">📋 Gestion</a>
+  </div>
+</div>
+
+<!-- Alertes réseau -->
+{% if etabs_inactifs_warn %}
+<div style="background:#FFF8E1;border-left:4px solid #F9A825;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+  <span style="font-size:22px;">⚠️</span>
+  <div>
+    <div style="font-weight:700;color:#F57F17;font-size:13px;">{{ etabs_inactifs_warn|length }} établissement(s) sans connexion depuis 7 jours</div>
+    <div style="font-size:12px;color:var(--text-muted);">
+      {% for e in etabs_inactifs_warn %}{{ e.nom }}{% if not forloop.last %}, {% endif %}{% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- KPIs réseau -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+  <div class="card" style="padding:20px;text-align:center;">
+    <div style="font-size:36px;font-weight:900;color:var(--primary);">{{ stats.nb_etabs_actifs }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Établissements actifs</div>
+  </div>
+  {% if stats.nb_etabs_suspendus > 0 %}
+  <div class="card" style="padding:20px;text-align:center;border-color:var(--border-danger);">
+    <div style="font-size:36px;font-weight:900;color:var(--danger);">{{ stats.nb_etabs_suspendus }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Suspendus</div>
+  </div>
+  {% endif %}
+  <div class="card" style="padding:20px;text-align:center;">
+    <div style="font-size:36px;font-weight:900;color:var(--primary);">{{ stats.nb_eleves_total }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Élèves total réseau</div>
+  </div>
+  <div class="card" style="padding:20px;text-align:center;">
+    <div style="font-size:36px;font-weight:900;color:var(--primary);">{{ stats.nb_users_total }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Comptes staff</div>
+  </div>
+  <div class="card" style="padding:20px;text-align:center;">
+    <div style="font-size:16px;font-weight:900;color:var(--success);">{{ stats.recettes_reseau_mois|floatformat:0 }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">FCFA ce mois (réseau)</div>
+  </div>
+  <div class="card" style="padding:20px;text-align:center;">
+    <div style="font-size:16px;font-weight:900;color:var(--success);">{{ stats.recettes_reseau_annee|floatformat:0 }}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">FCFA cette année</div>
+  </div>
+</div>
+
+<!-- Graphique croissance recettes -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">📈 Recettes réseau — 12 derniers mois</span></div>
+  <div style="padding:16px 18px;"><canvas id="chartSaas" height="70"></canvas></div>
+</div>
+
+<!-- Tableau établissements avec santé -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <span class="card-title">🏫 État des établissements</span>
+    <a href="{% url 'liste_etablissements' %}" style="font-size:12px;color:var(--primary);">Gestion complète →</a>
+  </div>
+  <table class="table-modern">
+    <thead>
+      <tr>
+        <th>Établissement</th>
+        <th style="text-align:center;">Élèves</th>
+        <th style="text-align:center;">Staff</th>
+        <th style="text-align:right;">Recettes mois</th>
+        <th style="text-align:center;">Activité 7j</th>
+        <th style="text-align:center;">Santé</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for e in etabs %}
+    <tr style="{% if not e.is_active %}opacity:0.55;{% endif %}">
+      <td>
+        <div style="font-weight:700;">{{ e.nom }}</div>
+        <code style="font-size:10px;color:var(--text-muted);">/portail/{{ e.code }}/</code>
+      </td>
+      <td style="text-align:center;font-weight:700;">{{ e.nb_eleves }}</td>
+      <td style="text-align:center;">{{ e.nb_users }}</td>
+      <td style="text-align:right;font-weight:600;color:var(--success);">
+        {{ e.recettes_mois|floatformat:0 }} FCFA
+      </td>
+      <td style="text-align:center;">
+        <span style="font-size:13px;">
+          {% if e.connexions_semaine > 0 %}🟢 {{ e.connexions_semaine }} conn.
+          {% else %}🔴 Aucune{% endif %}
+        </span>
+      </td>
+      <td style="text-align:center;">
+        {% if not e.is_active %}
+          <span style="background:var(--bg-danger);color:var(--text-danger);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;">Suspendu</span>
+        {% elif e.connexions_semaine > 0 %}
+          <span style="background:#E8F5E9;color:#2E7D32;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;">✅ Actif</span>
+        {% else %}
+          <span style="background:#FFF8E1;color:#F57F17;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;">⚠️ Dormant</span>
+        {% endif %}
+      </td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <a href="{% url 'voir_etablissement' e.pk %}" class="btn btn-outline btn-sm">👁️</a>
+          <a href="{% url 'gestion_comptes_etab' e.pk %}" class="btn btn-outline btn-sm">👥</a>
+          <a href="{% url 'changer_etablissement' e.pk %}" class="btn btn-outline btn-sm" title="Basculer">🔀</a>
+          <form method="post" action="{% url 'toggle_etablissement' e.pk %}" style="margin:0;"
+                onsubmit="return confirm('{% if e.is_active %}Suspendre{% else %}Réactiver{% endif %} {{ e.nom }} ?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm"
+              style="background:{% if e.is_active %}var(--danger){% else %}var(--success){% endif %};color:#fff;">
+              {% if e.is_active %}🔒{% else %}✅{% endif %}
+            </button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted);">
+      Aucun établissement — <a href="{% url 'creer_etablissement' %}">Créer le premier</a>
+    </td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Derniers comptes créés -->
+<div class="card">
+  <div class="card-header"><span class="card-title">👥 Derniers comptes créés sur le réseau</span></div>
+  <table class="table-modern">
+    <thead><tr><th>Utilisateur</th><th>Rôle</th><th>Établissement</th><th>Créé le</th><th>Statut</th></tr></thead>
+    <tbody>
+    {% for u in derniers_users %}
+    <tr>
+      <td style="font-weight:600;">{{ u.get_full_name|default:u.username }}</td>
+      <td><span class="badge badge-primary" style="font-size:11px;">{{ u.get_role_display }}</span></td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ u.etablissement.nom|default:"—"|truncatechars:24 }}</td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ u.date_creation|date:"d/m/Y H:i" }}</td>
+      <td>{% if u.is_active %}<span style="color:var(--success);">✅</span>{% else %}<span style="color:var(--danger);">🔒</span>{% endif %}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun utilisateur</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const raw = {{ chart_croissance|safe }};
+  const ctx = document.getElementById('chartSaas');
+  if(!ctx || !raw.length) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: raw.map(d => d.mois),
+      datasets: [{
+        label: 'Recettes réseau (FCFA)',
+        data: raw.map(d => d.recettes),
+        backgroundColor: 'rgba(21,101,192,0.2)',
+        borderColor: 'rgba(21,101,192,0.9)',
+        borderWidth: 2, borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive:true,
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: c => c.parsed.y.toLocaleString('fr-FR')+' FCFA' }}
+      },
+      scales:{
+        y:{ beginAtZero:true, ticks:{ callback: v => v>=1000000?(v/1000000).toFixed(1)+'M':(v>=1000?(v/1000).toFixed(0)+'k':v) }},
+        x:{ ticks:{ maxRotation:45 }}
+      }
+    }
+  });
+});
+</script>
+{% endblock %}
+{% endblock %}
