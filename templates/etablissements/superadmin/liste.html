@@ -65,9 +65,19 @@
       </div>
 
       <!-- Actions -->
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <a href="{% url 'modifier_etablissement' e.pk %}" class="btn btn-primary btn-sm" style="flex:1;text-align:center;">✏️ Gérer</a>
-        <a href="{% url 'changer_etablissement' e.pk %}" class="btn btn-outline btn-sm" title="Voir comme cet établissement">👁️ Voir</a>
+        <a href="{% url 'voir_etablissement' e.pk %}" class="btn btn-outline btn-sm" title="Voir les données de cet établissement">👁️ Voir</a>
+        <a href="{% url 'gestion_comptes_etab' e.pk %}" class="btn btn-outline btn-sm" title="Gérer les comptes">👥</a>
+        <form method="post" action="{% url 'toggle_etablissement' e.pk %}" style="margin:0;"
+              onsubmit="return confirm('{% if e.is_active %}Suspendre{% else %}Réactiver{% endif %} {{ e.nom }} ?')">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm"
+            style="background:{% if e.is_active %}var(--danger){% else %}var(--success){% endif %};color:#fff;"
+            title="{% if e.is_active %}Suspendre{% else %}Réactiver{% endif %}">
+            {% if e.is_active %}🔒{% else %}✅{% endif %}
+          </button>
+        </form>
       </div>
     </div>
   </div>
