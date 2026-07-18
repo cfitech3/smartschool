@@ -162,6 +162,9 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'smartschool.db',
+            'OPTIONS': {
+                'timeout': 20,  # attend 20s avant "database is locked"
+            },
         }
     }
 
