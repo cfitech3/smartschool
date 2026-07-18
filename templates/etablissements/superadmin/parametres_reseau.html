@@ -1,0 +1,144 @@
+{% extends "base/base.html" %}
+{% block title %}Paramètres réseau{% endblock %}
+{% block topbar_title %}⚙️ Paramètres réseau{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>⚙️ Paramètres de la plateforme</h1>
+    <div class="page-subtitle">Configuration globale de SmartSchool</div>
+  </div>
+  <a href="{% url 'dashboard_saas' %}" class="btn btn-outline">← Dashboard</a>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div style="padding:12px 16px;border-radius:8px;margin-bottom:12px;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+{% csrf_token %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+  <!-- Identité plateforme -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">🎓 Identité de la plateforme</span></div>
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Nom de la plateforme</label>
+        <input type="text" name="nom_plateforme" value="{{ params.nom_plateforme }}"
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Slogan</label>
+        <input type="text" name="slogan" value="{{ params.slogan }}"
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Logo plateforme</label>
+        {% if params.logo_plateforme %}
+        <div style="margin-bottom:8px;">
+          <img src="{{ params.logo_plateforme.url }}" style="height:48px;border-radius:6px;border:1px solid var(--border);">
+          <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">Logo actuel</span>
+        </div>
+        {% endif %}
+        <input type="file" name="logo_plateforme" accept="image/*"
+               style="font-size:13px;color:var(--text-primary);">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Message d'accueil (page login)</label>
+        <textarea name="message_accueil" rows="3"
+                  style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);resize:vertical;">{{ params.message_accueil }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact support -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📞 Contact & support</span></div>
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Email support</label>
+        <input type="email" name="email_support" value="{{ params.email_support }}"
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Téléphone support</label>
+        <input type="text" name="telephone_support" value="{{ params.telephone_support }}"
+               placeholder="+223 70 00 00 00"
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Site web</label>
+        <input type="url" name="site_web" value="{{ params.site_web }}"
+               placeholder="https://smartschool.ml"
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Mentions légales</label>
+        <textarea name="mentions_legales" rows="4"
+                  style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);resize:vertical;">{{ params.mentions_legales }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Couleurs -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">🎨 Couleurs de la plateforme</span></div>
+    <div style="padding:20px 24px;display:flex;gap:24px;align-items:center;">
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px;">Couleur primaire</label>
+        <input type="color" name="couleur_primaire" value="{{ params.couleur_primaire }}"
+               style="width:60px;height:40px;border:none;cursor:pointer;border-radius:8px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">{{ params.couleur_primaire }}</div>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px;">Couleur secondaire</label>
+        <input type="color" name="couleur_secondaire" value="{{ params.couleur_secondaire }}"
+               style="width:60px;height:40px;border:none;cursor:pointer;border-radius:8px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">{{ params.couleur_secondaire }}</div>
+      </div>
+      <div style="flex:1;background:var(--bg);border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Aperçu</div>
+        <div id="preview-btn" style="padding:8px 20px;border-radius:8px;background:{{ params.couleur_primaire }};color:#fff;font-weight:700;font-size:14px;display:inline-block;">
+          SmartSchool
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Infos système -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">ℹ️ Informations système</span></div>
+    <div style="padding:20px 24px;">
+      <table style="width:100%;font-size:13px;border-collapse:collapse;">
+        {% for k,v in infos_systeme.items %}
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px 0;color:var(--text-muted);font-weight:600;">{{ k }}</td>
+          <td style="padding:8px 0;text-align:right;">{{ v }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% if params.date_modification %}
+      <div style="font-size:11px;color:var(--text-muted);margin-top:12px;">
+        Dernière modification : {{ params.date_modification|date:"d/m/Y à H:i" }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+  <a href="{% url 'dashboard_saas' %}" class="btn btn-outline">Annuler</a>
+  <button type="submit" class="btn btn-primary" style="min-width:200px;">💾 Enregistrer les paramètres</button>
+</div>
+</form>
+
+<script>
+// Aperçu couleur en temps réel
+document.querySelector('[name="couleur_primaire"]').addEventListener('input', function() {
+  document.getElementById('preview-btn').style.background = this.value;
+});
+</script>
+{% endblock %}

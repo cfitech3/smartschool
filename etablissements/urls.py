@@ -4,6 +4,11 @@ from . import views, views_parametres, views_modeles, views_cycles, views_divisi
 urlpatterns = [
     # Super Admin — Gestion des établissements
     path('saas/', views_saas.dashboard_saas, name='dashboard_saas'),
+    path('saas/journal/', views_saas.journal_actions, name='journal_actions'),
+    path('saas/stats/', views_saas.stats_commerciales, name='stats_commerciales'),
+    path('saas/parametres/', views_saas.parametres_reseau, name='parametres_reseau'),
+    path('saas/export/', views_saas.export_rapport_reseau, name='export_rapport_reseau'),
+    path('gerer/<int:etab_pk>/directeur/', views_saas.creer_directeur, name='creer_directeur'),
     path('gerer/', views_superadmin.liste_etablissements, name='liste_etablissements'),
     path('gerer/creer/', views_superadmin.creer_etablissement, name='creer_etablissement'),
     path('gerer/<int:pk>/modifier/', views_superadmin.modifier_etablissement, name='modifier_etablissement'),

@@ -8,6 +8,7 @@
     <div class="page-subtitle">{{ etab.nom }} — {{ users.count }} compte(s)</div>
   </div>
   <div style="display:flex;gap:8px;">
+    <a href="{% url 'creer_directeur' etab_pk=etab.pk %}" class="btn btn-outline">👤 + Directeur</a>
     <a href="{% url 'voir_etablissement' etab.pk %}" class="btn btn-outline">← Retour</a>
     <a href="{% url 'liste_etablissements' %}" class="btn btn-primary">🏫 Tous les établissements</a>
   </div>

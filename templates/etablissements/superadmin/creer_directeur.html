@@ -1,0 +1,87 @@
+{% extends "base/base.html" %}
+{% block title %}Créer directeur — {{ etab.nom }}{% endblock %}
+{% block topbar_title %}👤 Nouveau directeur{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>👤 Créer un compte directeur</h1>
+    <div class="page-subtitle">{{ etab.nom }}</div>
+  </div>
+  <a href="{% url 'gestion_comptes_etab' pk=etab.pk %}" class="btn btn-outline">← Retour comptes</a>
+</div>
+
+{% if directeur_existant %}
+<div style="background:#FFF8E1;border-left:4px solid #F9A825;border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+  <div style="font-weight:700;color:#F57F17;">⚠️ Un directeur existe déjà pour cet établissement</div>
+  <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">
+    {{ directeur_existant.get_full_name|default:directeur_existant.username }} 
+    (<code>{{ directeur_existant.username }}</code>) — 
+    {% if directeur_existant.is_active %}✅ Actif{% else %}🔒 Bloqué{% endif %}
+  </div>
+  <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">
+    Vous pouvez tout de même créer un second compte directeur si nécessaire.
+  </div>
+</div>
+{% endif %}
+
+{% if messages %}
+{% for msg in messages %}
+<div style="padding:12px 16px;border-radius:8px;margin-bottom:12px;
+  background:{% if 'error' in msg.tags %}var(--bg-danger){% else %}#E8F5E9{% endif %};
+  color:{% if 'error' in msg.tags %}var(--danger){% else %}#2E7D32{% endif %};
+  border:1px solid {% if 'error' in msg.tags %}var(--border-danger){% else %}#A5D6A7{% endif %};">
+  {{ msg }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card" style="max-width:520px;">
+  <div class="card-header"><span class="card-title">Informations du directeur</span></div>
+  <form method="post" style="padding:20px 24px;">
+    {% csrf_token %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Nom *</label>
+        <input type="text" name="nom" required placeholder="COULIBALY"
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Prénom *</label>
+        <input type="text" name="prenom" required placeholder="Mamadou"
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      </div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Identifiant de connexion *</label>
+      <input type="text" name="username" required placeholder="directeur_bamako"
+             style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Conseil : utilisez le code de l'établissement ex: directeur_{{ etab.code|lower }}</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Mot de passe *</label>
+      <input type="text" name="password" required minlength="6" placeholder="Minimum 6 caractères"
+             style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Email</label>
+        <input type="email" name="email" placeholder="directeur@ecole.ml"
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Téléphone</label>
+        <input type="text" name="telephone" placeholder="+223 70 00 00 00"
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      </div>
+    </div>
+    <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:20px;font-size:12px;color:var(--text-muted);">
+      🏫 Ce compte sera rattaché à <strong>{{ etab.nom }}</strong> avec le rôle <strong>Directeur/Admin</strong>.
+      Le directeur pourra accéder à toutes les données de son établissement.
+    </div>
+    <div style="display:flex;gap:10px;">
+      <a href="{% url 'gestion_comptes_etab' pk=etab.pk %}" class="btn btn-outline" style="flex:1;text-align:center;">Annuler</a>
+      <button type="submit" class="btn btn-primary" style="flex:2;">✅ Créer le compte directeur</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

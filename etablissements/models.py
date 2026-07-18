@@ -397,3 +397,32 @@ class Division(models.Model):
             classe__niveau__cycle__in=cycles_ids,
             is_active=True
         ).count()
+
+from .models_journal import JournalAction
+
+
+class ParametresReseau(models.Model):
+    """Paramètres globaux de la plateforme SmartSchool (singleton)."""
+    nom_plateforme    = models.CharField(max_length=100, default="SmartSchool ERP")
+    slogan            = models.CharField(max_length=200, blank=True, default="Gérez votre école en toute simplicité.")
+    email_support     = models.EmailField(blank=True, default="support@smartschool.ml")
+    telephone_support = models.CharField(max_length=20, blank=True)
+    site_web          = models.URLField(blank=True)
+    logo_plateforme   = models.ImageField(upload_to='plateforme/', blank=True, null=True)
+    couleur_primaire  = models.CharField(max_length=7, default="#1565C0")
+    couleur_secondaire= models.CharField(max_length=7, default="#0D47A1")
+    mentions_legales  = models.TextField(blank=True)
+    message_accueil   = models.TextField(blank=True, help_text="Message affiché sur la page de connexion")
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Paramètres réseau"
+
+    def __str__(self):
+        return self.nom_plateforme
+
+    @classmethod
+    def get(cls):
+        """Retourne le singleton, le crée si absent."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

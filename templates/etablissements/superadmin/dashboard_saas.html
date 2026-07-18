@@ -8,8 +8,11 @@
     <div class="page-subtitle">{{ today|date:"l d F Y" }} — Vue propriétaire réseau</div>
   </div>
   <div style="display:flex;gap:8px;">
+    <a href="{% url 'stats_commerciales' %}" class="btn btn-outline">📊 Stats</a>
+    <a href="{% url 'journal_actions' %}" class="btn btn-outline">📋 Journal</a>
+    <a href="{% url 'parametres_reseau' %}" class="btn btn-outline">⚙️ Paramètres</a>
     <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">+ Nouvel établissement</a>
-    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline">📋 Gestion</a>
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline">🏫 Gestion</a>
   </div>
 </div>
 
@@ -127,6 +130,29 @@
     <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted);">
       Aucun établissement — <a href="{% url 'creer_etablissement' %}">Créer le premier</a>
     </td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Derniers logs -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <span class="card-title">📋 Dernières interventions</span>
+    <a href="{% url 'journal_actions' %}" style="font-size:12px;color:var(--primary);">Tout voir →</a>
+  </div>
+  <table class="table-modern">
+    <thead><tr><th>Date</th><th>Action</th><th>Établissement</th><th>Cible</th></tr></thead>
+    <tbody>
+    {% for log in derniers_logs %}
+    <tr>
+      <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">{{ log.date|date:"d/m/Y H:i" }}</td>
+      <td><span style="font-size:11px;font-weight:700;color:var(--primary);">{{ log.get_type_action_display }}</span></td>
+      <td style="font-size:12px;">{{ log.etablissement.nom|default:"—"|truncatechars:20 }}</td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ log.cible|default:"—"|truncatechars:24 }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px;">Aucune intervention enregistrée</td></tr>
     {% endfor %}
     </tbody>
   </table>

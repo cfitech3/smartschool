@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
-from .models import Etablissement, AnneeScolaire
+from .models import Etablissement, AnneeScolaire, JournalAction, ParametresReseau
 from accounts.models import User
 from eleves.models import Eleve
 from finances.models import Paiement
@@ -139,16 +139,20 @@ def gestion_comptes_etab(request, pk):
             else:
                 user_cible.set_password(nouveau_mdp)
                 user_cible.save()
+                JournalAction.log(request, 'reset_mdp', cible=user_cible.username,
+                                  etablissement=etab, detail='Reset mdp super admin')
                 messages.success(request, f"✅ Mot de passe réinitialisé pour {user_cible.get_full_name() or user_cible.username}.")
 
         elif action == 'bloquer':
             user_cible.is_active = False
             user_cible.save()
+            JournalAction.log(request, 'bloquer_compte', cible=user_cible.username, etablissement=etab)
             messages.warning(request, f"🔒 Compte de {user_cible.get_full_name() or user_cible.username} bloqué.")
 
         elif action == 'debloquer':
             user_cible.is_active = True
             user_cible.save()
+            JournalAction.log(request, 'debloquer_compte', cible=user_cible.username, etablissement=etab)
             messages.success(request, f"✅ Compte de {user_cible.get_full_name() or user_cible.username} réactivé.")
 
         elif action == 'supprimer':
@@ -175,6 +179,9 @@ def toggle_etablissement(request, pk):
     etab.is_active = not etab.is_active
     etab.save()
     statut = "réactivé ✅" if etab.is_active else "suspendu 🔒"
+    type_log = 'reactiver_etab' if etab.is_active else 'suspendre_etab'
+    JournalAction.log(request, type_log, cible=etab.nom, etablissement=etab,
+                      detail=f"Établissement {statut}")
     messages.success(request, f"Établissement '{etab.nom}' {statut}.")
     return redirect('liste_etablissements')
 
@@ -210,6 +217,8 @@ def creer_etablissement(request):
             if request.FILES.get('logo'):
                 etab.logo = request.FILES['logo']
                 etab.save()
+            JournalAction.log(request, 'creer_etab', cible=nom, etablissement=etab,
+                              detail=f'Code portail: {code}')
             messages.success(request, f"Établissement '{nom}' créé ! Portail : /auth/portail/{code}/")
             return redirect('liste_etablissements')
 
