@@ -217,8 +217,19 @@ def liste_utilisateurs(request):
             prenom   = request.POST.get('prenom', '').strip()
             nom      = request.POST.get('nom', '').strip()
             role     = request.POST.get('role', 'enseignant')
-            mdp      = request.POST.get('password', 'admin123')
-            if username and prenom and nom:
+            mdp      = request.POST.get('password', '')
+            
+            # Validation de sécurité stricte
+            roles_autorises = ['admin', 'secretariat', 'comptable', 'enseignant', 'surveillant']
+            if role not in roles_autorises:
+                role = 'enseignant' # Fallback de sécurité
+                
+            import re
+            if not re.match(r'^[\w.@+-]+$', username):
+                messages.error(request, "Nom d'utilisateur invalide. Utilisez uniquement des lettres, chiffres et @/./+/-/_")
+            elif len(mdp) < 6:
+                messages.error(request, "Le mot de passe doit contenir au moins 6 caractères.")
+            elif username and prenom and nom:
                 if User.objects.filter(username=username).exists():
                     messages.error(request, f"L'identifiant '{username}' est déjà utilisé.")
                 else:

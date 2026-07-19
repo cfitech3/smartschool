@@ -113,8 +113,14 @@ def ajouter_classe(request):
                 from etablissements.models import SerieLycee
                 serie_pk=request.POST.get('serie')
                 serie=SerieLycee.objects.filter(pk=serie_pk).first() if serie_pk else None
+                
+                try:
+                    capacite_entier = int(cap)
+                except ValueError:
+                    capacite_entier = 40
+                
                 c=Classe.objects.create(etablissement=etab,annee=annee,niveau=niveau,nom=nom,
-                    capacite_max=int(cap),salle=salle,serie=serie)
+                    capacite_max=capacite_entier,salle=salle,serie=serie)
                 messages.success(request,f"Classe {c.nom} creee.")
                 if request.POST.get('ajouter_autre'): return redirect('ajouter_classe')
                 return redirect("liste_classes")
@@ -142,7 +148,11 @@ def modifier_classe(request,pk):
         classe.nom=request.POST.get("nom",classe.nom)
         niv_id=request.POST.get("niveau"); 
         if niv_id: classe.niveau=get_object_or_404(Niveau,pk=niv_id,etablissement=etab)
-        classe.capacite_max=int(request.POST.get("capacite_max",classe.capacite_max))
+        try:
+            classe.capacite_max = int(request.POST.get("capacite_max", classe.capacite_max))
+        except ValueError:
+            messages.warning(request, "Capacité invalide ignorée.")
+            
         classe.salle=request.POST.get("salle",""); classe.save()
         messages.success(request,"Classe mise a jour."); return redirect("detail_classe",pk=classe.pk)
     return render(request,"eleves/modifier_classe.html",{"classe":classe,"niveaux":niveaux})

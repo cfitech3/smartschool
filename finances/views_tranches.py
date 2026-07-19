@@ -173,7 +173,12 @@ def payer_tranche(request, echeance_pk):
     if request.method == 'POST':
         mode = request.POST.get('mode_paiement', 'especes')
         notes = request.POST.get('notes', '')
-        montant = int(request.POST.get('montant', echeance.montant))
+        
+        try:
+            montant = int(request.POST.get('montant', echeance.montant))
+        except ValueError:
+            messages.error(request, "Montant invalide saisi.")
+            return redirect('payer_tranche', echeance_pk=echeance.pk)
 
         with transaction.atomic():
             pai = Paiement.objects.create(

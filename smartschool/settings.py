@@ -276,3 +276,11 @@ if not DEBUG:
     # Activer le filtre XSS du navigateur
     SECURE_BROWSER_XSS_FILTER = True
 
+# ══════════════════════════════════════════════════════════════
+# Configuration WhatsApp API (Alertes Connectées)
+# ══════════════════════════════════════════════════════════════
+WHATSAPP_ENABLED = os.environ.get("WHATSAPP_ENABLED", "True") == "True"
+WHATSAPP_API_PROVIDER = os.environ.get("WHATSAPP_API_PROVIDER", "dummy")
+WHATSAPP_API_URL = os.environ.get("WHATSAPP_API_URL", "")
+WHATSAPP_API_TOKEN = os.environ.get("WHATSAPP_API_TOKEN", "")
+WHATSAPP_INSTANCE_ID = os.environ.get("WHATSAPP_INSTANCE_ID", "")
