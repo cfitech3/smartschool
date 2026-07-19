@@ -166,14 +166,21 @@ def rapport_absences(request):
     alertes = []
     try:
         annee_str, mois_num = mois.split('-')
-        for eleve in get_eleves_actifs(etab):
-            nb = Presence.objects.filter(
-                eleve=eleve, statut='absent',
-                date__year=annee_str, date__month=mois_num
-            ).count()
-            if nb >= 3:
-                alertes.append({'eleve': eleve, 'nb_absences': nb, 'inscription': eleve.get_inscription_active()})
-        alertes.sort(key=lambda x: x['nb_absences'], reverse=True)
+        
+        # P2.4: Optimisation de la requête (O(1) au lieu de O(N))
+        from django.db.models import Count
+        absences_agg = Presence.objects.filter(
+            classe__etablissement=etab, statut='absent',
+            date__year=annee_str, date__month=mois_num
+        ).values('eleve_id').annotate(nb=Count('id')).filter(nb__gte=3).order_by('-nb')
+        
+        eleve_ids = [item['eleve_id'] for item in absences_agg]
+        eleves_dict = {e.pk: e for e in Eleve.objects.filter(pk__in=eleve_ids)}
+        
+        for item in absences_agg:
+            eleve = eleves_dict.get(item['eleve_id'])
+            if eleve:
+                alertes.append({'eleve': eleve, 'nb_absences': item['nb'], 'inscription': eleve.get_inscription_active()})
     except ValueError:
         pass
 

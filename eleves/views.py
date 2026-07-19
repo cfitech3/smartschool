@@ -42,6 +42,7 @@ def detail_eleve(request,pk):
     return render(request,"eleves/detail.html",{"eleve":eleve,"inscriptions":inscriptions,"paiements":paiements,"inscription_active":eleve.get_inscription_active()})
 
 @login_required
+@permission_required('eleves')
 @req
 def ajouter_eleve(request):
     etab=request.etablissement
@@ -65,6 +66,7 @@ def ajouter_eleve(request):
     return render(request,"eleves/ajouter.html",{"eleve_form":ef,"tuteur_form":tf,"inscription_form":inf,"annee":annee})
 
 @login_required
+@permission_required('eleves')
 @req
 def supprimer_eleve(request,pk):
     etab=request.etablissement
@@ -93,6 +95,7 @@ def detail_classe(request,pk):
     return render(request,"eleves/detail_classe.html",{"classe":classe,"inscriptions":inscriptions,"annee":annee})
 
 @login_required
+@permission_required('eleves')
 @req
 def ajouter_classe(request):
     etab=request.etablissement
@@ -136,6 +139,7 @@ def ajouter_classe(request):
     })
 
 @login_required
+@permission_required('eleves')
 @req
 def modifier_classe(request,pk):
     etab=request.etablissement
