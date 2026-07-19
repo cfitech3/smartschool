@@ -120,10 +120,10 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
         matiere = ligne['matiere'].nom[:20] # Truncate if too long
         moy_c = f"{ligne['moy_classe']:.2f}" if ligne['moy_classe'] is not None else "-"
         moy_cmp = f"{ligne['moy_compo']:.2f}" if ligne['moy_compo'] is not None else "-"
-        moy_f = f"{ligne['moy_finale']:.2f}" if ligne['moy_finale'] is not None else "-"
-        coef = str(ligne['coef'])
-        coeffic = f"{ligne['coeffic']:.2f}" if ligne['coeffic'] is not None else "-"
-        appre = ligne['appre']
+        moy_f = f"{ligne['moyenne_finale']:.2f}" if ligne.get('moyenne_finale') is not None else "-"
+        coef = str(ligne.get('coef', ligne.get('coefficient', ligne.get('matiere').coefficient if ligne.get('matiere') else '')))
+        coeffic = f"{ligne['moy_coeffic']:.2f}" if ligne.get('moy_coeffic') is not None else "-"
+        appre = ligne.get('appre', ligne.get('appreciation', ''))
         
         data_notes.append([matiere, moy_c, moy_cmp, moy_f, coef, coeffic, appre])
         

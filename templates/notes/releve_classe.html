@@ -1,0 +1,81 @@
+{% extends "base/base.html" %}
+{% block title %}Relevé de notes classe{% endblock %}
+{% block topbar_title %}📋 Relevé de notes par classe{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📋 Relevé de notes</h1>
+    <div class="page-subtitle">{% if classe %}{{ classe.nom }}{% if periode %} — {{ periode.nom }}{% endif %}{% else %}Sélectionner une classe{% endif %}</div>
+  </div>
+  {% if classe and periode %}
+  <button onclick="window.print()" class="btn btn-outline">🖨️ Imprimer</button>
+  {% endif %}
+</div>
+
+<!-- Filtres -->
+<div class="card" style="margin-bottom:16px;">
+  <form method="get" style="padding:16px 18px;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
+    <div style="flex:1;min-width:180px;">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Classe</label>
+      <select name="classe" required style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+        <option value="">-- Choisir --</option>
+        {% for c in classes %}
+        <option value="{{ c.pk }}" {% if classe_id == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex:1;min-width:180px;">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Période</label>
+      <select name="periode" required style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+        <option value="">-- Choisir --</option>
+        {% for per in periodes %}
+        <option value="{{ per.pk }}" {% if periode_id == per.pk|stringformat:"s" %}selected{% endif %}>{{ per.nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Afficher</button>
+  </form>
+</div>
+
+{% if classe and periode and tableau %}
+<!-- Tableau des résultats -->
+<div class="card" style="overflow-x:auto;">
+  <table class="table-modern" style="min-width:700px;">
+    <thead>
+      <tr>
+        <th style="width:30px;">Rang</th>
+        <th>Élève</th>
+        {% for mat in matieres %}
+        <th style="text-align:center;font-size:11px;">{{ mat.nom|truncatechars:10 }}</th>
+        {% endfor %}
+        <th style="text-align:center;background:var(--bg);">Moy. générale</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in tableau %}
+    <tr>
+      <td style="text-align:center;font-weight:700;color:var(--text-muted);">
+        {% if r.rang %}{{ r.rang }}{% else %}—{% endif %}
+      </td>
+      <td style="font-weight:700;">{{ r.eleve.nom_complet }}</td>
+      {% for ligne in r.lignes %}
+      <td style="text-align:center;font-size:13px;
+        color:{% if ligne.moyenne_finale %}{% if ligne.moyenne_finale >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
+        {% if ligne.moyenne_finale %}{{ ligne.moyenne_finale|floatformat:2 }}{% else %}—{% endif %}
+      </td>
+      {% endfor %}
+      <td style="text-align:center;font-weight:900;font-size:15px;background:var(--bg);
+        color:{% if r.moyenne %}{% if r.moyenne >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
+        {% if r.moyenne %}{{ r.moyenne|floatformat:2 }}/20{% else %}—{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif classe and periode %}
+<div class="card" style="padding:40px;text-align:center;color:var(--text-muted);">
+  Aucune note saisie pour {{ classe.nom }} — {{ periode.nom }}.
+</div>
+{% endif %}
+{% endblock %}

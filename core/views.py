@@ -96,8 +96,7 @@ def changer_etablissement(request, etab_id):
 @login_required
 def notifications(request):
     """Liste des notifications de modifications de notes."""
-    if not request.user.is_admin:
-        return redirect('dashboard')
+    # Accessible à tous les utilisateurs connectés de l'établissement
     etab = request.etablissement
     logs = LogModificationNote.objects.filter(
         note_periode__eleve__etablissement=etab, notif_envoyee=True

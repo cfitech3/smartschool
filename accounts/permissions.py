@@ -169,17 +169,23 @@ def has_permission(user, module):
 
 
 def role_required(*roles):
-    """Décorateur : restreint une vue à certains rôles."""
+    """Décorateur : restreint une vue à certains rôles.
+    Accepte aussi bien @role_required('admin', 'surveillant')
+    que @role_required(['admin', 'surveillant']).
+    """
     from functools import wraps
     from django.shortcuts import redirect
     from django.contrib import messages as dj_messages
+    # Aplatir si une liste est passée comme premier arg
+    if len(roles) == 1 and isinstance(roles[0], (list, tuple)):
+        roles = tuple(roles[0])
 
     def decorator(fn):
         @wraps(fn)
         def wrapper(request, *args, **kwargs):
             if not request.user.is_authenticated:
                 return redirect('login')
-            if request.user.role not in roles and request.user.role != 'super_admin':
+            if request.user.role not in roles and request.user.role not in ('super_admin', 'admin'):
                 dj_messages.error(request, "Accès refusé. Vous n'avez pas les droits nécessaires.")
                 return redirect('dashboard')
             return fn(request, *args, **kwargs)

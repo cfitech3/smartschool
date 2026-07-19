@@ -22,8 +22,9 @@ def require_etab(fn):
 
 def require_surveillant(fn):
     def wrapper(request, *args, **kwargs):
-        if not (request.user.is_surveillant or request.user.is_admin):
-            messages.error(request, "Acces reserve au surveillant general.")
+        ROLES_AUTORISES = ('super_admin', 'admin', 'surveillant', 'secretariat', 'enseignant')
+        if request.user.role not in ROLES_AUTORISES:
+            messages.error(request, "Accès réservé au personnel de l'établissement.")
             return redirect('dashboard')
         return fn(request, *args, **kwargs)
     wrapper.__name__ = fn.__name__
