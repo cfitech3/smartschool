@@ -398,6 +398,15 @@ def bulletins_classe_mali(request):
 def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
     etab = request.etablissement
     eleve = get_object_or_404(Eleve, pk=eleve_pk, etablissement=etab)
+    
+    # Sécurité IDOR Famille
+    if request.user.role in ['parent', 'eleve']:
+        from core.views_espace_famille import get_eleves_accessibles
+        eleves_ok = get_eleves_accessibles(request.user).values_list('pk', flat=True)
+        if eleve.pk not in eleves_ok:
+            messages.error(request, "Accès refusé. Ce bulletin ne vous appartient pas.")
+            return redirect('dashboard')
+            
     periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
     inscription = eleve.get_inscription_active()

@@ -100,6 +100,15 @@ def enregistrer_paiement(request):
 def recu_paiement(request,pk):
     etab=request.etablissement
     paiement=get_object_or_404(Paiement,pk=pk,etablissement=etab)
+    
+    # Sécurité IDOR Famille
+    if request.user.role in ['parent', 'eleve']:
+        from core.views_espace_famille import get_eleves_accessibles
+        eleves_ok = get_eleves_accessibles(request.user).values_list('pk', flat=True)
+        if paiement.eleve.pk not in eleves_ok:
+            messages.error(request, "Accès refusé. Ce reçu ne vous appartient pas.")
+            return redirect('dashboard')
+            
     modele=ModeleDocument.objects.filter(etablissement=etab,type_document="recu",is_actif=True).first()
     return render(request,"finances/recu.html",{"paiement":paiement,"etablissement":etab,"modele":modele})
 

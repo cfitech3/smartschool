@@ -189,18 +189,33 @@ def espace_paiements(request, eleve_pk):
     # Frais attendus vs payes (frais obligatoires)
     types_obligatoires = TypeFrais.objects.filter(etablissement=etab, is_obligatoire=True)
     frais_attendus = []
+    
+    from finances.models import Echeance
+    from django.utils import timezone
+    today = timezone.now().date()
+    
+    nb_retards = 0
     for tf in types_obligatoires:
         paye = paiements.filter(type_frais=tf).aggregate(t=Sum('montant'))['t'] or 0 if paiements else 0
         attendu = tf.montant_defaut
+        
+        # P3.3: Vérifier s'il y a de vraies tranches en retard pour ce type de frais
+        echeances_retard = Echeance.objects.filter(
+            eleve=eleve, annee=annee, type_frais=tf,
+            statut__in=['a_payer', 'retard'], date_limite__lt=today
+        ).count()
+        
+        en_retard = (echeances_retard > 0)
+        if en_retard:
+            nb_retards += 1
+            
         frais_attendus.append({
             'type': tf,
             'attendu': attendu,
             'paye': paye,
             'solde': paye - attendu,
-            'en_retard': paye < attendu,
+            'en_retard': en_retard,
         })
-
-    nb_retards = sum(1 for f in frais_attendus if f['en_retard'])
 
     return render(request, 'core/famille/paiements.html', {
         'eleve': eleve, 'paiements': paiements, 'annee': annee,
