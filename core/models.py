@@ -8,6 +8,7 @@ class Notification(models.Model):
     TYPE_PAIEMENT   = 'paiement'
     TYPE_ABSENCE    = 'absence'
     TYPE_SYSTEM     = 'systeme'
+    TYPE_MESSAGE    = 'message'
 
     TYPES = [
         (TYPE_NOTE_MODIF, 'Modification de note'),
@@ -15,6 +16,7 @@ class Notification(models.Model):
         (TYPE_PAIEMENT,   'Paiement'),
         (TYPE_ABSENCE,    'Absence'),
         (TYPE_SYSTEM,     'Systeme'),
+        (TYPE_MESSAGE,    'Nouveau Message'),
     ]
 
     destinataire = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='notifications')

@@ -466,7 +466,35 @@ def admin_repondre_message(request, pk):
             msg.date_reponse = timezone.now()
             msg.statut = 'repondu'
             msg.save()
-            messages.success(request, "Reponse envoyee.")
+            
+            # --- Alerte Connectée (Interne + WhatsApp) ---
+            if msg.expediteur:
+                from core.models import Notification
+                from core.whatsapp import send_whatsapp_message
+                
+                # 1. Notification Interne
+                Notification.objects.create(
+                    destinataire=msg.expediteur,
+                    type_notif=Notification.TYPE_MESSAGE,
+                    titre="Nouvelle réponse de l'administration",
+                    message=f"L'administration a répondu à votre message : '{msg.sujet}'",
+                    lien="/famille/messages/"  # Lien vers la boite de réception parent
+                )
+                
+                # 2. Notification WhatsApp (si le parent a un numéro)
+                # L'expediteur du message (User) est le parent, on cherche son profil Tuteur
+                if hasattr(msg.expediteur, 'profil_tuteur') and msg.expediteur.profil_tuteur:
+                    telephone = msg.expediteur.profil_tuteur.telephone
+                    if telephone:
+                        texte_wa = (
+                            f"🏫 *{etab.nom}*\n\n"
+                            f"Bonjour {msg.expediteur.first_name},\n"
+                            f"La direction a répondu à votre message concernant : *{msg.sujet}*.\n\n"
+                            f"👉 Connectez-vous sur votre application SmartSchool pour lire la réponse."
+                        )
+                        send_whatsapp_message(telephone, texte_wa)
+
+            messages.success(request, "Reponse envoyee et parent notifié.")
             return redirect('admin_messages')
 
     return render(request, 'core/famille/admin_repondre_message.html', {'msg': msg})
