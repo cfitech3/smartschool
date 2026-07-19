@@ -150,7 +150,11 @@ def _dashboard_admin(request, etab, annee, today):
     stats['recettes_mois'] = float(recettes_qs.aggregate(t=Sum('montant'))['t'] or 0)
 
     eleves_payes_ids = recettes_qs.values_list('eleve_id', flat=True).distinct()
-    stats['eleves_retard'] = get_eleves_actifs(etab, annee).exclude(pk__in=eleves_payes_ids).count()
+    
+    from finances.models import Echeance
+    stats['eleves_retard'] = Echeance.objects.filter(
+        etablissement=etab, annee=annee, statut__in=['a_payer', 'retard'], date_limite__lt=today
+    ).values('eleve_id').distinct().count()
 
     # Notifications
     stats['notifs_non_lues'] = LogModificationNote.objects.filter(
@@ -284,8 +288,11 @@ def _dashboard_comptable(request, etab, today):
     eleves_payes_ids = recettes_mois_qs.values_list('eleve_id', flat=True).distinct()
     stats['eleves_payes'] = eleves_payes_ids.count()
 
-    # Fix: utilise exclude() comme l'admin (evite resultat negatif si eleves_payes > total)
-    stats['eleves_retard'] = get_eleves_actifs(etab, annee).exclude(pk__in=eleves_payes_ids).count()
+    # Fix: Calcul exact basé sur les échéances (Tranches) en retard
+    from finances.models import Echeance
+    stats['eleves_retard'] = Echeance.objects.filter(
+        etablissement=etab, annee=annee, statut__in=['a_payer', 'retard'], date_limite__lt=today
+    ).values('eleve_id').distinct().count()
     stats['taux_recouvrement'] = round(
         stats['eleves_payes'] / stats['total_eleves'] * 100, 1
     ) if stats['total_eleves'] > 0 else 0

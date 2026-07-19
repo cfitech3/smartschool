@@ -107,17 +107,40 @@ def recu_paiement(request,pk):
 @permission_required("finances")
 @req
 def rapport_financier(request):
-    etab=request.etablissement; annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
+    from django.db.models import Count
+    from finances.models import Echeance
+    
+    etab=request.etablissement
+    annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     today=timezone.now().date()
+    
+    if not annee:
+        return render(request,"finances/rapport.html",{"mois_data":[],"par_type":[],"eleves_en_retard":[],"total_annee":0,"annee":None,"today":today})
+
+    eleves_actifs_ids = list(get_eleves_actifs(etab, annee).values_list('pk', flat=True))
+    base_paiements = Paiement.objects.filter(etablissement=etab, statut="valide", eleve_id__in=eleves_actifs_ids)
+    
     mois_data=[]
     for i in range(11,-1,-1):
-        d=today.replace(day=1)-datetime.timedelta(days=i*30)
-        t=Paiement.objects.filter(etablissement=etab,statut="valide",eleve__inscriptions__classe__niveau__cycle__in=get_cycles_actifs_ids(etab),eleve__inscriptions__is_active=True,date_paiement__year=d.year,date_paiement__month=d.month).aggregate(t=Sum("montant"))["t"] or 0
-        mois_data.append({"mois":d.strftime("%b %Y"),"total":float(t)})
-    par_type=Paiement.objects.filter(etablissement=etab,statut="valide",eleve__inscriptions__classe__niveau__cycle__in=get_cycles_actifs_ids(etab),eleve__inscriptions__is_active=True,annee=annee).values("type_frais__nom").annotate(total=Sum("montant"),nb=__import__("django.db.models",fromlist=["Count"]).Count("id")).order_by("-total") if annee else []
-    payes=Paiement.objects.filter(etablissement=etab,statut="valide",eleve__inscriptions__classe__niveau__cycle__in=get_cycles_actifs_ids(etab),eleve__inscriptions__is_active=True,date_paiement__month=today.month,date_paiement__year=today.year).values_list("eleve_id",flat=True)
-    en_retard=get_eleves_actifs(etab).exclude(pk__in=payes)[:10]
-    total=Paiement.objects.filter(etablissement=etab,statut="valide",eleve__inscriptions__classe__niveau__cycle__in=get_cycles_actifs_ids(etab),eleve__inscriptions__is_active=True,annee=annee).aggregate(t=Sum("montant"))["t"] or 0
+        # Calcul du mois précis pour éviter les décalages de 30 jours
+        target_month = (today.month - i - 1) % 12 + 1
+        target_year = today.year + (today.month - i - 1) // 12
+        
+        t = base_paiements.filter(date_paiement__year=target_year, date_paiement__month=target_month).aggregate(t=Sum("montant"))["t"] or 0
+        import calendar
+        nom_mois = calendar.month_name[target_month][:3].capitalize()
+        mois_data.append({"mois": f"{nom_mois} {target_year}", "total": float(t)})
+        
+    par_type = base_paiements.filter(annee=annee).values("type_frais__nom").annotate(total=Sum("montant"), nb=Count("id")).order_by("-total")
+    
+    # Calcul exact des retards (échéances dépassées)
+    eleves_en_retard_ids = Echeance.objects.filter(
+        etablissement=etab, annee=annee, statut__in=['a_payer', 'retard'], date_limite__lt=today
+    ).values_list('eleve_id', flat=True).distinct()
+    
+    en_retard = Eleve.objects.filter(pk__in=eleves_en_retard_ids)[:10]
+    total = base_paiements.filter(annee=annee).aggregate(t=Sum("montant"))["t"] or 0
+    
     return render(request,"finances/rapport.html",{"mois_data":mois_data,"par_type":par_type,"eleves_en_retard":en_retard,"total_annee":total,"annee":annee,"today":today})
 
 @login_required
@@ -194,12 +217,22 @@ def annuler_paiement(request, pk):
             if not motif:
                 messages.error(request, "Le motif d'annulation est obligatoire.")
             else:
-                paiement.statut = 'annule'
-                paiement.date_annulation = timezone.now()
-                paiement.motif_annulation = motif
-                paiement.annule_par = request.user
-                paiement.save()
-                messages.success(request, f"Paiement {paiement.reference} annulé avec succès.")
+                with transaction.atomic():
+                    paiement.statut = 'annule'
+                    paiement.date_annulation = timezone.now()
+                    paiement.motif_annulation = motif
+                    paiement.annule_par = request.user
+                    paiement.save()
+                    
+                    # Restaurer les échéances liées
+                    echeances = paiement.echeances_liees.all()
+                    for e in echeances:
+                        e.statut = 'a_payer'
+                        e.paiement = None
+                        e.date_paiement = None
+                        e.save()
+                        
+                messages.success(request, f"Paiement {paiement.reference} annulé avec succès. Les échéances ont été remises en attente.")
                 
     return redirect("liste_paiements")
 
