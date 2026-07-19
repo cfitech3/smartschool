@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{% static 'css/smartschool.css' %}?v=2">
   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <link rel="manifest" href="{% url 'manifest' %}">
   {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -77,7 +78,6 @@
   </div>
 </div>
 <script>
-<script>
 function initTheme() {
   const savedTheme = localStorage.getItem('theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
@@ -97,5 +97,16 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 function checkMobile(){const b=document.getElementById('menu-btn');b.style.display=window.innerWidth<=768?'flex':'none';if(window.innerWidth>768)closeSidebar();}
 checkMobile();window.addEventListener('resize',checkMobile);
 document.querySelectorAll('.nav-link').forEach(l=>l.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register("{% url 'sw' %}").then((registration) => {
+        console.log('[PWA Famille] ServiceWorker activé :', registration.scope);
+      }).catch((err) => {
+        console.log('[PWA Famille] Échec du ServiceWorker :', err);
+      });
+    });
+  }
 </script>
 </body></html>

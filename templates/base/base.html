@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{% static 'css/smartschool.css' %}?v=2">
   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <link rel="manifest" href="{% url 'manifest' %}">
   {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -145,6 +146,17 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 function checkMobile(){const b=document.getElementById('menu-btn');if(b)b.style.display=window.innerWidth<=768?'flex':'none';if(window.innerWidth>768)closeSidebar();}
 checkMobile();window.addEventListener('resize',checkMobile);
 document.querySelectorAll('.nav-link').forEach(l=>l.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register("{% url 'sw' %}").then((registration) => {
+        console.log('[PWA] ServiceWorker activé :', registration.scope);
+      }).catch((err) => {
+        console.log('[PWA] Échec du ServiceWorker :', err);
+      });
+    });
+  }
 </script>
 {% block extra_js %}{% endblock %}
 </body>
