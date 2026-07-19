@@ -99,3 +99,45 @@ class Paiement(models.Model):
         if not self.reference:
             self.reference = self._generer_reference_atomique()
         super().save(*args, **kwargs)
+
+
+class Echeance(models.Model):
+    """Représente une tranche de paiement due par un élève."""
+    STATUTS = [
+        ('a_payer',  'À payer'),
+        ('payee',    'Payée'),
+        ('retard',   'En retard'),
+        ('dispensee','Dispensée'),
+    ]
+    etablissement = models.ForeignKey('etablissements.Etablissement', on_delete=models.CASCADE)
+    eleve         = models.ForeignKey('eleves.Eleve', on_delete=models.CASCADE, related_name='echeances')
+    annee         = models.ForeignKey('etablissements.AnneeScolaire', on_delete=models.CASCADE)
+    type_frais    = models.ForeignKey(TypeFrais, on_delete=models.CASCADE, related_name='echeances')
+    numero        = models.PositiveSmallIntegerField(help_text="Numéro de la tranche (1, 2, 3...)")
+    libelle       = models.CharField(max_length=50, help_text="Ex: Tranche 1")
+    montant       = models.DecimalField(max_digits=12, decimal_places=0)
+    date_limite   = models.DateField(null=True, blank=True)
+    statut        = models.CharField(max_length=12, choices=STATUTS, default='a_payer', db_index=True)
+    paiement      = models.ForeignKey(Paiement, on_delete=models.SET_NULL,
+                                      null=True, blank=True, related_name='echeances_liees')
+    date_paiement = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['eleve','numero']
+        unique_together = ['eleve', 'annee', 'type_frais', 'numero']
+
+    def __str__(self):
+        return f"{self.eleve.nom_complet} — {self.libelle} ({self.type_frais.nom}) — {self.get_statut_display()}"
+
+    @property
+    def est_en_retard(self):
+        from django.utils import timezone
+        return (self.statut == 'a_payer' and self.date_limite
+                and self.date_limite < timezone.now().date())
+
+    def marquer_payee(self, paiement):
+        from django.utils import timezone
+        self.statut = 'payee'
+        self.paiement = paiement
+        self.date_paiement = timezone.now()
+        self.save()

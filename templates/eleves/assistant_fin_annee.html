@@ -1,116 +1,229 @@
 {% extends "base/base.html" %}
-
-{% block title %}Assistant de Fin d'Année{% endblock %}
-{% block topbar_title %}Passages de classes{% endblock %}
-
+{% block title %}Assistant fin d'année{% endblock %}
+{% block topbar_title %}🎓 Assistant fin d'année{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>🎓 Assistant de Fin d'Année</h1>
-    <div class="page-subtitle">Préparez l'année scolaire suivante en validant les passages, redoublements ou exclusions.</div>
+    <h1>🎓 Assistant de fin d'année</h1>
+    <div class="page-subtitle">Passages, redoublements et clôture d'année</div>
   </div>
 </div>
 
-<div class="card" style="margin-bottom: 24px;">
-  <div class="card-body">
-    <form method="GET" style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
-      <div style="flex:1; min-width:200px;">
-        <label class="form-label">Classe Actuelle (Année en cours)</label>
-        <select name="classe_actuelle" class="form-control" required>
-          <option value="">-- Sélectionnez une classe --</option>
+{% if messages %}
+{% for msg in messages %}
+<div style="padding:12px 16px;border-radius:8px;margin-bottom:12px;
+  background:{% if 'error' in msg.tags %}var(--bg-danger){% else %}#E8F5E9{% endif %};
+  color:{% if 'error' in msg.tags %}var(--danger){% else %}#2E7D32{% endif %};
+  border-left:4px solid {% if 'error' in msg.tags %}var(--danger){% else %}#2E7D32{% endif %};">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<!-- Sélection classe + année -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">1️⃣ Choisir la classe et l'année de destination</span></div>
+  <div style="padding:16px 18px;">
+    <form method="GET" style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Classe actuelle</label>
+        <select name="classe_actuelle" required style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+          <option value="">-- Sélectionner --</option>
           {% for c in classes %}
-            <option value="{{ c.pk }}" {% if classe_actuelle_id == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
+          <option value="{{ c.pk }}" {% if classe_actuelle_id == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
           {% endfor %}
         </select>
       </div>
-      
-      <div style="flex:1; min-width:200px;">
-        <label class="form-label">Année Scolaire de Destination</label>
-        <select name="annee_suivante" class="form-control" required>
-          <option value="">-- Sélectionnez l'année cible --</option>
-          {% for a in annees %}
-            {% if a.pk != annee_active.pk %}
-              <option value="{{ a.pk }}" {% if annee_suivante_id == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.libelle }}</option>
-            {% endif %}
-          {% endfor %}
+      <div style="flex:1;min-width:200px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Année de destination</label>
+        <select name="annee_suivante" required style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+          <option value="">-- Sélectionner --</option>
+          {% for a in annees %}{% if a.pk != annee_active.pk %}
+          <option value="{{ a.pk }}" {% if annee_suivante_id == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.libelle }}</option>
+          {% endif %}{% endfor %}
         </select>
       </div>
-      
-      <div>
-        <button type="submit" class="btn btn-primary">Charger les élèves</button>
-      </div>
+      <button type="submit" class="btn btn-primary">Charger les élèves</button>
     </form>
   </div>
 </div>
 
 {% if classe_actuelle and annee_suivante %}
-<form method="POST">
-  {% csrf_token %}
-  <div class="card" style="margin-bottom: 24px; background: rgba(21,101,192,0.05); border: 1px solid rgba(21,101,192,0.2);">
-    <div class="card-body" style="display:flex; align-items:center; justify-content:space-between;">
-      <div>
-        <h3 style="margin-bottom:4px; font-size:16px;">Classe de destination (pour les "Admis")</h3>
-        <span style="font-size:13px; color:var(--text-muted);">Dans quelle classe iront tous les élèves marqués comme "Admis" ? (Ex: de 6ème A vers 5ème A)</span>
-      </div>
-      <div>
-        <select name="classe_suivante_globale" class="form-control" style="min-width:250px;">
-          <option value="">-- Choisir la classe cible --</option>
-          {% for c in classes %}
-            <option value="{{ c.pk }}">{{ c.nom }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
-  </div>
 
-  <div class="card">
-    <table class="table-modern">
-      <thead>
-        <tr>
-          <th>Élève</th>
-          <th>Matricule</th>
-          <th>Statut Actuel</th>
-          <th style="width:250px;">Décision pour {{ annee_suivante.libelle }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for data in eleves_data %}
-        <tr>
-          <td style="font-weight:600;">{{ data.eleve.nom }} {{ data.eleve.prenom }}</td>
-          <td><code style="font-size:12px; background:var(--bg); padding:2px 6px; border-radius:4px;">{{ data.eleve.matricule }}</code></td>
-          <td>
-            {% if data.deja_inscrit %}
-              <span class="badge badge-success">Déjà inscrit en {{ annee_suivante.libelle }}</span>
-            {% else %}
-              <span class="badge badge-warning">En attente</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if data.deja_inscrit %}
-              <span style="color:var(--text-muted); font-style:italic;">Aucune action requise</span>
-            {% else %}
-              <select name="decision_{{ data.eleve.pk }}" class="form-control" style="padding:6px;">
-                <option value="admis" selected>✅ Admis (Passe en classe sup.)</option>
-                <option value="redouble">🔄 Redouble (Reste en {{ classe_actuelle.nom }})</option>
-                <option value="exclu">❌ Exclu / Départ</option>
-              </select>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Aucun élève trouvé dans cette classe pour l'année active.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    
-    {% if eleves_data %}
-    <div style="padding: 20px; text-align: right; border-top: 1px solid var(--border);">
-      <button type="submit" class="btn btn-primary" style="font-size:15px; padding:10px 20px;">💾 Valider les passages</button>
-    </div>
-    {% endif %}
+<!-- Stats automatiques -->
+{% if stats %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px;">
+  <div class="card" style="padding:14px;text-align:center;">
+    <div style="font-size:24px;font-weight:900;color:var(--primary);">{{ stats.total }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Élèves</div>
   </div>
+  <div class="card" style="padding:14px;text-align:center;">
+    <div style="font-size:24px;font-weight:900;color:var(--success);">{{ stats.admis_auto }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Admis auto</div>
+  </div>
+  <div class="card" style="padding:14px;text-align:center;">
+    <div style="font-size:24px;font-weight:900;color:var(--warning);">{{ stats.redouble_auto }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Redoublants auto</div>
+  </div>
+  <div class="card" style="padding:14px;text-align:center;">
+    <div style="font-size:24px;font-weight:900;color:var(--text-muted);">{{ stats.sans_notes }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Sans notes</div>
+  </div>
+  {% if stats.deja_inscrits > 0 %}
+  <div class="card" style="padding:14px;text-align:center;border-color:var(--border-danger);">
+    <div style="font-size:24px;font-weight:900;color:var(--danger);">{{ stats.deja_inscrits }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Déjà inscrits</div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<form method="POST">
+{% csrf_token %}
+<input type="hidden" name="action" value="valider">
+<input type="hidden" name="classe_actuelle" value="{{ classe_actuelle_id }}">
+<input type="hidden" name="annee_suivante" value="{{ annee_suivante_id }}">
+
+<!-- Classe de destination -->
+<div class="card" style="margin-bottom:16px;padding:16px 18px;background:rgba(21,101,192,0.04);border:1.5px solid rgba(21,101,192,0.2);">
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div style="flex:1;">
+      <div style="font-weight:700;font-size:14px;">2️⃣ Classe de destination (pour les « Admis »)</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
+        Classe suggérée automatiquement : <strong>{% if classe_suivante_suggeree %}{{ classe_suivante_suggeree.nom }}{% else %}Aucune (dernier niveau){% endif %}</strong>
+      </div>
+    </div>
+    <select name="classe_suivante_globale" style="min-width:220px;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      <option value="">-- Choisir la classe --</option>
+      {% for c in toutes_classes %}
+      <option value="{{ c.pk }}" {% if classe_suivante_suggeree and c.pk == classe_suivante_suggeree.pk %}selected{% endif %}>{{ c.nom }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<!-- Tableau des élèves -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <span class="card-title">3️⃣ Décisions par élève — {{ classe_actuelle.nom }} → {{ annee_suivante.libelle }}</span>
+    <div style="display:flex;gap:8px;">
+      <button type="button" onclick="toutAdmettre()" class="btn btn-outline btn-sm" style="color:var(--success);">✅ Tout admettre</button>
+      <button type="button" onclick="toutRedoubler()" class="btn btn-outline btn-sm" style="color:var(--warning);">🔄 Tout redoubler</button>
+    </div>
+  </div>
+  <table class="table-modern">
+    <thead>
+      <tr>
+        <th>Élève</th>
+        <th style="text-align:center;">Moyenne</th>
+        <th style="text-align:center;">Note passage</th>
+        <th style="text-align:center;">Décision suggérée</th>
+        <th style="text-align:center;">Décision finale</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for data in eleves_data %}
+    <tr style="{% if data.deja_inscrit %}opacity:0.5;{% endif %}">
+      <td>
+        <div style="font-weight:700;">{{ data.eleve.nom_complet }}</div>
+        {% if data.deja_inscrit %}<div style="font-size:11px;color:var(--warning);">⚠️ Déjà inscrit en {{ annee_suivante.libelle }}</div>{% endif %}
+      </td>
+      <td style="text-align:center;font-weight:700;font-size:15px;
+        color:{% if data.moyenne %}{% if data.moyenne >= data.note_passage %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
+        {% if data.moyenne %}{{ data.moyenne }}/20{% else %}—{% endif %}
+      </td>
+      <td style="text-align:center;font-size:13px;color:var(--text-muted);">{{ data.note_passage }}/20</td>
+      <td style="text-align:center;">
+        {% if data.decision_suggeree == 'admis' %}
+          <span style="background:#E8F5E9;color:#2E7D32;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;">✅ Admis</span>
+        {% elif data.decision_suggeree == 'redouble' %}
+          <span style="background:#FFF8E1;color:#F57F17;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;">🔄 Redouble</span>
+        {% else %}
+          <span style="background:var(--bg);color:var(--text-muted);padding:3px 10px;border-radius:20px;font-size:12px;">Sans note</span>
+        {% endif %}
+      </td>
+      <td style="text-align:center;">
+        {% if data.deja_inscrit %}
+          <span style="font-size:12px;color:var(--text-muted);">Déjà traité</span>
+        {% else %}
+        <div style="display:flex;gap:6px;justify-content:center;">
+          <label style="cursor:pointer;display:flex;align-items:center;gap:4px;font-size:12px;">
+            <input type="radio" name="decision_{{ data.eleve.pk }}" value="admis"
+              {% if data.decision_suggeree == 'admis' %}checked{% endif %}
+              style="accent-color:var(--success);">
+            <span style="color:var(--success);font-weight:600;">Admis</span>
+          </label>
+          <label style="cursor:pointer;display:flex;align-items:center;gap:4px;font-size:12px;">
+            <input type="radio" name="decision_{{ data.eleve.pk }}" value="redouble"
+              {% if data.decision_suggeree == 'redouble' or data.decision_suggeree == 'sans_note' %}checked{% endif %}
+              style="accent-color:#F57F17;">
+            <span style="color:#F57F17;font-weight:600;">Redouble</span>
+          </label>
+          <label style="cursor:pointer;display:flex;align-items:center;gap:4px;font-size:12px;">
+            <input type="radio" name="decision_{{ data.eleve.pk }}" value="exclu"
+              style="accent-color:var(--danger);">
+            <span style="color:var(--danger);font-weight:600;">Exclu</span>
+          </label>
+        </div>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:24px;">
+  <button type="submit" class="btn btn-primary" style="min-width:220px;"
+          onclick="return confirm('Confirmer les passages ? Cette action est irréversible.')">
+    ✅ Valider les passages
+  </button>
+</div>
 </form>
 {% endif %}
+
+<!-- Clôture d'année -->
+<div class="card" style="border-color:var(--border-danger);">
+  <div class="card-header" style="border-bottom-color:var(--border-danger);">
+    <span class="card-title" style="color:var(--danger);">🔒 Clôture d'année scolaire</span>
+  </div>
+  <div style="padding:16px 18px;">
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+      Après avoir traité tous les passages, vous pouvez clôturer l'année active et activer la suivante.
+      Cette action ne supprime aucune donnée.
+    </p>
+    <form method="POST" onsubmit="return confirm('Confirmer la clôture d\'année ?')">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="cloturer_annee">
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Année à clôturer</label>
+          <select name="annee_a_cloturer" style="padding:9px 12px;border:1.5px solid var(--border-danger);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+            <option value="">-- Sélectionner --</option>
+            {% for a in annees %}{% if a.is_active %}
+            <option value="{{ a.pk }}">{{ a.libelle }} (active)</option>
+            {% endif %}{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Année à activer</label>
+          <select name="annee_a_activer" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+            <option value="">-- Sélectionner --</option>
+            {% for a in annees %}{% if not a.is_active %}
+            <option value="{{ a.pk }}">{{ a.libelle }}</option>
+            {% endif %}{% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn" style="background:var(--danger);color:#fff;">🔒 Clôturer l'année</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function toutAdmettre() {
+  document.querySelectorAll('input[type="radio"][value="admis"]').forEach(r => r.checked = true);
+}
+function toutRedoubler() {
+  document.querySelectorAll('input[type="radio"][value="redouble"]').forEach(r => r.checked = true);
+}
+</script>
 {% endblock %}

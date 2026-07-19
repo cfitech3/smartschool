@@ -1,0 +1,65 @@
+{% extends "base/base.html" %}
+{% block title %}Encaisser tranche{% endblock %}
+{% block topbar_title %}💳 Encaisser une tranche{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>💳 {{ echeance.libelle }}</h1>
+    <div class="page-subtitle">{{ echeance.eleve.nom_complet }} — {{ echeance.type_frais.nom }}</div>
+  </div>
+  <a href="{% url 'tableau_tranches' type_frais_pk=echeance.type_frais.pk %}" class="btn btn-outline">← Retour</a>
+</div>
+
+<div class="card" style="max-width:440px;">
+  <div style="padding:20px 24px;">
+    <div style="background:var(--bg);border-radius:10px;padding:14px;margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:13px;color:var(--text-muted);">Élève</span>
+        <span style="font-weight:700;">{{ echeance.eleve.nom_complet }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:13px;color:var(--text-muted);">Tranche</span>
+        <span style="font-weight:700;">{{ echeance.libelle }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:13px;color:var(--text-muted);">Montant</span>
+        <span style="font-weight:900;color:var(--success);font-size:16px;">{{ echeance.montant|floatformat:0 }} FCFA</span>
+      </div>
+      {% if echeance.date_limite %}
+      <div style="display:flex;justify-content:space-between;">
+        <span style="font-size:13px;color:var(--text-muted);">Date limite</span>
+        <span style="font-weight:700;color:{% if echeance.est_en_retard %}var(--danger){% else %}var(--text-primary){% endif %};">
+          {{ echeance.date_limite|date:"d/m/Y" }}{% if echeance.est_en_retard %} ⚠️ En retard{% endif %}
+        </span>
+      </div>
+      {% endif %}
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Montant encaissé (FCFA)</label>
+        <input type="number" name="montant" value="{{ echeance.montant|floatformat:0 }}" required min="1"
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);font-size:15px;font-weight:700;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Mode de paiement</label>
+        <select name="mode_paiement" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+          {% for val,label in modes %}
+          <option value="{{ val }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Notes (optionnel)</label>
+        <input type="text" name="notes" placeholder="Référence mobile money, etc."
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      </div>
+      <div style="display:flex;gap:10px;">
+        <a href="{% url 'tableau_tranches' type_frais_pk=echeance.type_frais.pk %}" class="btn btn-outline" style="flex:1;text-align:center;">Annuler</a>
+        <button type="submit" class="btn btn-primary" style="flex:2;">✅ Encaisser</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

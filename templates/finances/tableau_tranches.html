@@ -1,0 +1,101 @@
+{% extends "base/base.html" %}
+{% block title %}Tableau des tranches{% endblock %}
+{% block topbar_title %}💳 Tableau des tranches{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>💳 {{ type_frais.nom }}</h1>
+    <div class="page-subtitle">{{ type_frais.nombre_tranches }} tranche(s) · {{ type_frais.montant_defaut|floatformat:0 }} FCFA · {{ annee.libelle }}</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'rapport_financier' %}" class="btn btn-outline">← Finances</a>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;">
+  <div class="card" style="padding:16px;text-align:center;">
+    <div style="font-size:26px;font-weight:900;color:var(--primary);">{{ stats.taux }}%</div>
+    <div style="font-size:11px;color:var(--text-muted);">Taux paiement</div>
+  </div>
+  <div class="card" style="padding:16px;text-align:center;">
+    <div style="font-size:26px;font-weight:900;color:var(--success);">{{ stats.payees }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Tranches payées</div>
+  </div>
+  <div class="card" style="padding:16px;text-align:center;border-color:{% if stats.retard > 0 %}var(--border-danger){% else %}var(--border){% endif %};">
+    <div style="font-size:26px;font-weight:900;color:{% if stats.retard > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">{{ stats.retard }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">En retard</div>
+  </div>
+  <div class="card" style="padding:16px;text-align:center;">
+    <div style="font-size:26px;font-weight:900;color:var(--text-muted);">{{ stats.a_payer }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">À venir</div>
+  </div>
+  {% if prochaine_tranche %}
+  <div class="card" style="padding:16px;text-align:center;border-color:var(--primary);">
+    <div style="font-size:13px;font-weight:700;color:var(--primary);">{{ prochaine_tranche.libelle }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Prochaine tranche</div>
+    {% if prochaine_tranche.date_limite %}<div style="font-size:11px;color:var(--danger);font-weight:700;">⏰ {{ prochaine_tranche.date_limite|date:"d/m/Y" }}</div>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <table class="table-modern">
+    <thead>
+      <tr>
+        <th>Élève</th>
+        {% for i in "123456789"|make_list %}{% if forloop.counter <= type_frais.nombre_tranches %}
+        <th style="text-align:center;">Tranche {{ forloop.counter }}</th>
+        {% endif %}{% endfor %}
+        <th style="text-align:right;">Total payé</th>
+        <th style="text-align:center;">État</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for data in eleves_data %}
+    <tr>
+      <td style="font-weight:700;">
+        <a href="{% url 'situation_tranches_eleve' data.eleve.pk %}" style="color:var(--primary);text-decoration:none;">
+          {{ data.eleve.nom_complet }}
+        </a>
+      </td>
+      {% for t in data.tranches %}
+      <td style="text-align:center;">
+        {% if t.statut == 'payee' %}
+          <span style="color:var(--success);font-size:18px;" title="Payée le {{ t.date_paiement|date:'d/m/Y' }}">✅</span>
+        {% elif t.statut == 'retard' %}
+          <a href="{% url 'payer_tranche' t.pk %}" style="text-decoration:none;">
+            <span style="background:var(--bg-danger);color:var(--danger);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">
+              ⚠️ Retard<br>{{ t.montant|floatformat:0 }}
+            </span>
+          </a>
+        {% else %}
+          <a href="{% url 'payer_tranche' t.pk %}" style="text-decoration:none;">
+            <span style="background:var(--bg);color:var(--text-muted);padding:2px 8px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);">
+              💳 {{ t.montant|floatformat:0 }}
+              {% if t.date_limite %}<br><span style="font-size:10px;">{{ t.date_limite|date:"d/m" }}</span>{% endif %}
+            </span>
+          </a>
+        {% endif %}
+      </td>
+      {% endfor %}
+      <td style="text-align:right;font-weight:700;color:var(--success);">{{ data.total_paye|floatformat:0 }} FCFA</td>
+      <td style="text-align:center;">
+        {% if data.nb_retard > 0 %}
+          <span style="color:var(--danger);font-size:12px;font-weight:700;">{{ data.nb_retard }} retard(s)</span>
+        {% elif data.total_paye >= type_frais.montant_defaut|floatformat:0|add:"0" %}
+          <span style="color:var(--success);font-size:12px;font-weight:700;">✅ Tout payé</span>
+        {% else %}
+          <span style="color:var(--text-muted);font-size:12px;">En cours</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-muted);">
+      Aucune échéance générée. <a href="{% url 'generer_echeances' type_frais_pk=type_frais.pk %}">Générer maintenant →</a>
+    </td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

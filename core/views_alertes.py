@@ -205,6 +205,26 @@ def get_alertes_etablissement(etab, annee, user_role):
                 'icone': '📊',
             })
 
+    # ── ALERTE TRANCHES EN RETARD ─────────────────────────────────────────────
+    if user_role in ('admin', 'comptable', 'super_admin'):
+        from finances.models import Echeance
+        Echeance.objects.filter(
+            etablissement=etab, statut='a_payer', date_limite__lt=today
+        ).update(statut='retard')
+        nb_tranches_retard = Echeance.objects.filter(
+            etablissement=etab, statut='retard'
+        ).values('eleve').distinct().count()
+        if nb_tranches_retard > 0:
+            alertes.append({
+                'type': 'tranches_retard',
+                'niveau': 'danger' if nb_tranches_retard > 10 else 'warning',
+                'titre': f'{nb_tranches_retard} élève(s) en retard sur une tranche',
+                'detail': 'Tranches de paiement dépassées la date limite',
+                'url': '/finances/rapport/',
+                'count': nb_tranches_retard,
+                'icone': '⏰',
+            })
+
     # Trier : danger en premier, puis warning, puis info
     ordre = {'danger': 0, 'warning': 1, 'info': 2}
     alertes.sort(key=lambda a: ordre.get(a['niveau'], 3))

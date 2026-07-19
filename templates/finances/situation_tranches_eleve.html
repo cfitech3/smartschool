@@ -1,0 +1,71 @@
+{% extends "base/base.html" %}
+{% block title %}Situation tranches — {{ eleve.nom_complet }}{% endblock %}
+{% block topbar_title %}💳 Tranches — {{ eleve.nom_complet }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>💳 {{ eleve.nom_complet }}</h1>
+    <div class="page-subtitle">Situation des paiements par tranches — {{ annee.libelle }}</div>
+  </div>
+  <a href="{% url 'situation_eleve' eleve.pk %}" class="btn btn-outline">← Dossier élève</a>
+</div>
+
+<!-- Résumé global -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:20px;font-weight:900;color:var(--primary);">{{ total_du|floatformat:0 }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">FCFA total dû</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;">
+    <div style="font-size:20px;font-weight:900;color:var(--success);">{{ total_paye|floatformat:0 }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">FCFA payé</div>
+  </div>
+  <div class="card" style="padding:18px;text-align:center;{% if reste > 0 %}border-color:var(--border-danger);{% endif %}">
+    <div style="font-size:20px;font-weight:900;color:{% if reste > 0 %}var(--danger){% else %}var(--success){% endif %};">{{ reste|floatformat:0 }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">FCFA restant</div>
+  </div>
+</div>
+
+<!-- Détail par type de frais -->
+{% for nom_type, data in par_type.items %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <span class="card-title">{{ data.type_frais.nom }}</span>
+    <span style="font-size:13px;color:var(--success);font-weight:700;">{{ data.paye|floatformat:0 }} / {{ data.total|floatformat:0 }} FCFA</span>
+  </div>
+  <table class="table-modern">
+    <thead>
+      <tr><th>Tranche</th><th>Montant</th><th>Date limite</th><th>Statut</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+    {% for e in data.echeances %}
+    <tr>
+      <td style="font-weight:700;">{{ e.libelle }}</td>
+      <td style="font-weight:700;">{{ e.montant|floatformat:0 }} FCFA</td>
+      <td style="font-size:13px;color:var(--text-muted);">{{ e.date_limite|date:"d/m/Y"|default:"—" }}</td>
+      <td>
+        {% if e.statut == 'payee' %}
+          <span style="color:var(--success);font-weight:700;">✅ Payée</span>
+          <div style="font-size:11px;color:var(--text-muted);">{{ e.date_paiement|date:"d/m/Y H:i" }}</div>
+        {% elif e.statut == 'retard' %}
+          <span style="color:var(--danger);font-weight:700;">⚠️ En retard</span>
+        {% else %}
+          <span style="color:var(--text-muted);">⏳ À payer</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if e.statut != 'payee' %}
+        <a href="{% url 'payer_tranche' e.pk %}" class="btn btn-primary btn-sm">💳 Encaisser</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% empty %}
+<div class="card" style="padding:30px;text-align:center;color:var(--text-muted);">
+  Aucun paiement par tranches configuré pour cet élève.
+</div>
+{% endfor %}
+{% endblock %}
