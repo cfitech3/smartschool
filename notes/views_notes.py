@@ -191,7 +191,12 @@ def saisie_notes_mali(request):
             if matiere.is_conduite:
                 nc = request.POST.get(f'nc_{insc.eleve.pk}', '').strip()
                 if nc:
-                    valeur = Decimal(nc.replace(',','.'))
+                    from decimal import InvalidOperation
+                    try:
+                        valeur = Decimal(nc.replace(',','.'))
+                    except InvalidOperation:
+                        messages.warning(request, f"Format de note conduite invalide pour {insc.eleve.nom_complet}.")
+                        continue
                     note_existante = NotePeriode.objects.filter(
                         eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode
                     ).first()
@@ -229,7 +234,12 @@ def saisie_notes_mali(request):
                             messages.error(request, raison)
                             continue
                         if mc:
-                            val_mc = Decimal(mc.replace(',','.'))
+                            from decimal import InvalidOperation
+                            try:
+                                val_mc = Decimal(mc.replace(',','.'))
+                            except InvalidOperation:
+                                messages.warning(request, f"Format de note classe invalide pour {insc.eleve.nom_complet}.")
+                                continue
                             if 0 <= val_mc <= note_max_c:
                                 avant = note_existante.moy_classe
                                 enregistrer_log(note_existante, request.user, 'moy_classe', avant, val_mc)
@@ -237,7 +247,12 @@ def saisie_notes_mali(request):
                             else:
                                 messages.warning(request, f"Note classe hors plage (0-{note_max_c}) ignoree pour {insc.eleve.nom_complet}.")
                         if mn:
-                            val_mn = Decimal(mn.replace(',','.'))
+                            from decimal import InvalidOperation
+                            try:
+                                val_mn = Decimal(mn.replace(',','.'))
+                            except InvalidOperation:
+                                messages.warning(request, f"Format de note compo invalide pour {insc.eleve.nom_complet}.")
+                                continue
                             if 0 <= val_mn <= note_max_n:
                                 avant = note_existante.moy_compo
                                 enregistrer_log(note_existante, request.user, 'moy_compo', avant, val_mn)
@@ -256,11 +271,21 @@ def saisie_notes_mali(request):
                             continue
                         defaults = {'note_max_classe': note_max_c, 'note_max_compo': note_max_n, 'saisi_par': request.user}
                         if mc:
-                            val_mc = Decimal(mc.replace(',','.'))
+                            from decimal import InvalidOperation
+                            try:
+                                val_mc = Decimal(mc.replace(',','.'))
+                            except InvalidOperation:
+                                messages.warning(request, f"Format de note classe invalide pour {insc.eleve.nom_complet}.")
+                                continue
                             if 0 <= val_mc <= note_max_c:
                                 defaults['moy_classe'] = val_mc
                         if mn:
-                            val_mn = Decimal(mn.replace(',','.'))
+                            from decimal import InvalidOperation
+                            try:
+                                val_mn = Decimal(mn.replace(',','.'))
+                            except InvalidOperation:
+                                messages.warning(request, f"Format de note compo invalide pour {insc.eleve.nom_complet}.")
+                                continue
                             if 0 <= val_mn <= note_max_n:
                                 defaults['moy_compo'] = val_mn
                         NotePeriode.objects.create(eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode, **defaults)

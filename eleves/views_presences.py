@@ -8,6 +8,7 @@ from .models import Presence, Inscription, Eleve
 from etablissements.models import Classe, AnneeScolaire
 import datetime
 from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_eleves_actifs, get_inscriptions_actives
+from accounts.permissions import role_required
 
 def req(fn):
     def w(request,*a,**k):
@@ -16,6 +17,7 @@ def req(fn):
     w.__name__=fn.__name__; return w
 
 @login_required
+@role_required(['admin', 'super_admin', 'secretariat', 'surveillant', 'enseignant'])
 @req
 def appel_presences(request):
     etab=request.etablissement
@@ -45,6 +47,7 @@ def appel_presences(request):
     return render(request,"eleves/appel_presences.html",{"classes":classes,"classe":classe,"date_appel":date_appel,"eleves_data":eleves_data,"appel_fait":appel_fait,"annee":annee,"classe_id":classe_id,"today":timezone.now().date()})
 
 @login_required
+@role_required(['admin', 'super_admin', 'secretariat', 'surveillant', 'enseignant'])
 @req
 def historique_presences(request):
     etab=request.etablissement; annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
