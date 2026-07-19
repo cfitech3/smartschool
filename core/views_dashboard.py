@@ -182,14 +182,14 @@ def _dashboard_admin(request, etab, annee, today):
     except Exception:
         logger.exception("Erreur comptage messages admin")
 
-    # Graphique 7 jours
+    # Graphique 30 jours (couvre mieux les données réelles)
     chart = []
-    for i in range(6, -1, -1):
+    for i in range(29, -1, -1):
         d = today - datetime.timedelta(days=i)
         total = float(Paiement.objects.filter(
             etablissement=etab, date_paiement__date=d, statut='valide'
         ).aggregate(t=Sum('montant'))['t'] or 0)
-        chart.append({'jour': d.strftime('%a %d/%m'), 'total': total})
+        chart.append({'jour': d.strftime('%d/%m'), 'total': total})
 
     paiements_recent = Paiement.objects.filter(
         etablissement=etab, statut='valide'
