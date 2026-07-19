@@ -69,7 +69,7 @@ SIDEBAR_ITEMS = {
     'super_admin': [
         {'section': 'Vue globale'},
         {'icon': '🏠', 'label': 'Tableau de bord', 'url': 'dashboard', 'key': 'nav_dashboard'},
-        {'icon': '🏫', 'label': 'Établissements', 'url': 'liste_etablissements', 'key': 'nav_etablissements'},
+        {'icon': '🏫', 'label': 'Établissements', 'url': 'etablissements', 'key': 'nav_etablissements'},
         {'section': 'Administration'},
         {'icon': '👥', 'label': 'Utilisateurs', 'url': 'liste_utilisateurs', 'key': 'nav_utilisateurs'},
     ],
@@ -79,6 +79,7 @@ SIDEBAR_ITEMS = {
         {'section': 'Scolarité'},
         {'icon': '👨‍🎓', 'label': 'Élèves', 'url': 'liste_eleves', 'key': 'nav_eleves'},
         {'icon': '🏫', 'label': 'Classes', 'url': 'liste_classes', 'key': 'nav_classes'},
+        {'icon': '🎓', 'label': "Fin d'année", 'url': 'assistant_fin_annee', 'key': 'nav_fin_annee'},
         {'icon': '👩‍🏫', 'label': 'Enseignants', 'url': 'liste_enseignants', 'key': 'nav_enseignants'},
         {'icon': '📋', 'label': 'Présences', 'url': 'appel_presences', 'key': 'nav_presences'},
         {'icon': '🗓️', 'label': 'Emplois du temps', 'url': 'emploi_du_temps', 'key': 'nav_emplois'},

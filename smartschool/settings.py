@@ -204,12 +204,56 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 # SessionStorage est plus sûr que CookieStorage : les messages ne sont pas
 # exposés ni manipulables côté client.
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'TIMEOUT': 300,
+# ── Cache ─────────────────────────────────────────────────────────────────────
+# ARCH-002 : LocMemCache n'est pas partagé entre workers Gunicorn.
+# En production multi-workers, définir CACHE_BACKEND=redis ou CACHE_BACKEND=file.
+#
+# CACHE_BACKEND=redis  → Redis (production recommandée, nécessite REDIS_URL)
+#                         ex: REDIS_URL=redis://127.0.0.1:6379/0
+# CACHE_BACKEND=file   → Fichier local (PythonAnywhere, mono-worker)
+# CACHE_BACKEND=locmem → Mémoire locale (développement uniquement, défaut)
+
+_cache_backend = os.environ.get('CACHE_BACKEND', 'locmem').lower()
+
+if _cache_backend == 'redis':
+    _redis_url = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': _redis_url,
+            'TIMEOUT': 300,
+            'OPTIONS': {
+                'socket_connect_timeout': 5,
+                'socket_timeout': 5,
+            },
+        }
     }
-}
+elif _cache_backend == 'file':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': os.environ.get('CACHE_FILE_PATH', BASE_DIR / '.cache' / 'smartschool'),
+            'TIMEOUT': 300,
+        }
+    }
+else:
+    # locmem : uniquement pour développement local (défaut)
+    if not DEBUG and _cache_backend == 'locmem':
+        import warnings
+        warnings.warn(
+            "⚠️  CACHE LocMemCache utilisé en production. "
+            "Les caches ne sont pas partagés entre workers Gunicorn. "
+            "Définissez CACHE_BACKEND=redis ou CACHE_BACKEND=file.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'TIMEOUT': 300,
+        }
+    }
+
 
 # ── Sécurité renforcée en production (DEBUG=False) ────────────────────────────
 if not DEBUG:

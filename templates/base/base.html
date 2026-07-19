@@ -109,95 +109,16 @@ const SMARTSCHOOL_CONTEXT = {
   reclamations: {{ nb_reclamations_attente|default:0 }},
 };
 
-// Définition des menus par rôle
-const MENUS = {
-  admin: [
-    {section: "Principal"},
-    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
-    {section: "Scolarité"},
-    {icon:"👨‍🎓", label:"Élèves", url:"/eleves/"},
-    {icon:"🏫", label:"Classes", url:"/eleves/classes/"},
-    {icon:"🎓", label:"Fin d'année", url:"/eleves/assistant-fin-annee/"},
-    {icon:"👩‍🏫", label:"Enseignants", url:"/etablissements/enseignants/"},
-    {icon:"📋", label:"Présences", url:"/eleves/presences/"},
-    {icon:"🗓️", label:"Emplois du temps", url:"/notes/emplois/"},
-    {section: "Notes"},
-    {icon:"📝", label:"Saisie notes", url:"/notes/saisie/"},
-    {icon:"📄", label:"Bulletins", url:"/notes/bulletins/"},
-    {icon:"🏛️", label:"Notes Université", url:"/notes/universite/saisie/"},
-    {section: "Finances"},
-    {icon:"💳", label:"Paiements", url:"/finances/"},
-    {icon:"📈", label:"Rapport financier", url:"/finances/rapport/"},
-    {section: "Communication"},
-    {icon:"💬", label:"Messages", url:"/messages/", badge: SMARTSCHOOL_CONTEXT.messages_non_lus},
-    {icon:"✉️", label:"Réclamations", url:"/reclamations/", badge: SMARTSCHOOL_CONTEXT.reclamations},
-    {icon:"🔔", label:"Logs notes", url:"/notes/logs/", badge: SMARTSCHOOL_CONTEXT.notifs},
-    {icon:"👥", label:"Utilisateurs", url:"/auth/utilisateurs/"},
-    {section: "Configuration"},
-    {icon:"🗂️", label:"Documents", url:"/documents/"},
-    {icon:"🖨️", label:"Modèles docs", url:"/etablissements/modeles/"},
-    {icon:"🏛️", label:"Divisions", url:"/etablissements/divisions/"},
-    {icon:"🎓", label:"Cycles", url:"/etablissements/cycles/"},
-    {icon:"⚙️", label:"Paramètres", url:"/etablissements/parametres/"},
-  ],
-  secretariat: [
-    {section: "Principal"},
-    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
-    {section: "Scolarité"},
-    {icon:"👨‍🎓", label:"Élèves", url:"/eleves/"},
-    {icon:"🏫", label:"Classes", url:"/eleves/classes/"},
-    {icon:"👩‍🏫", label:"Enseignants", url:"/etablissements/enseignants/"},
-    {icon:"📋", label:"Présences", url:"/eleves/presences/"},
-    {icon:"🗓️", label:"Emplois du temps", url:"/notes/emplois/"},
-    {section: "Documents"},
-    {icon:"🗂️", label:"Générer docs", url:"/documents/"},
-    {section: "Communication"},
-    {icon:"💬", label:"Messages", url:"/messages/"},
-    {icon:"✉️", label:"Réclamations", url:"/reclamations/"},
-  ],
-  comptable: [
-    {section: "Principal"},
-    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
-    {section: "Finances"},
-    {icon:"💳", label:"Paiements élèves", url:"/finances/"},
-    {icon:"💵", label:"Encaisser", url:"/finances/ajouter/"},
-    {icon:"📈", label:"Rapport", url:"/finances/rapport/"},
-    {section: "Personnel"},
-    {icon:"👩‍🏫", label:"Salaires profs", url:"/etablissements/enseignants/"},
-  ],
-  enseignant: [
-    {section: "Principal"},
-    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
-    {section: "Mon travail"},
-    {icon:"📝", label:"Saisie notes", url:"/notes/saisie/"},
-    {icon:"📄", label:"Bulletins", url:"/notes/bulletins/"},
-    {icon:"🗓️", label:"Mon emploi du temps", url:"/notes/emplois/"},
-  ],
-  surveillant: [
-    {section: "Principal"},
-    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
-    {section: "Surveillance"},
-    {icon:"🏫", label:"Classes", url:"/eleves/classes/"},
-    {icon:"📋", label:"Appel présences", url:"/eleves/presences/"},
-    {icon:"⚠️", label:"Rapport absences", url:"/notes/absences/"},
-    {icon:"📊", label:"Note conduite", url:"/notes/conduite/"},
-    {icon:"🗓️", label:"Emplois du temps", url:"/notes/emplois/"},
-  ],
-  super_admin: [
-    {section: "Vue globale"},
-    {icon:"🏠", label:"Tableau de bord", url:"/dashboard/"},
-    {section: "Administration"},
-    {icon:"🏫", label:"Mes Établissements", url:"/etablissements/gerer/"},
-    {icon:"👥", label:"Utilisateurs", url:"/auth/utilisateurs/"},
-  ],
-};
+// ⚠️ SOURCE UNIQUE DE VÉRITÉ pour les menus : accounts/permissions.py
+// Ce JSON est généré par core/context_processors.py via reverse() Django.
+// Ne pas éditer ici. Modifier SIDEBAR_ITEMS dans accounts/permissions.py.
+const SIDEBAR_ITEMS = {{ sidebar_menu_json|default:'[]'|safe }};
 
 function buildSidebar() {
   const nav = document.getElementById('sidebar-nav');
   if (!nav) return;
-  const items = MENUS[SMARTSCHOOL_CONTEXT.role] || MENUS['admin'];
   let html = '';
-  items.forEach(item => {
+  SIDEBAR_ITEMS.forEach(item => {
     if (item.section) {
       html += `<div class="nav-section-label">${item.section}</div>`;
       return;
@@ -205,12 +126,12 @@ function buildSidebar() {
     const active = SMARTSCHOOL_CONTEXT.currentPath.startsWith(item.url) && item.url !== '/dashboard/' 
       ? 'active' 
       : (item.url === '/dashboard/' && SMARTSCHOOL_CONTEXT.currentPath === '/dashboard/' ? 'active' : '');
-    const badge = item.badge && item.badge > 0 
+    const badgeVal = item.badge && item.badge > 0 
       ? `<span class="nav-badge">${item.badge}</span>` 
       : '';
     html += `<a href="${item.url}" class="nav-link ${active}">`
           + `<span class="nav-icon">${item.icon}</span>`
-          + `<span>${item.label}</span>${badge}</a>`;
+          + `<span>${item.label}</span>${badgeVal}</a>`;
   });
   nav.innerHTML = html;
 }

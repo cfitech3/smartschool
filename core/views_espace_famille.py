@@ -277,16 +277,25 @@ def traiter_reclamation(request, pk):
         reclamation.save()
         
         # P3.4 : Notification parent lors de réponse à réclamation
-        if reclamation.statut in ['traite', 'rejete']:
-            from notes.models import MessageFamille
-            MessageFamille.objects.create(
-                etablissement=etab,
-                eleve=reclamation.eleve,
-                auteur=request.user,
-                sujet=f"Suite à votre réclamation : {reclamation.note_periode.matiere.nom}",
-                contenu=f"Votre réclamation a été examinée. Statut : {reclamation.get_statut_display()}.\n\nRéponse : {reclamation.reponse}",
-                statut='non_lu'
-            )
+        # Fix: statuts réels du modèle = 'acceptee' / 'rejetee' (pas 'traite'/'rejete')
+        # Fix: on utilise core.Notification (conçu pour notifier un utilisateur)
+        if reclamation.statut in ['acceptee', 'rejetee']:
+            from core.models import Notification
+            if reclamation.auteur:
+                Notification.objects.create(
+                    destinataire=reclamation.auteur,
+                    type_notif=Notification.TYPE_SYSTEM,
+                    titre=(
+                        f"Réclamation {reclamation.get_statut_display().lower()} "
+                        f"— {reclamation.note_periode.matiere.nom}"
+                    ),
+                    message=(
+                        f"Votre réclamation a été examinée.\n"
+                        f"Statut : {reclamation.get_statut_display()}.\n"
+                        f"Réponse : {reclamation.reponse or 'Aucune réponse ajoutée.'}"
+                    ),
+                    lien=f"/espace/{reclamation.eleve.pk}/reclamations/",
+                )
             
         messages.success(request, "Reclamation traitee.")
         return redirect('liste_reclamations_admin')

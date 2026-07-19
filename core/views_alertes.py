@@ -208,12 +208,22 @@ def get_alertes_etablissement(etab, annee, user_role):
     # ── ALERTE TRANCHES EN RETARD ─────────────────────────────────────────────
     if user_role in ('admin', 'comptable', 'super_admin'):
         from finances.models import Echeance
-        Echeance.objects.filter(
-            etablissement=etab, statut='a_payer', date_limite__lt=today
-        ).update(statut='retard')
-        nb_tranches_retard = Echeance.objects.filter(
-            etablissement=etab, statut='retard'
-        ).values('eleve').distinct().count()
+        from django.db.models import Q as Qf
+        # Fix PERF-002 : on ne modifie PLUS la base depuis une fonction d'affichage.
+        # La mise à jour réelle des statuts est faite par le management command
+        # 'update_echeances_retard' (à planifier via cron).
+        # On compte : déjà marquées 'retard' OU 'a_payer' avec date_limite dépassée.
+        nb_tranches_retard = (
+            Echeance.objects
+            .filter(etablissement=etab)
+            .filter(
+                Qf(statut='retard') |
+                Qf(statut='a_payer', date_limite__lt=today)
+            )
+            .values('eleve')
+            .distinct()
+            .count()
+        )
         if nb_tranches_retard > 0:
             alertes.append({
                 'type': 'tranches_retard',

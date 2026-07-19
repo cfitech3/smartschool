@@ -2,6 +2,8 @@
 Dashboards adaptés par rôle — SmartSchool v2.6
 Chaque rôle reçoit uniquement les données pertinentes.
 """
+import logging
+import datetime
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum, Q
@@ -12,8 +14,9 @@ from finances.models import Paiement
 from etablissements.models import Etablissement, Classe, AnneeScolaire
 from accounts.models import User
 from notes.models import LogModificationNote, NotePeriode, EmploiDuTemps
-import datetime
 from core.views_alertes import get_alertes_etablissement
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -76,15 +79,36 @@ def _dashboard_super_admin(request, today):
             date_paiement__year=today.year
         ).aggregate(t=Sum('montant'))['t'] or 0),
     }
+
+    # Fix PERF-001 : remplace la boucle N+1 par 2 requêtes bulk
+    etabs_ids = list(etabs.values_list('pk', flat=True))
+
+    recettes_raw = (
+        Paiement.objects
+        .filter(
+            etablissement_id__in=etabs_ids, statut='valide',
+            date_paiement__month=today.month, date_paiement__year=today.year,
+        )
+        .values('etablissement_id')
+        .annotate(t=Sum('montant'))
+    )
+    recettes_map = {r['etablissement_id']: float(r['t'] or 0) for r in recettes_raw}
+
+    paiements_raw = (
+        Paiement.objects
+        .filter(
+            etablissement_id__in=etabs_ids, statut='valide',
+            date_paiement__date=today,
+        )
+        .values('etablissement_id')
+        .annotate(nb=Count('pk'))
+    )
+    paiements_map = {r['etablissement_id']: r['nb'] for r in paiements_raw}
+
     for e in etabs:
-        e.recettes_mois = float(Paiement.objects.filter(
-            etablissement=e, statut='valide',
-            date_paiement__month=today.month,
-            date_paiement__year=today.year,
-        ).aggregate(t=Sum('montant'))['t'] or 0)
-        e.nb_paiements_jour = Paiement.objects.filter(
-            etablissement=e, statut='valide', date_paiement__date=today,
-        ).count()
+        e.recettes_mois = recettes_map.get(e.pk, 0.0)
+        e.nb_paiements_jour = paiements_map.get(e.pk, 0)
+
     derniers_users = User.objects.exclude(role='super_admin').select_related('etablissement').order_by('-date_creation')[:8]
     return render(request, 'core/dashboard_super.html', {
         'stats': stats, 'etablissements': etabs,
@@ -96,7 +120,7 @@ def _dashboard_super_admin(request, today):
 def _dashboard_admin(request, etab, annee, today):
     import json
     stats = {}
-    stats['total_eleves']     = get_eleves_actifs(etab).count()
+    stats['total_eleves']     = get_eleves_actifs(etab, annee).count()  # Fix: filtre par année active
     stats['total_enseignants']= User.objects.filter(etablissement=etab, role='enseignant', is_active=True).count()
     stats['total_classes']    = get_classes_actives(etab, annee).count() if annee else 0
     stats['total_staff']      = User.objects.filter(etablissement=etab, is_active=True).exclude(
@@ -108,22 +132,25 @@ def _dashboard_admin(request, etab, annee, today):
     stats['presents_today'] = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='present').count()
     stats['absents_today']  = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='absent').count()
 
-    # Finances
-    classes_actives_ids = get_classes_actives(etab, annee).values_list('pk', flat=True)
-    pay_today = Paiement.objects.filter(eleve__inscriptions__classe__in=classes_actives_ids, etablissement=etab, date_paiement__date=today, statut='valide').distinct()
-    stats['paiements_jour']  = float(pay_today.aggregate(t=Sum('montant'))['t'] or 0)
+    # Finances — Fix: utilise les élèves actifs de l'année au lieu de jointure fragile
+    eleves_actifs_ids = get_eleves_actifs(etab, annee).values_list('pk', flat=True)
+
+    pay_today = Paiement.objects.filter(
+        etablissement=etab, date_paiement__date=today,
+        statut='valide', eleve_id__in=eleves_actifs_ids,
+    )
+    stats['paiements_jour']    = float(pay_today.aggregate(t=Sum('montant'))['t'] or 0)
     stats['nb_paiements_jour'] = pay_today.count()
-    stats['recettes_mois']   = float(Paiement.objects.filter(
-        eleve__inscriptions__classe__in=classes_actives_ids,
+
+    recettes_qs = Paiement.objects.filter(
         etablissement=etab, statut='valide',
-        date_paiement__month=today.month, date_paiement__year=today.year
-    ).distinct().aggregate(t=Sum('montant'))['t'] or 0)
-    eleves_payes_ids = Paiement.objects.filter(
-        eleve__inscriptions__classe__in=classes_actives_ids,
-        etablissement=etab, statut='valide',
-        date_paiement__month=today.month, date_paiement__year=today.year
-    ).values_list('eleve_id', flat=True).distinct()
-    stats['eleves_retard'] = get_eleves_actifs(etab).exclude(pk__in=eleves_payes_ids).count()
+        date_paiement__month=today.month, date_paiement__year=today.year,
+        eleve_id__in=eleves_actifs_ids,
+    )
+    stats['recettes_mois'] = float(recettes_qs.aggregate(t=Sum('montant'))['t'] or 0)
+
+    eleves_payes_ids = recettes_qs.values_list('eleve_id', flat=True).distinct()
+    stats['eleves_retard'] = get_eleves_actifs(etab, annee).exclude(pk__in=eleves_payes_ids).count()
 
     # Notifications
     stats['notifs_non_lues'] = LogModificationNote.objects.filter(
@@ -135,7 +162,10 @@ def _dashboard_admin(request, etab, annee, today):
         stats['nb_reclamations'] = Reclamation.objects.filter(
             eleve__etablissement=etab, statut='en_attente'
         ).count()
-    except: pass
+    except ImportError:
+        logger.warning("Modèle Reclamation non disponible")
+    except Exception:
+        logger.exception("Erreur comptage réclamations admin")
     stats['nb_messages'] = 0
     try:
         from notes.models import MessageFamille
@@ -143,7 +173,10 @@ def _dashboard_admin(request, etab, annee, today):
             destinataire_role='directeur', statut='non_lu',
             expediteur__etablissement=etab
         ).count()
-    except: pass
+    except ImportError:
+        logger.warning("Modèle MessageFamille non disponible")
+    except Exception:
+        logger.exception("Erreur comptage messages admin")
 
     # Graphique 7 jours
     chart = []
@@ -181,7 +214,7 @@ def _dashboard_secretariat(request, etab, annee, today):
     from core.cycle_filter import get_cycles_actifs_ids, get_eleves_actifs, get_classes_actives, get_inscriptions_actives
     cycles_ids = get_cycles_actifs_ids(etab)
     stats = {}
-    stats['total_eleves']  = get_eleves_actifs(etab).count()
+    stats['total_eleves']  = get_eleves_actifs(etab, annee).count()  # Fix: filtre par année active
     stats['total_classes'] = get_classes_actives(etab, annee).count() if annee else 0
     stats['presents_today'] = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='present').count()
     stats['absents_today']  = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='absent').count()
@@ -190,7 +223,6 @@ def _dashboard_secretariat(request, etab, annee, today):
     # Inscriptions récentes
     inscrits_recents = get_inscriptions_actives(etab, annee).select_related('eleve','classe').order_by('-date_inscription')[:8] if annee else []
 
-    # Réclamations et messages en attente
     stats['nb_reclamations'] = 0
     stats['nb_messages'] = 0
     try:
@@ -201,7 +233,10 @@ def _dashboard_secretariat(request, etab, annee, today):
         stats['nb_messages'] = MessageFamille.objects.filter(
             expediteur__etablissement=etab, statut='non_lu'
         ).count()
-    except: pass
+    except ImportError:
+        logger.warning("Modèles Reclamation/MessageFamille non disponibles (secrétariat)")
+    except Exception:
+        logger.exception("Erreur comptage notifications secrétariat")
 
     # Classes avec appel non fait aujourd'hui
     classes_sans_appel = []
@@ -224,27 +259,37 @@ def _dashboard_secretariat(request, etab, annee, today):
 def _dashboard_comptable(request, etab, today):
     import json
     from core.cycle_filter import get_eleves_actifs
-    cycles_ids = get_cycles_actifs_ids(etab)
-    # Paiements filtrés sur les élèves des cycles actifs uniquement
+    from etablissements.models import AnneeScolaire
+
+    # Fix: recupere l'annee active pour avoir une definition coherente des eleves
+    annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
+    eleves_actifs_ids = list(get_eleves_actifs(etab, annee).values_list('pk', flat=True))
+
+    # Fix: utilise eleve_id__in au lieu de la jointure fragile sur inscriptions
     base_pai = Paiement.objects.filter(
         etablissement=etab, statut='valide',
-        eleve__inscriptions__classe__niveau__cycle__in=cycles_ids,
-        eleve__inscriptions__is_active=True,
-    ).distinct()
+        eleve_id__in=eleves_actifs_ids,
+    )
     stats = {}
     stats['recettes_jour']     = float(base_pai.filter(date_paiement__date=today).aggregate(t=Sum('montant'))['t'] or 0)
     stats['nb_paiements_jour'] = base_pai.filter(date_paiement__date=today).count()
     stats['recettes_mois']     = float(base_pai.filter(
         date_paiement__month=today.month, date_paiement__year=today.year
     ).aggregate(t=Sum('montant'))['t'] or 0)
-    stats['total_eleves']  = get_eleves_actifs(etab).count()
-    stats['eleves_payes']  = base_pai.filter(
+    stats['total_eleves'] = len(eleves_actifs_ids)  # deja calcule, pas de 2eme requete
+
+    recettes_mois_qs = base_pai.filter(
         date_paiement__month=today.month, date_paiement__year=today.year
-    ).values('eleve_id').distinct().count()
-    stats['eleves_retard']  = stats['total_eleves'] - stats['eleves_payes']
+    )
+    eleves_payes_ids = recettes_mois_qs.values_list('eleve_id', flat=True).distinct()
+    stats['eleves_payes'] = eleves_payes_ids.count()
+
+    # Fix: utilise exclude() comme l'admin (evite resultat negatif si eleves_payes > total)
+    stats['eleves_retard'] = get_eleves_actifs(etab, annee).exclude(pk__in=eleves_payes_ids).count()
     stats['taux_recouvrement'] = round(
         stats['eleves_payes'] / stats['total_eleves'] * 100, 1
     ) if stats['total_eleves'] > 0 else 0
+
 
     # Graphique 30 jours
     chart = []
@@ -296,7 +341,7 @@ def _dashboard_enseignant(request, etab, annee, today):
     stats['nb_matieres']  = len(set(a['matiere__id'] for a in affectations))
     stats['nb_eleves']    = Inscription.objects.filter(
         classe__in=classes_ids, is_active=True
-    ).count() if classes_ids else 0
+    ).values('eleve_id').distinct().count() if classes_ids else 0  # Fix: élèves uniques
 
     # Notes saisies vs à saisir
     periode = None
@@ -340,7 +385,7 @@ def _dashboard_surveillant(request, etab, annee, today):
         classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='retard'
     ).count()
     stats['total_classes']  = get_classes_actives(etab, annee).count() if annee else 0
-    stats['total_eleves']   = get_eleves_actifs(etab).count()
+    stats['total_eleves']   = get_eleves_actifs(etab, annee).count()  # Fix: filtre par année active
 
     # Taux de présence
     total_presence = stats['presents_today'] + stats['absents_today'] + stats['retards_today']
