@@ -319,6 +319,13 @@ def _dashboard_comptable(request, etab, today):
     ).values('type_frais__nom').annotate(total=Sum('montant')).order_by('-total')
 
     alertes = get_alertes_etablissement(etab, None, request.user.role)
+    # Générer notifications impayés (lazy — une fois par jour max)
+    try:
+        from finances.views_impayes import creer_notifications_impayes
+        creer_notifications_impayes(etab, annee)
+    except Exception:
+        pass
+
     return render(request, 'core/dashboard_comptable.html', {
         'stats': stats, 'paiements_recent': paiements_recent,
         'chart_paiements': json.dumps(chart), 'repartition': list(repartition),

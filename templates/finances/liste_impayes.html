@@ -1,0 +1,160 @@
+{% extends "base/base.html" %}
+{% block title %}Frais impayés{% endblock %}
+{% block topbar_title %}⚠️ Frais impayés{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>⚠️ Frais impayés</h1>
+    <div class="page-subtitle">
+      {{ mois_fr }} {{ annee_val }}
+      {% if classe_sel %}— {{ classe_sel.nom }}{% endif %}
+      {% if type_sel %}— {{ type_sel.nom }}{% endif %}
+      — <strong>{{ total_eleves_impayes }}</strong> élève(s) en retard
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="/finances/impayes/export/?classe={{ classe_sel.pk|default:'' }}&type_frais={{ type_sel.pk|default:'' }}&mois={{ mois }}&annee={{ annee_val }}"
+       class="btn btn-primary">⬇️ Export Excel</a>
+    <a href="{% url 'rapport_financier' %}" class="btn btn-outline">← Finances</a>
+  </div>
+</div>
+
+<!-- Filtres -->
+<div class="card" style="margin-bottom:16px;">
+  <form method="get" style="padding:14px 18px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div style="flex:1;min-width:160px;">
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Classe</label>
+      <select name="classe" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);font-size:13px;">
+        <option value="">Toutes les classes</option>
+        {% for c in classes %}
+        <option value="{{ c.pk }}" {% if classe_sel and c.pk == classe_sel.pk %}selected{% endif %}>{{ c.nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex:1;min-width:160px;">
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Type de frais</label>
+      <select name="type_frais" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);font-size:13px;">
+        <option value="">Tous les frais</option>
+        {% for tf in types_frais %}
+        <option value="{{ tf.pk }}" {% if type_sel and tf.pk == type_sel.pk %}selected{% endif %}>{{ tf.nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="min-width:130px;">
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Mois</label>
+      <select name="mois" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);font-size:13px;">
+        {% for num,nom in mois_choices %}
+        <option value="{{ num }}" {% if num == mois %}selected{% endif %}>{{ nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="min-width:100px;">
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Année</label>
+      <select name="annee" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);font-size:13px;">
+        {% for a in annees %}
+        <option value="{{ a }}" {% if a == annee_val %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Filtrer</button>
+    <a href="{% url 'liste_impayes' %}" class="btn btn-outline">Réinitialiser</a>
+  </form>
+</div>
+
+<!-- KPIs -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px;">
+  <div class="card" style="padding:16px;text-align:center;border-color:var(--border-danger);">
+    <div style="font-size:28px;font-weight:900;color:var(--danger);">{{ total_eleves_impayes }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Élèves en retard</div>
+  </div>
+  <div class="card" style="padding:16px;text-align:center;">
+    <div style="font-size:18px;font-weight:900;color:var(--danger);">{{ total_montant_du|floatformat:0 }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">FCFA estimé dû</div>
+  </div>
+  <div class="card" style="padding:16px;text-align:center;">
+    <div style="font-size:24px;font-weight:900;color:var(--primary);">{{ par_classe|length }}</div>
+    <div style="font-size:11px;color:var(--text-muted);">Classe(s) concernée(s)</div>
+  </div>
+</div>
+
+{% if impayes %}
+<!-- Vue par classe -->
+{% for cl_nom, data in par_classe.items %}
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header" style="background:rgba(198,40,40,0.05);border-bottom:1.5px solid rgba(198,40,40,0.15);">
+    <span class="card-title" style="color:var(--danger);">
+      📚 {{ cl_nom }}
+      <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:8px;">
+        {{ data.eleves|length }} élève(s) — {{ data.total_du|floatformat:0 }} FCFA dû
+      </span>
+    </span>
+    <a href="/finances/impayes/export/?classe={{ data.classe.pk|default:'' }}&mois={{ mois }}&annee={{ annee_val }}"
+       style="font-size:12px;color:var(--danger);" title="Export cette classe">⬇️ Export</a>
+  </div>
+  <table class="table-modern">
+    <thead>
+      <tr>
+        <th>Élève</th>
+        <th>Frais non payé(s)</th>
+        <th style="text-align:right;">Montant dû</th>
+        <th>Contact tuteur</th>
+        <th>Dernier paiement</th>
+        <th style="text-align:center;">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for imp in data.eleves %}
+    <tr>
+      <td style="font-weight:700;">{{ imp.eleve.nom_complet }}</td>
+      <td>
+        {% for tf in imp.frais_non_payes %}
+        <span style="background:var(--bg-danger);color:var(--danger);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block;margin:1px;">
+          {{ tf.nom }}
+        </span>
+        {% endfor %}
+      </td>
+      <td style="text-align:right;font-weight:700;color:var(--danger);">
+        {{ imp.montant_du|floatformat:0 }} FCFA
+      </td>
+      <td style="font-size:12px;">
+        {% with t=imp.eleve.tuteur %}
+        {% if t %}
+          <div style="font-weight:600;">{{ t.nom }} {{ t.prenom }}</div>
+          {% if t.telephone %}
+          <a href="tel:{{ t.telephone }}" style="color:var(--primary);font-size:11px;">📞 {{ t.telephone }}</a>
+          {% endif %}
+        {% else %}—{% endif %}
+        {% endwith %}
+      </td>
+      <td style="font-size:12px;color:{% if imp.dernier_paiement %}var(--text-muted){% else %}var(--danger){% endif %};">
+        {% if imp.dernier_paiement %}
+          {{ imp.dernier_paiement|date:"d/m/Y H:i" }}
+        {% else %}
+          <span style="font-weight:700;">Jamais payé</span>
+        {% endif %}
+      </td>
+      <td style="text-align:center;">
+        <a href="{% url 'enregistrer_paiement' %}?eleve={{ imp.eleve.pk }}"
+           class="btn btn-primary btn-sm">💳 Encaisser</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="card" style="padding:50px;text-align:center;">
+  <div style="font-size:48px;margin-bottom:16px;">✅</div>
+  <div style="font-size:18px;font-weight:700;color:var(--success);">
+    Aucun impayé pour {{ mois_fr }} {{ annee_val }}
+    {% if classe_sel %}dans la classe {{ classe_sel.nom }}{% endif %}
+  </div>
+  <div style="font-size:13px;color:var(--text-muted);margin-top:8px;">
+    Tous les élèves ont réglé leurs frais pour cette période.
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

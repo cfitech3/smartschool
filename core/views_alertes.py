@@ -134,7 +134,7 @@ def get_alertes_etablissement(etab, annee, user_role):
                 'niveau': 'danger' if nb_retard > 20 else 'warning',
                 'titre': f'{nb_retard} élève(s) sans paiement ce mois',
                 'detail': 'Frais de scolarité non réglés pour ce mois',
-                'url': '/finances/rapport/',
+                'url': '/finances/impayes/',
                 'count': nb_retard,
                 'icone': '💳',
             })

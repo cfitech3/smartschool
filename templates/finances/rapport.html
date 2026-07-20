@@ -5,7 +5,7 @@
 {% block extra_css %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>{% endblock %}
 {% block content %}
 <div class="page-header"><div><h1>📈 Rapport financier</h1><div class="page-subtitle">{% if annee %}{{ annee.libelle }}{% endif %} — {{ today|date:"d F Y" }}</div></div>
-<div style="display:flex;gap:8px;"><a href="{% url 'export_paiements' %}" class="btn btn-outline btn-sm">📥 Excel</a></div></div>
+<div style="display:flex;gap:8px;"><a href="{% url 'liste_impayes' %}" class="btn btn-primary btn-sm">⚠️ Impayés</a><a href="{% url 'export_paiements' %}" class="btn btn-outline btn-sm">📥 Excel</a></div></div>
 <div class="stats-grid" style="margin-bottom:20px;">
   <div class="stat-card"><div class="stat-icon green">💰</div><div class="stat-body"><div class="stat-value">{{ total_annee|floatformat:0 }}</div><div class="stat-label">Total annee (FCFA)</div></div></div>
 </div>
