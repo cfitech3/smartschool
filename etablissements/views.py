@@ -16,6 +16,11 @@ def req(fn):
 @login_required
 @req
 def liste_enseignants(request):
+    # Les comptables ont leur propre vue dédiée
+    if request.user.role == 'comptable':
+        from django.urls import reverse
+        from django.shortcuts import redirect as redir
+        return redir(reverse('enseignants_comptable') + ('?q=' + request.GET.get('q','') if request.GET.get('q') else ''))
     etab = request.etablissement
     ens = Enseignant.objects.filter(etablissement=etab).select_related("user")
     q = request.GET.get("q","")

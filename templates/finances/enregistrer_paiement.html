@@ -1,75 +1,183 @@
 {% extends "base/base.html" %}
 {% block title %}Encaisser{% endblock %}
-{% block topbar_title %}Enregistrer un paiement{% endblock %}
-{% block nav_encaissement %}active{% endblock %}
+{% block topbar_title %}💵 Enregistrer un paiement{% endblock %}
 {% block content %}
-<div class="page-header"><div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'liste_paiements' %}" class="btn btn-outline btn-sm">← Retour</a><h1>💵 Enregistrer un paiement</h1></div></div>
-<div style="max-width:600px;">
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'liste_paiements' %}" class="btn btn-outline btn-sm">← Retour</a>
+    <h1>💵 Enregistrer un paiement</h1>
+  </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div style="padding:12px 16px;border-radius:8px;margin-bottom:12px;
+  background:{% if 'error' in msg.tags %}var(--bg-danger){% else %}#E8F5E9{% endif %};
+  color:{% if 'error' in msg.tags %}var(--danger){% else %}#2E7D32{% endif %};
+  border-left:4px solid {% if 'error' in msg.tags %}var(--danger){% else %}#2E7D32{% endif %};">
+  {{ msg }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div style="max-width:640px;">
 <form method="post">{% csrf_token %}
-<div class="card" style="margin-bottom:14px;"><div class="card-header"><span class="card-title">Informations du paiement</span></div><div class="card-body">
-  <div class="form-group"><label class="form-label">Eleve *</label>
-    <select name="eleve" id="sel-eleve" class="form-control" required>
-      <option value="">-- Rechercher un eleve --</option>
-      {% for e in eleves %}<option value="{{ e.pk }}"{% if eleve_pre and e.pk == eleve_pre.pk %} selected{% endif %}>{{ e.nom }} {{ e.prenom }} — {{ e.matricule }}</option>{% endfor %}
-    </select>
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header"><span class="card-title">Informations du paiement</span></div>
+  <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
+
+    <!-- Filtre par classe -->
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">
+        Filtrer par classe <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(optionnel)</span>
+      </label>
+      <select id="sel-classe" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+        <option value="">— Toutes les classes —</option>
+        {% for cl in classes %}
+        <option value="{{ cl.pk }}">{{ cl.nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Élève -->
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Élève *</label>
+      <select name="eleve" id="sel-eleve" required
+              style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+        <option value="">— Sélectionner un élève —</option>
+        {% for e in eleves %}
+        <option value="{{ e.pk }}"
+                data-classe="{{ e.classe_pk|default:'' }}"
+                {% if eleve_pre and e.pk == eleve_pre.pk %}selected{% endif %}>
+          {{ e.nom }} {{ e.prenom }} — {{ e.matricule }}{% if e.classe_nom %} ({{ e.classe_nom }}){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Type de frais -->
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Type de frais *</label>
+      <select name="type_frais" id="sel-frais" required
+              style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+        <option value="">— Choisir —</option>
+        {% for tf in types_frais %}
+        <option value="{{ tf.pk }}" data-montant="{{ tf.montant_defaut|floatformat:0 }}">{{ tf.nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Période -->
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Période concernée</label>
+      <select name="periode_payee" id="sel-periode"
+              style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+        <option value="">— Choisir le type de frais d'abord —</option>
+      </select>
+    </div>
+
+    <!-- Montant + Mode -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Montant (FCFA) *</label>
+        <input type="number" name="montant" id="inp-montant"
+               min="1" step="500" placeholder="0" required
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);font-size:15px;font-weight:700;">
+        <div id="montant-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Mode de paiement *</label>
+        <select name="mode_paiement" required
+                style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+          {% for v,l in modes %}
+          <option value="{{ v }}">{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Notes</label>
+      <textarea name="notes" rows="2" placeholder="Référence mobile money, remarques..."
+                style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);resize:vertical;"></textarea>
+    </div>
+
   </div>
-  <div class="form-group"><label class="form-label">Type de frais *</label>
-    <select name="type_frais" id="sel-frais" class="form-control" required>
-      <option value="">-- Choisir --</option>
-      {% for tf in types_frais %}<option value="{{ tf.pk }}" data-montant="{{ tf.montant_defaut|floatformat:0 }}">{{ tf.nom }}</option>{% endfor %}
-    </select>
+</div>
+
+<div class="card">
+  <div style="padding:16px 18px;display:flex;gap:10px;">
+    <button type="submit" class="btn btn-primary">✅ Enregistrer</button>
+    <button type="submit" name="imprimer_recu" value="1" class="btn btn-outline">🧾 Enregistrer et imprimer reçu</button>
+    <a href="{% url 'liste_paiements' %}" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
   </div>
-  <div class="form-group"><label class="form-label">Periode concernee</label>
-    <select name="periode_payee" id="sel-periode" class="form-control">
-      <option value="">-- Choisir le type de frais d'abord --</option>
-    </select>
-  </div>
-  <div class="grid-2">
-    <div class="form-group"><label class="form-label">Montant (FCFA) *</label><input type="number" name="montant" id="inp-montant" class="form-control" min="1" step="500" placeholder="0" required></div>
-    <div class="form-group"><label class="form-label">Mode de paiement *</label><select name="mode_paiement" class="form-control" required>{% for v,l in modes %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
-  </div>
-  <div class="form-group"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2" placeholder="Remarques..."></textarea></div>
-</div></div>
-<div class="card"><div class="card-body" style="display:flex;gap:10px;">
-  <button type="submit" class="btn btn-primary">✅ Enregistrer</button>
-  <button type="submit" name="imprimer_recu" value="1" class="btn btn-outline">🧾 Enregistrer et imprimer</button>
-  <a href="{% url 'liste_paiements' %}" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
-</div></div>
-</form></div>
-{% endblock %}
-{% block extra_js %}<script>
-document.getElementById('sel-frais').addEventListener('change', async function(){
-  const opt = this.selectedOptions[0];
-  const pk = opt.value;
-  const selPeriode = document.getElementById('sel-periode');
-  const inpMontant = document.getElementById('inp-montant');
-  
-  selPeriode.innerHTML = '<option value="">Chargement...</option>';
-  
-  if(pk) {
-    try {
-        const response = await fetch(`/finances/api/frais/${pk}/periodes/`);
-        const data = await response.json();
-        
-        selPeriode.innerHTML = '';
-        data.periodes.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p;
-            option.textContent = p;
-            selPeriode.appendChild(option);
-        });
-        
-        if(data.montant_defaut > 0) {
-            inpMontant.value = data.montant_defaut;
-        } else if (opt.dataset.montant) {
-            inpMontant.value = opt.dataset.montant;
-        }
-    } catch(e) {
-        selPeriode.innerHTML = '<option value="">Erreur de chargement</option>';
+</div>
+</form>
+</div>
+
+{% block extra_js %}
+<script>
+// ── Filtre par classe ──────────────────────────────────────────────────────
+const selClasse = document.getElementById('sel-classe');
+const selEleve  = document.getElementById('sel-eleve');
+
+// Stocker toutes les options élèves
+const toutesOptions = Array.from(selEleve.options).slice(1); // sans le premier "—"
+
+selClasse.addEventListener('change', function() {
+  const classeId = this.value;
+  // Réinitialiser
+  selEleve.innerHTML = '<option value="">— Sélectionner un élève —</option>';
+  selEleve.value = '';
+
+  toutesOptions.forEach(opt => {
+    if (!classeId || opt.dataset.classe === classeId) {
+      selEleve.appendChild(opt.cloneNode(true));
     }
-  } else {
-    selPeriode.innerHTML = '<option value="">-- Choisir le type de frais d\'abord --</option>';
-    inpMontant.value = '';
+  });
+});
+
+// ── Auto-remplissage montant depuis le type de frais ───────────────────────
+const selFrais   = document.getElementById('sel-frais');
+const selPeriode = document.getElementById('sel-periode');
+const inpMontant = document.getElementById('inp-montant');
+const hintMontant= document.getElementById('montant-hint');
+
+selFrais.addEventListener('change', async function() {
+  const pk = this.value;
+  const opt = this.selectedOptions[0];
+
+  selPeriode.innerHTML = '<option value="">Chargement...</option>';
+  inpMontant.value = '';
+  hintMontant.textContent = '';
+
+  if (!pk) {
+    selPeriode.innerHTML = '<option value="">— Choisir le type de frais d\'abord —</option>';
+    return;
+  }
+
+  try {
+    const res  = await fetch(`/finances/api/frais/${pk}/periodes/`);
+    const data = await res.json();
+
+    selPeriode.innerHTML = '';
+    data.periodes.forEach(p => {
+      const o = document.createElement('option');
+      o.value = o.textContent = p;
+      selPeriode.appendChild(o);
+    });
+
+    // Remplir le montant automatiquement
+    const montant = data.montant_defaut || parseInt(opt.dataset.montant) || 0;
+    if (montant > 0) {
+      inpMontant.value = montant;
+      hintMontant.textContent = `Montant par défaut : ${montant.toLocaleString('fr-FR')} FCFA`;
+    }
+  } catch(e) {
+    selPeriode.innerHTML = '<option value="">Erreur de chargement</option>';
   }
 });
-</script>{% endblock %}
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,116 @@
+{% extends "base/base.html" %}
+{% block title %}{{ enseignant.nom_complet }} — Salaire{% endblock %}
+{% block topbar_title %}👨‍🏫 {{ enseignant.nom_complet }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>👨‍🏫 {{ enseignant.nom_complet }}</h1>
+    <div class="page-subtitle">{{ enseignant.specialite|default:"Enseignant" }} — Vue comptable</div>
+  </div>
+  <a href="{% url 'enseignants_comptable' %}" class="btn btn-outline">← Retour</a>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div style="padding:12px 16px;border-radius:8px;margin-bottom:12px;
+  background:{% if 'error' in msg.tags %}var(--bg-danger){% else %}#E8F5E9{% endif %};
+  color:{% if 'error' in msg.tags %}var(--danger){% else %}#2E7D32{% endif %};
+  border-left:4px solid {% if 'error' in msg.tags %}var(--danger){% else %}#2E7D32{% endif %};">
+  {{ msg }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+
+  <!-- Infos + modifier salaire -->
+  <div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header"><span class="card-title">Informations</span></div>
+      <div style="padding:16px 18px;">
+        <table style="width:100%;font-size:13px;border-collapse:collapse;">
+          <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 0;color:var(--text-muted);width:120px;">Nom complet</td><td style="padding:8px 0;font-weight:700;">{{ enseignant.nom_complet }}</td></tr>
+          <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 0;color:var(--text-muted);">Identifiant</td><td style="padding:8px 0;"><code>{{ enseignant.user.username }}</code></td></tr>
+          <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 0;color:var(--text-muted);">Spécialité</td><td style="padding:8px 0;">{{ enseignant.specialite|default:"—" }}</td></tr>
+          <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 0;color:var(--text-muted);">Diplôme</td><td style="padding:8px 0;">{{ enseignant.diplome|default:"—" }}</td></tr>
+          <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 0;color:var(--text-muted);">Date embauche</td><td style="padding:8px 0;">{{ enseignant.date_embauche|date:"d/m/Y"|default:"—" }}</td></tr>
+          <tr><td style="padding:8px 0;color:var(--text-muted);">Statut</td>
+            <td style="padding:8px 0;">
+              {% if enseignant.statut == 'actif' %}
+                <span style="color:var(--success);font-weight:700;">✅ Actif</span>
+              {% else %}
+                <span style="color:var(--text-muted);">Inactif</span>
+              {% endif %}
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Modifier salaire -->
+    <div class="card" style="border-color:var(--primary);">
+      <div class="card-header" style="border-bottom-color:var(--primary);">
+        <span class="card-title" style="color:var(--primary);">💰 Salaire mensuel</span>
+      </div>
+      <form method="post" style="padding:20px 24px;">
+        {% csrf_token %}
+        <div style="margin-bottom:16px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Salaire (FCFA / mois)</label>
+          <div style="position:relative;">
+            <input type="number" name="salaire"
+                   value="{% if enseignant.salaire %}{{ enseignant.salaire|floatformat:0 }}{% endif %}"
+                   min="0" step="1000" placeholder="Ex: 150000"
+                   style="width:100%;padding:12px 60px 12px 14px;border:2px solid var(--primary);border-radius:10px;background:var(--bg);color:var(--text-primary);font-size:18px;font-weight:700;">
+            <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--text-muted);font-weight:600;">FCFA</span>
+          </div>
+          {% if enseignant.salaire %}
+          <div style="margin-top:6px;font-size:12px;color:var(--text-muted);">
+            Salaire actuel : <strong style="color:var(--success);">{{ enseignant.salaire|floatformat:0 }} FCFA/mois</strong>
+          </div>
+          {% else %}
+          <div style="margin-top:6px;font-size:12px;color:var(--warning);">⚠️ Aucun salaire défini pour cet enseignant.</div>
+          {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">💾 Enregistrer le salaire</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Affectations (lecture seule) -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📚 Affectations</span>
+      {% if annee %}<span style="font-size:12px;color:var(--text-muted);">{{ annee.libelle }}</span>{% endif %}
+    </div>
+    <table class="table-modern">
+      <thead>
+        <tr>
+          <th>Matière</th>
+          <th>Classe</th>
+          <th style="text-align:center;">H/semaine</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for aff in affectations %}
+      <tr>
+        <td style="font-weight:600;">{{ aff.matiere.nom }}</td>
+        <td style="font-size:13px;color:var(--text-muted);">{{ aff.classe.nom }}</td>
+        <td style="text-align:center;font-size:13px;">{{ aff.heures_semaine }}h</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:20px;">
+        Aucune affectation{% if annee %} pour {{ annee.libelle }}{% endif %}
+      </td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if affectations %}
+    <div style="padding:12px 18px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);">
+      Total : {{ affectations|length }} affectation(s) —
+      <strong>{{ affectations|length|add:"0" }}</strong> classe(s) enseignée(s)
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

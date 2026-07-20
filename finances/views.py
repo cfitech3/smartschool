@@ -92,8 +92,29 @@ def enregistrer_paiement(request):
             if request.POST.get("imprimer_recu"): return redirect("recu_paiement",pk=p.pk)
             return redirect("liste_paiements")
         except Exception as e: messages.error(request,f"Erreur: {e}")
-    eleves=get_eleves_actifs(etab).order_by("nom","prenom")
-    return render(request,"finances/enregistrer_paiement.html",{"eleves":eleves,"types_frais":types_frais,"modes":Paiement.MODES,"eleve_pre":eleve_pre,"annee":annee})
+    # Enrichir les élèves avec leur classe actuelle
+    from eleves.models import Inscription
+    from core.cycle_filter import get_classes_actives
+    eleves_qs = get_eleves_actifs(etab).order_by("nom","prenom")
+    # Ajouter classe_pk et classe_nom pour le filtre JS
+    inscriptions_map = {
+        i.eleve_id: i.classe
+        for i in Inscription.objects.filter(
+            eleve__in=eleves_qs, annee=annee, is_active=True
+        ).select_related("classe")
+    }
+    eleves_avec_classe = []
+    for e in eleves_qs:
+        cl = inscriptions_map.get(e.pk)
+        e.classe_pk  = cl.pk  if cl else None
+        e.classe_nom = cl.nom if cl else None
+        eleves_avec_classe.append(e)
+    classes = get_classes_actives(etab, annee) if annee else []
+    return render(request,"finances/enregistrer_paiement.html",{
+        "eleves":eleves_avec_classe, "classes":classes,
+        "types_frais":types_frais, "modes":Paiement.MODES,
+        "eleve_pre":eleve_pre, "annee":annee
+    })
 
 @login_required
 @req

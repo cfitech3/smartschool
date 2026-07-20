@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, views_parametres, views_modeles, views_cycles, views_divisions, views_superadmin, views_saas
+from . import views, views_parametres, views_modeles, views_cycles, views_divisions, views_superadmin, views_saas, views_comptable
 
 urlpatterns = [
     # Super Admin — Gestion des établissements
@@ -16,8 +16,11 @@ urlpatterns = [
     path('gerer/<int:pk>/comptes/', views_superadmin.gestion_comptes_etab, name='gestion_comptes_etab'),
     path('gerer/<int:pk>/toggle/', views_superadmin.toggle_etablissement, name='toggle_etablissement'),
 
-    # Enseignants
+    # Enseignants (admin/directeur)
     path('enseignants/', views.liste_enseignants, name='liste_enseignants'),
+    # Enseignants (comptable — lecture + salaire)
+    path('comptable/enseignants/', views_comptable.enseignants_comptable, name='enseignants_comptable'),
+    path('comptable/enseignants/<int:pk>/', views_comptable.detail_enseignant_comptable, name='detail_enseignant_comptable'),
     path('enseignants/ajouter/', views.ajouter_enseignant, name='ajouter_enseignant'),
     path('enseignants/<int:pk>/', views.detail_enseignant, name='detail_enseignant'),
     path('enseignants/<int:pk>/modifier/', views.modifier_enseignant, name='modifier_enseignant'),
