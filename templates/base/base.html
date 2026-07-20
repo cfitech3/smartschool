@@ -3,7 +3,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>{% block title %}SmartSchool{% endblock %} — SmartSchool ERP</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/smartschool.css' %}?v=2">
@@ -12,7 +12,7 @@
   <link rel="manifest" href="{% url 'manifest' %}">
   {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="has-bottom-nav">
 <div class="app-wrapper">
   <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
   <aside class="sidebar" id="sidebar">
@@ -83,6 +83,11 @@
   </div>
 </div>
 
+<!-- BOTTOM NAVIGATION BAR — Mobile only (staff) -->
+<nav class="bottom-nav" id="bottom-nav" role="navigation" aria-label="Navigation principale">
+  <div class="bottom-nav-inner" id="bottom-nav-inner"></div>
+</nav>
+
 <!-- Gestion du thème -->
 <script>
 function initTheme() {
@@ -146,6 +151,65 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 function checkMobile(){const b=document.getElementById('menu-btn');if(b)b.style.display=window.innerWidth<=768?'flex':'none';if(window.innerWidth>768)closeSidebar();}
 checkMobile();window.addEventListener('resize',checkMobile);
 document.querySelectorAll('.nav-link').forEach(l=>l.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
+
+// BOTTOM NAV — config par rôle
+(function buildBottomNav(){
+  const role = SMARTSCHOOL_CONTEXT.role;
+  const path = SMARTSCHOOL_CONTEXT.currentPath;
+  const notifs = SMARTSCHOOL_CONTEXT.notifs || 0;
+  const msgs = SMARTSCHOOL_CONTEXT.messages_non_lus || 0;
+  const recl = SMARTSCHOOL_CONTEXT.reclamations || 0;
+
+  const navConfigs = {
+    'admin': [
+      {icon:'🏠', label:'Accueil', url:'/dashboard/'},
+      {icon:'👨‍🎓', label:'Élèves', url:'/eleves/'},
+      {icon:'💳', label:'Finances', url:'/paiements/'},
+      {icon:'🔔', label:'Notifs', url:'/notifications/', badge: notifs},
+    ],
+    'secretariat': [
+      {icon:'🏠', label:'Accueil', url:'/dashboard/'},
+      {icon:'👨‍🎓', label:'Élèves', url:'/eleves/'},
+      {icon:'💳', label:'Paiements', url:'/paiements/'},
+      {icon:'🔔', label:'Notifs', url:'/notifications/', badge: notifs},
+    ],
+    'enseignant': [
+      {icon:'🏠', label:'Accueil', url:'/dashboard/'},
+      {icon:'📝', label:'Notes', url:'/notes/saisie/'},
+      {icon:'🗓️', label:'EDT', url:'/notes/emploi-du-temps/'},
+      {icon:'📄', label:'Bulletins', url:'/notes/bulletins/'},
+    ],
+    'surveillant': [
+      {icon:'📋', label:'Appel', url:'/eleves/appel/'},
+      {icon:'⚠️', label:'Absences', url:'/notes/absences/'},
+      {icon:'🗓️', label:'EDT', url:'/notes/emploi-du-temps/'},
+      {icon:'📊', label:'Rapport', url:'/notes/rapport-absences/'},
+    ],
+    'comptable': [
+      {icon:'🏠', label:'Accueil', url:'/dashboard/'},
+      {icon:'💳', label:'Paiements', url:'/paiements/'},
+      {icon:'📊', label:'Rapport', url:'/finances/rapport/'},
+      {icon:'📋', label:'Frais', url:'/finances/types-frais/'},
+    ],
+  };
+
+  const items = navConfigs[role];
+  if (!items) return;
+
+  const nav = document.getElementById('bottom-nav-inner');
+  if (!nav) return;
+
+  nav.innerHTML = items.map(item => {
+    const isActive = path.startsWith(item.url) && item.url !== '/dashboard/'
+      ? 'active'
+      : (item.url === '/dashboard/' && path === '/dashboard/' ? 'active' : '');
+    const badge = (item.badge && item.badge > 0)
+      ? `<span class="bn-badge">${item.badge > 99 ? '99+' : item.badge}</span>` : '';
+    return `<a href="${item.url}" class="bn-item ${isActive}" id="bn-${item.url.replace(/\//g,'-')}">`
+          + `<span class="bn-icon">${item.icon}</span>${badge}`
+          + `<span>${item.label}</span></a>`;
+  }).join('');
+})();
 </script>
 <script>
   if ('serviceWorker' in navigator) {

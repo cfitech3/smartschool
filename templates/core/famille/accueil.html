@@ -2,22 +2,57 @@
 {% block title %}Accueil{% endblock %}
 {% block topbar_title %}{% if request.user.is_parent %}Mes enfants{% else %}Mon espace{% endif %}{% endblock %}
 {% block nav_accueil %}active{% endblock %}
+{% block bn_accueil %}active{% endblock %}
 {% block content %}
-<div class="page-header"><h1>👋 Bonjour, {{ request.user.first_name|default:request.user.username }}</h1></div>
-{% if eleves %}
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
-{% for eleve in eleves %}
-<a href="{% url 'espace_eleve_detail' eleve.pk %}" class="card" style="text-decoration:none;color:inherit;display:block;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-  <div style="padding:20px;text-align:center;">
-    <div style="width:64px;height:64px;border-radius:50%;background:{% if eleve.sexe == 'M' %}rgba(21,101,192,0.12){% else %}rgba(173,20,87,0.12){% endif %};display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 12px;">{% if eleve.sexe == 'M' %}👦{% else %}👧{% endif %}</div>
-    <div style="font-size:16px;font-weight:800;">{{ eleve.nom }} {{ eleve.prenom }}</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">{{ eleve.matricule }}</div>
-    {% with insc=eleve.get_inscription_active %}{% if insc %}<div style="margin-top:8px;"><span class="badge badge-primary">{{ insc.classe.nom }}</span></div>{% endif %}{% endwith %}
+<div class="page-header">
+  <div>
+    <h1>👋 Bonjour, {{ request.user.first_name|default:request.user.username }}</h1>
+    <div class="page-subtitle">{% if request.user.is_parent %}Suivi de vos enfants{% else %}Mon espace scolaire{% endif %}</div>
   </div>
+</div>
+
+{% if eleves %}
+<div style="display:flex;flex-direction:column;gap:14px;">
+{% for eleve in eleves %}
+{% with insc=eleve.get_inscription_active %}
+<a href="{% url 'espace_eleve_detail' eleve.pk %}" style="text-decoration:none;color:inherit;">
+<div class="card" style="overflow:hidden;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+  <!-- Header enfant -->
+  <div style="padding:16px 18px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);">
+    <div style="width:52px;height:52px;border-radius:50%;background:{% if eleve.sexe == 'M' %}rgba(21,101,192,0.12){% else %}rgba(173,20,87,0.12){% endif %};display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">{% if eleve.sexe == 'M' %}👦{% else %}👧{% endif %}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:16px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ eleve.nom }} {{ eleve.prenom }}</div>
+      <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
+        {{ eleve.matricule }}{% if insc %} · <span class="badge badge-primary" style="font-size:10.5px;">{{ insc.classe.nom }}</span>{% endif %}
+      </div>
+    </div>
+    <span style="color:var(--text-muted);font-size:18px;">→</span>
+  </div>
+  <!-- Stats rapides -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;">
+    <div style="padding:12px 16px;text-align:center;border-right:1px solid var(--border);">
+      <div style="font-size:18px;font-weight:900;color:var(--primary);">—</div>
+      <div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px;">Moyenne</div>
+    </div>
+    <div style="padding:12px 16px;text-align:center;border-right:1px solid var(--border);">
+      <div style="font-size:18px;font-weight:900;color:var(--danger);">—</div>
+      <div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px;">Absences</div>
+    </div>
+    <div style="padding:12px 16px;text-align:center;">
+      <div style="font-size:18px;font-weight:900;color:var(--success);">✅</div>
+      <div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px;">Paiements</div>
+    </div>
+  </div>
+</div>
 </a>
+{% endwith %}
 {% endfor %}
 </div>
 {% else %}
-<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">👤</div><div style="font-size:16px;font-weight:700;">Aucun eleve rattache a votre compte</div><div style="font-size:13px;margin-top:8px;">Contactez l'etablissement pour lier votre compte.</div></div></div>
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);">
+  <div style="font-size:48px;margin-bottom:14px;">👤</div>
+  <div style="font-size:16px;font-weight:700;">Aucun eleve rattache a votre compte</div>
+  <div style="font-size:13px;margin-top:8px;">Contactez l'etablissement pour lier votre compte.</div>
+</div></div>
 {% endif %}
-{% endblock %}
+{% endblock %}

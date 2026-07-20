@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Carte Scolaire — {{ eleve.nom }} {{ eleve.prenom }}</title>
+  <title>Cartes Scolaires — {{ classe.nom }}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -15,7 +15,7 @@
 
     /* ── Barre d'actions ── */
     .actions {
-      max-width: 820px; margin: 0 auto 20px;
+      max-width: 900px; margin: 0 auto 20px;
       display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     }
     .btn {
@@ -28,9 +28,17 @@
     .hint { font-size: 12px; color: #78909c; font-style: italic; margin-left: 4px; }
 
     /* ── Wrapper page ── */
-    .page-wrapper { max-width: 820px; margin: 0 auto; }
+    .page-wrapper { max-width: 900px; margin: 0 auto; }
     .page-title { font-size: 20px; font-weight: 800; color: #1A237E; margin-bottom: 4px; }
     .page-sub   { font-size: 13px; color: #78909c; margin-bottom: 24px; }
+
+    /* ── Grille de cartes ── */
+    .cartes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, 400px);
+      gap: 30px 20px;
+      justify-content: center;
+    }
 
     /* ══════════════════════════════════════════
        CARTE UNIQUE — Format CR80 : 85.6 × 54 mm
@@ -39,7 +47,8 @@
     .carte-outer {
       display: inline-flex;
       flex-direction: column;
-      align-items: flex-start;
+      align-items: center;
+      page-break-inside: avoid;
     }
     .carte {
       width: 400px;
@@ -185,7 +194,7 @@
       font-size: 12.5px; color: #E65100;
       background: #FFF3E0; padding: 10px 14px;
       border-radius: 8px; border-left: 3px solid #FF6F00;
-      margin-top: 20px; max-width: 820px;
+      margin-top: 20px; max-width: 900px;
     }
 
     @media print {
@@ -196,6 +205,8 @@
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
+      .page-title, .page-sub, .alert-logo { display: none; }
+      .cartes-grid { gap: 15px; }
       @page { margin: 8mm; size: A4; }
     }
   </style>
@@ -205,14 +216,23 @@
 <!-- Barre d'actions -->
 <div class="actions">
   <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
-  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button>
-  <span class="hint">Format CR80 (85.6 × 54 mm) · Une seule face · À plastifier</span>
+  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer la classe</button>
+  <span class="hint">{{ eleves_data|length }} cartes · Format CR80 (85.6 × 54 mm) · Une seule face</span>
 </div>
 
 <div class="page-wrapper">
-  <div class="page-title">🪪 Carte Scolaire</div>
+  <div class="page-title">🪪 Cartes Scolaires — {{ classe.nom }}</div>
   <div class="page-sub">{{ annee.libelle|default:"—" }} — {{ etab.nom }}</div>
 
+  {% if not etab.logo %}
+  <div class="alert-logo">
+    ⚠️ Logo manquant — Ajoutez le logo de l'établissement dans <a href="/etablissements/parametres/" style="color:#E65100; font-weight:700;">Paramètres</a> pour qu'il apparaisse sur les cartes.
+  </div>
+  {% endif %}
+
+  <div class="cartes-grid">
+  {% for item in eleves_data %}
+  {% with eleve=item.eleve inscription=item.inscription %}
   <!-- ═══════════════ CARTE UNIQUE ═══════════════ -->
   <div class="carte-outer">
     <div class="carte">
@@ -309,19 +329,15 @@
       </div>
 
     </div><!-- /carte -->
-
-    <div class="carte-legend">
-      📐 Format CR80 (85.6 × 54 mm) · Une seule face · À découper et plastifier
-    </div>
+    <div class="carte-legend">✂️ Découper</div>
   </div><!-- /carte-outer -->
-
-  {% if not etab.logo %}
-  <div class="alert-logo">
-    ⚠️ Logo manquant — Ajoutez le logo de l'établissement dans
-    <a href="/etablissements/parametres/" style="color:#E65100; font-weight:700;">Paramètres</a>
-    pour qu'il apparaisse sur la carte.
-  </div>
-  {% endif %}
+  {% endwith %}
+  {% empty %}
+    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #78909c;">
+      Aucun élève trouvé pour cette classe.
+    </div>
+  {% endfor %}
+  </div><!-- /cartes-grid -->
 
 </div><!-- /page-wrapper -->
 </body>

@@ -2,6 +2,7 @@
 {% block title %}Paiements{% endblock %}
 {% block topbar_title %}Paiements — {{ eleve.nom }} {{ eleve.prenom }}{% endblock %}
 {% block nav_paiements %}active{% endblock %}
+{% block bn_paiements %}active{% endblock %}
 {% block content %}
 <div class="page-header">
   <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>

@@ -50,7 +50,8 @@ def liste_documents(request):
     eleves=get_eleves_actifs(etab).order_by("nom","prenom")
     if q: eleves=eleves.filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))
     modeles_actifs={m.type_document:m for m in ModeleDocument.objects.filter(etablissement=etab,is_actif=True)}
-    return render(request,"core/documents.html",{"eleves":eleves,"annee":annee,"q":q,"modeles_actifs":modeles_actifs})
+    classes = get_classes_actives(etab)
+    return render(request,"core/documents.html",{"eleves":eleves,"annee":annee,"q":q,"modeles_actifs":modeles_actifs,"classes":classes})
 
 @login_required
 @req
@@ -103,6 +104,30 @@ def carte_scolaire(request, eleve_pk):
     return render(request,"core/docs/carte_scolaire.html",{
         "eleve":eleve,"etab":etab,"annee":annee,
         "inscription":inscription,"modele":modele,"today":timezone.now().date(),
+    })
+
+@login_required
+@req
+def cartes_classe(request, classe_pk):
+    from eleves.models import Classe, Inscription
+    etab=request.etablissement
+    classe=get_object_or_404(Classe, pk=classe_pk, etablissement=etab)
+    annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
+    inscriptions = Inscription.objects.filter(classe=classe, annee=annee, statut='actif').select_related('eleve')
+    
+    # Préparer les données pour chaque élève
+    eleves_data = []
+    for insc in inscriptions:
+        eleves_data.append({
+            'eleve': insc.eleve,
+            'inscription': insc
+        })
+    eleves_data.sort(key=lambda x: (x['eleve'].nom, x['eleve'].prenom))
+    
+    modele=get_modele(etab,'carte_scolaire')
+    return render(request,"core/docs/cartes_classe.html",{
+        "classe": classe, "eleves_data": eleves_data, "etab":etab, "annee":annee,
+        "modele":modele,"today":timezone.now().date(),
     })
 
 @login_required

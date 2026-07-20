@@ -9,6 +9,7 @@ urlpatterns = [
     path('documents/', views_documents.liste_documents, name='liste_documents'),
     path('documents/<int:eleve_pk>/<str:type_doc>/', views_documents.generer_document, name='generer_document'),
     path('carte-scolaire/<int:eleve_pk>/', views_documents.carte_scolaire, name='carte_scolaire'),
+    path('cartes-classe/<int:classe_pk>/', views_documents.cartes_classe, name='cartes_classe'),
     path('export/eleves/', views_documents.export_eleves_excel, name='export_eleves'),
     path('export/paiements/', views_documents.export_paiements_excel, name='export_paiements'),
     path('notifications/', views.notifications, name='notifications'),

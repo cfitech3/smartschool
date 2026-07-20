@@ -82,22 +82,31 @@
   {% endif %}
 
   <!-- Compteurs temps réel -->
-  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;" id="stats-bar">
+  <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;" id="stats-bar">
     <span class="stat-pill presents">✅ Présents : <strong id="count-present">0</strong></span>
     <span class="stat-pill absents">❌ Absents : <strong id="count-absent">0</strong></span>
     <span class="stat-pill retards">⏰ Retards : <strong id="count-retard">0</strong></span>
   </div>
+  <!-- Barre de progression -->
+  <div class="appel-counter">
+    <span id="progress-label">0 / {{ eleves_data|length }} élève(s) traité(s)</span>
+    <span id="progress-pct" style="font-weight:700;color:var(--primary);">0%</span>
+  </div>
+  <div class="appel-progress-bar"><div class="appel-progress-fill" id="progress-fill" style="width:0%;"></div></div>
 
   <form method="post" id="form-appel">
     {% csrf_token %}
     <input type="hidden" name="classe" value="{{ classe.pk }}">
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" style="flex-wrap:wrap;gap:8px;">
         <span class="card-title">{{ classe.nom }} — {{ date_appel|date:"d F Y" }}</span>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button type="button" onclick="toggleNonTraites()" class="btn btn-outline btn-sm" id="btn-filtre">
+            🔍 Non traités
+          </button>
           <button type="button" onclick="setAll('present')" class="btn btn-outline btn-sm"
                   style="color:var(--success);border-color:var(--success);">✅ Tous présents</button>
-          <button type="submit" class="btn btn-primary">💾 Enregistrer l'appel</button>
+          <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
         </div>
       </div>
 
@@ -252,6 +261,7 @@ function setAll(statut) {
 
 function updateStats() {
   const radios = document.querySelectorAll('input[type="radio"]:checked');
+  const total = document.querySelectorAll('[id^="row-"]').length;
   let counts = {present:0, absent:0, retard:0, justifie:0};
   radios.forEach(r => { if (r.value in counts) counts[r.value]++; });
   const p = document.getElementById('count-present');
@@ -260,6 +270,37 @@ function updateStats() {
   if (p) p.textContent = counts.present;
   if (a) a.textContent = counts.absent;
   if (r) r.textContent = counts.retard + counts.justifie;
+  // Barre de progression
+  const done = counts.present + counts.absent + counts.retard + counts.justifie;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const fill = document.getElementById('progress-fill');
+  const label = document.getElementById('progress-label');
+  const pctEl = document.getElementById('progress-pct');
+  if (fill) fill.style.width = pct + '%';
+  if (label) label.textContent = done + ' / ' + total + ' élève(s) traité(s)';
+  if (pctEl) pctEl.textContent = pct + '%';
+}
+
+let filtreActif = false;
+function toggleNonTraites() {
+  filtreActif = !filtreActif;
+  const btn = document.getElementById('btn-filtre');
+  document.querySelectorAll('[id^="row-"]').forEach(row => {
+    const eleveId = row.id.replace('row-', '');
+    const checked = document.querySelector(`input[name="statut_${eleveId}"]:checked`);
+    const traite = checked && checked.value !== '';
+    if (filtreActif) {
+      row.style.display = traite ? 'none' : '';
+    } else {
+      row.style.display = '';
+    }
+  });
+  if (btn) {
+    btn.style.background = filtreActif ? 'var(--primary)' : '';
+    btn.style.color = filtreActif ? '#fff' : '';
+    btn.style.borderColor = filtreActif ? 'var(--primary)' : '';
+    btn.textContent = filtreActif ? '👁️ Tous' : '🔍 Non traités';
+  }
 }
 
 // Cacher les champs motif pour les "présents" au chargement + init stats
@@ -277,4 +318,4 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
-{% endblock %}
+{% endblock %}

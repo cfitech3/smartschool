@@ -3,8 +3,8 @@ const OFFLINE_URL = '/offline/';
 
 const ASSETS_TO_CACHE = [
   OFFLINE_URL,
-  '/static/css/bootstrap.min.css',
-  // On ajoute ici les autres assets statiques essentiels plus tard
+  '/static/css/smartschool.css',
+  // Ajouter ici d'autres assets statiques si nécessaire
 ];
 
 self.addEventListener('install', (event) => {

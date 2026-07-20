@@ -19,34 +19,42 @@
 <div class="page-header">
   <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
   <div><h1>🗓️ Emploi du temps</h1>
-    <div class="page-subtitle">
-      {% if inscription %}{{ inscription.classe.nom }}{% endif %}
-      — Semaine type
-    </div>
+    <div class="page-subtitle">{% if inscription %}{{ inscription.classe.nom }}{% endif %} — Semaine type</div>
   </div>
 </div>
 
 {% if edt_par_jour %}
-{% for jour, creneaux_jour in edt_par_jour.items %}
-<div class="edt-card">
-  <div class="edt-jour">
-    <span>{% if jour == "Lundi" %}📅{% elif jour == "Mardi" %}📅{% elif jour == "Mercredi" %}📅{% elif jour == "Jeudi" %}📅{% elif jour == "Vendredi" %}📅{% else %}📅{% endif %}</span>
-    {{ jour }}
-    <span style="font-size:11.5px;font-weight:400;opacity:0.8;margin-left:auto;">{{ creneaux_jour|length }} cours</span>
-  </div>
-  {% for c in creneaux_jour %}
-  <div class="creneau">
-    <div class="time-badge">{{ c.heure_debut }} → {{ c.heure_fin }}</div>
-    <div style="flex:1;">
-      <div class="mat-nom">{{ c.matiere.nom }}</div>
-      <div class="mat-info">
-        {% if c.enseignant %}Prof : {{ c.enseignant.get_full_name }}{% endif %}
-        {% if c.salle %} · 📍 {{ c.salle }}{% endif %}
-      </div>
-    </div>
-    <span class="coef-badge">Coef {{ c.matiere.coefficient }}</span>
-  </div>
+<!-- Onglets jours (navigables sur mobile) -->
+<div class="edt-tabs" id="edt-tabs">
+  {% for jour, creneaux_jour in edt_par_jour.items %}
+  <button class="edt-tab" onclick="showDay('{{ jour|escapejs }}')" id="tab-{{ forloop.counter }}">
+    {{ jour }} <span style="opacity:0.7;font-weight:500;">({{ creneaux_jour|length }})</span>
+  </button>
   {% endfor %}
+</div>
+
+<!-- Panels par jour -->
+{% for jour, creneaux_jour in edt_par_jour.items %}
+<div class="edt-day-panel" id="day-{{ jour|slugify }}" data-jour="{{ jour }}">
+  <div class="edt-card">
+    <div class="edt-jour">
+      <span>📅</span>{{ jour }}
+      <span style="font-size:11.5px;font-weight:400;opacity:0.8;margin-left:auto;">{{ creneaux_jour|length }} cours</span>
+    </div>
+    {% for c in creneaux_jour %}
+    <div class="creneau">
+      <div class="time-badge">{{ c.heure_debut }} → {{ c.heure_fin }}</div>
+      <div style="flex:1;">
+        <div class="mat-nom">{{ c.matiere.nom }}</div>
+        <div class="mat-info">
+          {% if c.enseignant %}Prof : {{ c.enseignant.get_full_name }}{% endif %}
+          {% if c.salle %} · 📍 {{ c.salle }}{% endif %}
+        </div>
+      </div>
+      <span class="coef-badge">Coef {{ c.matiere.coefficient }}</span>
+    </div>
+    {% endfor %}
+  </div>
 </div>
 {% endfor %}
 
@@ -69,3 +77,35 @@
 </div></div>
 {% endif %}
 {% endblock %}
+{% block extra_js %}
+<script>
+const JOURS_FR = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+const TODAY_IDX = new Date().getDay(); // 0=dim, 1=lun...
+const todayJour = TODAY_IDX >= 1 && TODAY_IDX <= 6 ? JOURS_FR[TODAY_IDX - 1] : JOURS_FR[0];
+
+function showDay(jour) {
+  document.querySelectorAll('.edt-day-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.edt-tab').forEach(t => t.classList.remove('active'));
+  const panel = document.querySelector(`.edt-day-panel[data-jour="${jour}"]`);
+  if (panel) panel.classList.add('active');
+  document.querySelectorAll('.edt-tab').forEach(t => {
+    if (t.textContent.trim().startsWith(jour)) t.classList.add('active');
+  });
+}
+
+// Activer le jour d'aujourd'hui au chargement, sinon le premier jour
+window.addEventListener('DOMContentLoaded', () => {
+  const panels = document.querySelectorAll('.edt-day-panel');
+  if (!panels.length) return;
+  // Essayer aujourd'hui
+  const todayPanel = document.querySelector(`.edt-day-panel[data-jour="${todayJour}"]`);
+  if (todayPanel) {
+    showDay(todayJour);
+  } else {
+    // fallback: premier jour disponible
+    const firstJour = panels[0].dataset.jour;
+    showDay(firstJour);
+  }
+});
+</script>
+{% endblock %}

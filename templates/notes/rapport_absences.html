@@ -2,6 +2,24 @@
 {% block title %}Rapport absences{% endblock %}
 {% block topbar_title %}Rapport des absences{% endblock %}
 {% block nav_absences %}active{% endblock %}
+{% block extra_css %}
+<style>
+/* Cards absences mobile */
+@media(max-width:768px){
+  .abs-table{display:none;}
+  .abs-cards{display:flex !important;}
+}
+.abs-cards{display:none;flex-direction:column;gap:8px;padding:12px 16px;}
+.abs-card{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;background:var(--bg);
+  border-radius:var(--radius-sm);border:1px solid var(--border);
+}
+.abs-card-info{flex:1;min-width:0;}
+.abs-card-name{font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.abs-card-meta{font-size:11.5px;color:var(--text-muted);margin-top:2px;}
+</style>
+{% endblock %}
 {% block content %}
 <div class="page-header">
   <div><h1>⚠️ Rapport des absences</h1><div class="page-subtitle">Surveillance generale — {{ today|date:"d F Y" }}</div></div>
@@ -46,8 +64,9 @@
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><span class="card-title">📅 Absences du jour — {{ today|date:"d F Y" }}</span><span class="badge badge-danger" style="font-size:13px;">{{ absences_jour|length }}</span></div>
   {% if absences_jour %}
-  <table class="table-modern">
-  <thead><tr><th>Classe</th><th>Eleve</th><th>Statut</th><th>Motif</th><th>Tuteur</th></tr></thead>
+  <!-- Absences du jour en TABLE (desktop) -->
+  <table class="table-modern abs-table">
+  <thead><tr><th>Classe</th><th>Élève</th><th>Statut</th><th>Motif</th><th>Tuteur</th></tr></thead>
   <tbody>
   {% for p in absences_jour %}
   <tr>
@@ -60,6 +79,27 @@
   {% endfor %}
   </tbody>
   </table>
+  <!-- Absences du jour en CARDS (mobile) -->
+  <div class="abs-cards">
+  {% for p in absences_jour %}
+  <div class="abs-card">
+    <div style="flex-shrink:0;">
+      <span class="badge badge-primary" style="font-size:11px;">{{ p.classe.nom }}</span>
+    </div>
+    <div class="abs-card-info">
+      <a href="{% url 'detail_eleve' p.eleve.pk %}" class="abs-card-name" style="text-decoration:none;color:var(--text);">{{ p.eleve.nom }} {{ p.eleve.prenom }}</a>
+      <div class="abs-card-meta">
+        {% if p.eleve.tuteur %}📞 {{ p.eleve.tuteur.telephone }}{% endif %}
+        {% if p.motif %}· {{ p.motif }}{% endif %}
+      </div>
+    </div>
+    <div>
+      {% if p.statut == 'absent' %}<span class="badge badge-danger">❌</span>
+      {% else %}<span class="badge badge-warning">⏰</span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  </div>
   {% else %}
   <div style="text-align:center;padding:28px;color:var(--success);font-weight:600;">✅ Aucune absence enregistree aujourd'hui</div>
   {% endif %}

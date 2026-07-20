@@ -2,7 +2,8 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Bulletin{{ eleve.nom_complet }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulletin — {{ eleve.nom }} {{ eleve.prenom }} — {{ periode.libelle }}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:{{ modele.police|default:"Arial" }},sans-serif;background:#f5f5f5;padding:20px;font-size:{{ modele.taille_police|default:12 }}px;}
@@ -32,15 +33,49 @@
     .sign-bloc{text-align:center;font-size:10.5px;font-weight:700;}
     .sign-ligne{width:160px;border-top:1px solid #000;margin-top:40px;padding-top:4px;}
     .pied{margin-top:12px;font-size:10px;color:#888;text-align:center;font-style:italic;border-top:1px solid #eee;padding-top:8px;}
-    @media print{body{background:#fff;padding:0;}.actions{display:none;}.bulletin{box-shadow:none;padding:15px 20px;}@page{margin:8mm;size:A4;}}
+    /* Actions sticky mobile */
+    .actions{
+      max-width:900px;margin:0 auto 14px;display:flex;gap:8px;
+      font-family:sans-serif;flex-wrap:wrap;
+    }
+    @media(max-width:768px){
+      body{padding:0 0 72px;}
+      .actions{
+        position:fixed;bottom:0;left:0;right:0;margin:0;
+        background:#fff;border-top:1px solid #e0e0e0;
+        padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom));
+        box-shadow:0 -4px 16px rgba(0,0,0,0.1);
+        z-index:100;justify-content:center;
+      }
+      .bulletin{margin:12px;padding:16px 14px;}
+    }
+    /* Mention badge */
+    .mention-badge{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:5px 14px;border-radius:20px;
+      font-size:12px;font-weight:800;letter-spacing:0.3px;
+    }
+    .mention-tb{background:#e8f5e9;color:#2E7D32;}
+    .mention-b{background:#e3f2fd;color:#1565C0;}
+    .mention-ab{background:#e8eaf6;color:#3949AB;}
+    .mention-p{background:#fff3e0;color:#E65100;}
+    .mention-i{background:#ffebee;color:#C62828;}
+    /* Table scroll mobile */
+    .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    @media print{
+      body{background:#fff;padding:0;}
+      .actions{display:none;}
+      .bulletin{box-shadow:none;padding:15px 20px;margin:0;}
+      @page{margin:8mm;size:A4;}
+    }
   </style>
 </head>
 <body>
 {% if not is_apercu %}
-<div class="actions">
+<div class="actions" role="toolbar" aria-label="Actions bulletin">
   <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
-  <a href="{% url 'telecharger_bulletin_pdf_mali' eleve.pk periode.pk %}" class="btn btn-outline">📥 Télécharger PDF</a>
-  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button>
+  <a href="{% url 'telecharger_bulletin_pdf_mali' eleve.pk periode.pk %}" class="btn btn-outline">&#x1F4E5; Télécharger PDF</a>
+  <button onclick="window.print()" class="btn btn-primary">&#x1F5A8;&#xFE0F; Imprimer</button>
 </div>
 {% endif %}
 {% load dict_extras %}
@@ -74,6 +109,7 @@
   </div>
 
   <!-- TABLEAU DES NOTES -->
+  <div class="table-wrap">
   <table>
     <thead>
       <tr>
@@ -111,12 +147,22 @@
     {% endfor %}
     </tbody>
   </table>
+  </div><!-- /table-wrap -->
 
   <!-- RESUME -->
   <div class="resume">
     <div class="resume-box">
-      <span class="lbl">Moyenne Generale</span>
+      <span class="lbl">Moyenne Générale</span>
       <span class="val" style="color:{% if moy_generale and moy_generale >= 10 %}#2E7D32{% elif moy_generale %}#C62828{% else %}#555{% endif %};">{% if moy_generale %}{{ moy_generale|floatformat:2 }}/20{% else %}—{% endif %}</span>
+      {% if moy_generale %}
+      <div style="margin-top:6px;">
+        {% if moy_generale >= 16 %}<span class="mention-badge mention-tb">🌟 Très Bien</span>
+        {% elif moy_generale >= 14 %}<span class="mention-badge mention-b">👍 Bien</span>
+        {% elif moy_generale >= 12 %}<span class="mention-badge mention-ab">✅ Assez Bien</span>
+        {% elif moy_generale >= 10 %}<span class="mention-badge mention-p">⚠️ Passable</span>
+        {% else %}<span class="mention-badge mention-i">❌ Insuffisant</span>{% endif %}
+      </div>
+      {% endif %}
     </div>
     {% if not modele or modele.afficher_rang %}<div class="resume-box"><span class="lbl">Rang</span><span class="val">{% if rang %}{{ rang }}{% if effectif %}/{{ effectif }}{% endif %}{% else %}—{% endif %}</span></div>{% endif %}
     {% if not modele or modele.afficher_moy_premier %}<div class="resume-box"><span class="lbl">Moy. du 1er</span><span class="val">{% if moy_premier %}{{ moy_premier|floatformat:2 }}/20{% else %}—{% endif %}</span></div>{% endif %}

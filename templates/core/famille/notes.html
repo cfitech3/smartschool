@@ -2,50 +2,79 @@
 {% block title %}Notes{% endblock %}
 {% block topbar_title %}Notes — {{ eleve.nom }} {{ eleve.prenom }}{% endblock %}
 {% block nav_notes %}active{% endblock %}
+{% block bn_notes %}active{% endblock %}
 {% block content %}
 <div class="page-header">
   <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
   <div><h1>📝 Notes</h1></div>
-  {% if periode %}<a href="{% url 'espace_bulletin' eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm">📄 Voir le bulletin</a>{% endif %}
+  {% if periode %}<a href="{% url 'espace_bulletin' eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm">📄 Bulletin</a>{% endif %}
 </div>
+
+<!-- Sélecteur de période -->
 <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:12px 16px;">
-<form method="get"><select name="periode" class="form-control" onchange="this.form.submit()" style="max-width:260px;">
-{% for p in periodes %}<option value="{{ p.pk }}"{% if periode and periode.pk == p.pk %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}
-</select></form>
+  <form method="get"><select name="periode" class="form-control" onchange="this.form.submit()" style="max-width:260px;">
+  {% for p in periodes %}<option value="{{ p.pk }}"{% if periode and periode.pk == p.pk %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}
+  </select></form>
 </div></div>
+
 {% if lignes %}
-<div class="card">
-  <div class="card-header"><span class="card-title">{{ periode.libelle }}</span>{% if moy_generale %}<span class="badge badge-{% if moy_generale >= 10 %}success{% else %}danger{% endif %}" style="font-size:14px;padding:5px 14px;">Moyenne : {{ moy_generale|floatformat:2 }}/20</span>{% endif %}</div>
-  <table class="table-modern">
-  <thead><tr><th>Matiere</th><th style="text-align:center;">Note</th><th style="text-align:center;">Coef</th><th>Appreciation</th><th></th></tr></thead>
-  <tbody>
-  {% for l in lignes %}
-  <tr class="{% if l.matiere.is_conduite %}{% endif %}" style="{% if l.matiere.is_conduite %}background:rgba(1,87,155,0.04);{% endif %}">
-    <td style="font-weight:700;">{{ l.matiere.nom }}{% if l.matiere.is_conduite %} 🔵{% endif %}</td>
-    <td style="text-align:center;">
-      {% if l.matiere.is_conduite %}
-        <span style="font-weight:800;font-size:15px;">{% if l.note_conduite is not None %}{{ l.note_conduite|floatformat:1 }}/20{% else %}—{% endif %}</span>
-      {% else %}
-        <span style="font-weight:800;font-size:15px;color:{% if l.moyenne_finale is not None %}{% if l.moyenne_finale >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">{% if l.moyenne_finale is not None %}{{ l.moyenne_finale|floatformat:2 }}/20{% else %}—{% endif %}</span>
-      {% endif %}
-    </td>
-    <td style="text-align:center;">{{ l.matiere.coefficient }}</td>
-    <td style="font-size:12.5px;">{{ l.appreciation|default:"—" }}</td>
-    <td>
-      {% if l.note_id %}
-        {% if l.a_reclamation %}
-          <span class="badge badge-warning" style="font-size:11px;">Reclamation en cours</span>
-        {% else %}
-          <a href="{% url 'creer_reclamation' eleve.pk l.note_id %}" class="btn btn-outline btn-sm" style="font-size:11px;">✉️ Reclamer</a>
-        {% endif %}
-      {% endif %}
-    </td>
-  </tr>
-  {% endfor %}
-  </tbody>
-  </table>
+<!-- Bandeau moyenne générale -->
+{% if moy_generale %}
+<div class="card" style="margin-bottom:16px;background:{% if moy_generale >= 10 %}rgba(46,125,50,0.06){% else %}rgba(198,40,40,0.06){% endif %};border-color:{% if moy_generale >= 10 %}var(--success){% else %}var(--danger){% endif %};">
+  <div style="padding:16px 20px;display:flex;align-items:center;gap:16px;">
+    <div style="width:60px;height:60px;border-radius:50%;background:{% if moy_generale >= 10 %}rgba(46,125,50,0.15){% else %}rgba(198,40,40,0.12){% endif %};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
+      <span style="font-size:18px;font-weight:900;color:{% if moy_generale >= 10 %}var(--success){% else %}var(--danger){% endif %};line-height:1;">{{ moy_generale|floatformat:2 }}</span>
+      <span style="font-size:9px;color:var(--text-muted);font-weight:600;">/20</span>
+    </div>
+    <div>
+      <div style="font-weight:800;font-size:15px;color:var(--text);">Moyenne générale</div>
+      <div style="font-size:12px;color:var(--text-muted);">{{ periode.libelle }}</div>
+      <div style="font-size:12px;font-weight:600;color:{% if moy_generale >= 10 %}var(--success){% else %}var(--danger){% endif %};margin-top:3px;">
+        {% if moy_generale >= 16 %}Excellent 🌟{% elif moy_generale >= 14 %}Très bien 👍{% elif moy_generale >= 12 %}Bien ✅{% elif moy_generale >= 10 %}Passable{% else %}Insuffisant — effort requis{% endif %}
+      </div>
+    </div>
+  </div>
 </div>
+{% endif %}
+
+<!-- Cards par matière -->
+<div style="display:flex;flex-direction:column;gap:10px;">
+{% for l in lignes %}
+<div class="note-card">
+  {% if l.matiere.is_conduite %}
+    {% if l.note_conduite is not None %}
+      <div class="note-circle {% if l.note_conduite >= 10 %}pass{% else %}fail{% endif %}">
+        {{ l.note_conduite|floatformat:1 }}<small>/20</small>
+      </div>
+    {% else %}
+      <div class="note-circle none">—<small>/20</small></div>
+    {% endif %}
+  {% else %}
+    {% if l.moyenne_finale is not None %}
+      <div class="note-circle {% if l.moyenne_finale >= 10 %}pass{% else %}fail{% endif %}">
+        {{ l.moyenne_finale|floatformat:1 }}<small>/20</small>
+      </div>
+    {% else %}
+      <div class="note-circle none">—<small>/20</small></div>
+    {% endif %}
+  {% endif %}
+  <div style="flex:1;min-width:0;">
+    <div class="note-mat-name">{{ l.matiere.nom }}{% if l.matiere.is_conduite %} 🔵{% endif %}</div>
+    <div class="note-meta">Coef. {{ l.matiere.coefficient }}{% if l.appreciation and not l.matiere.is_conduite %} · {{ l.appreciation }}{% endif %}</div>
+  </div>
+  <div style="flex-shrink:0;">
+    {% if l.note_id %}
+      {% if l.a_reclamation %}<span class="badge badge-warning" style="font-size:10px;">⏳ En cours</span>
+      {% else %}<a href="{% url 'creer_reclamation' eleve.pk l.note_id %}" class="btn btn-outline btn-sm" title="Réclamer">✉️</a>{% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+</div>
+
 {% else %}
-<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;">📝</div>Aucune note disponible pour cette periode</div></div>
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
+  <div style="font-size:40px;margin-bottom:12px;">📝</div>Aucune note disponible pour cette periode
+</div></div>
 {% endif %}
 {% endblock %}

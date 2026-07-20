@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8">
-<title>Relevé de Notes — {{ eleve.nom_complet }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relevé de Notes — {{ eleve.nom }} {{ eleve.prenom }}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:{% if modele %}{{ modele.police|default:"Arial" }}{% else %}Arial{% endif %},sans-serif;background:#f0f4f8;padding:20px;font-size:12px;}
@@ -31,6 +32,18 @@ tbody td{border:1px solid #d0dce8;padding:5px 8px;}
 .signatures{display:flex;justify-content:space-between;margin-top:20px;}
 .sign-bloc{text-align:center;font-size:10.5px;font-weight:700;}
 .sign-ligne{width:180px;border-top:1px solid #000;margin-top:40px;padding-top:4px;}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:14px;}
+@media(max-width:768px){
+  body{padding:0 0 72px;}
+  .actions{
+    position:fixed;bottom:0;left:0;right:0;margin:0;
+    background:#fff;border-top:1px solid #ddd;
+    padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom));
+    box-shadow:0 -4px 16px rgba(0,0,0,0.1);
+    z-index:100;justify-content:center;
+  }
+  .doc{margin:12px;padding:18px 14px;}
+}
 @media print{body{background:#fff;padding:0;}.actions{display:none;}.doc{box-shadow:none;padding:20px;}@page{margin:8mm;size:A4;}}
 </style></head>
 <body>

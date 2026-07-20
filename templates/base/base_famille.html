@@ -3,7 +3,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>{% block title %}Espace Famille{% endblock %} — SmartSchool</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/smartschool.css' %}?v=2">
@@ -12,7 +12,7 @@
   <link rel="manifest" href="{% url 'manifest' %}">
   {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="has-bottom-nav">
 <div class="app-wrapper">
   <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
   <aside class="sidebar" id="sidebar">
@@ -43,7 +43,7 @@
   </aside>
   <div class="main-content">
     <header class="topbar">
-      <button class="topbar-btn" id="menu-btn" onclick="toggleSidebar()" style="display:none;">☰</button>
+      <button class="topbar-btn" id="menu-btn" onclick="toggleSidebar()">☰</button>
       <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
       <div style="display:flex;align-items:center;gap:10px;margin-left:auto;">
         <button onclick="toggleTheme()" class="topbar-btn" title="Mode sombre/clair" id="theme-btn">🌙</button>
@@ -77,6 +77,30 @@
     </main>
   </div>
 </div>
+
+<!-- BOTTOM NAVIGATION BAR — Espace Famille -->
+<nav class="bottom-nav" role="navigation" aria-label="Navigation famille">
+  <div class="bottom-nav-inner">
+    <a href="{% url 'espace_accueil' %}" class="bn-item {% block bn_accueil %}{% endblock %}" id="bn-accueil">
+      <span class="bn-icon">🏠</span><span>Accueil</span>
+    </a>
+    {% if eleve %}
+    <a href="{% url 'espace_notes' eleve.pk %}" class="bn-item {% block bn_notes %}{% endblock %}" id="bn-notes">
+      <span class="bn-icon">📝</span><span>Notes</span>
+    </a>
+    <a href="{% url 'espace_paiements' eleve.pk %}" class="bn-item {% block bn_paiements %}{% endblock %}" id="bn-paiements">
+      <span class="bn-icon">💳</span><span>Paiements</span>
+    </a>
+    <a href="{% url 'espace_messages' eleve.pk %}" class="bn-item {% block bn_messages %}{% endblock %}" id="bn-messages">
+      <span class="bn-icon">💬</span><span>Messages</span>
+    </a>
+    {% else %}
+    <a href="{% url 'logout' %}" class="bn-item" id="bn-logout">
+      <span class="bn-icon">🚪</span><span>Déconnexion</span>
+    </a>
+    {% endif %}
+  </div>
+</nav>
 <script>
 function initTheme() {
   const savedTheme = localStorage.getItem('theme') || 'light';

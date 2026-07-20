@@ -4,7 +4,32 @@
 {% block nav_documents %}active{% endblock %}
 {% block content %}
 <div class="page-header"><h1>🗂️ Documents</h1></div>
-<div class="card" style="margin-bottom:14px;"><div class="card-body" style="padding:12px 16px;"><form method="get"><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Rechercher un eleve..."></form></div></div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body" style="padding:16px; display:flex; flex-wrap:wrap; gap:20px;">
+    <!-- Recherche élève -->
+    <div style="flex:2; min-width:280px;">
+      <label class="form-label">Rechercher un élève</label>
+      <form method="get">
+        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Nom, prénom ou matricule...">
+      </form>
+    </div>
+    
+    <!-- Export groupé Cartes de classe -->
+    <div style="flex:1; min-width:250px; border-left:1px solid var(--border); padding-left:20px;">
+      <label class="form-label" style="color:var(--primary); font-weight:700;">🪪 Cartes Scolaires (Classe)</label>
+      <div style="display:flex; gap:8px;">
+        <select id="select-classe" class="form-control">
+          <option value="">Sélectionnez une classe...</option>
+          {% for c in classes %}
+            <option value="{{ c.pk }}">{{ c.nom }}</option>
+          {% endfor %}
+        </select>
+        <button onclick="genererCartesClasse()" class="btn btn-primary" style="white-space:nowrap;">Générer</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="card">
 <table class="table-modern">
 <thead><tr><th>Eleve</th><th colspan="4">Generer un document</th></tr></thead>
@@ -16,4 +41,19 @@
 <td><a href="{% url 'carte_scolaire' e.pk %}" target="_blank" class="btn btn-outline btn-sm">🪪 Carte</a></td>
 </tr>{% empty %}<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted);">Aucun eleve</td></tr>{% endfor %}
 </tbody></table>
-</div>{% endblock %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function genererCartesClasse() {
+  const select = document.getElementById('select-classe');
+  const classeId = select.value;
+  if (!classeId) {
+    alert("Veuillez sélectionner une classe.");
+    return;
+  }
+  const baseUrl = "{% url 'cartes_classe' 0 %}".replace('/0/', '/' + classeId + '/');
+  window.open(baseUrl, '_blank');
+}
+</script>
+{% endblock %}

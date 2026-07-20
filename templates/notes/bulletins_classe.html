@@ -5,56 +5,217 @@
 {% block content %}
 <div class="page-header">
   <div><h1>📄 Bulletins</h1><div class="page-subtitle">Format malien officiel</div></div>
-  <div style="display:flex;gap:8px;">
-    <a href="{% url 'liste_modeles' %}" class="btn btn-outline btn-sm">🖨️ Modeles</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% url 'liste_modeles' %}" class="btn btn-outline btn-sm">🖨️ Modèles</a>
     <a href="{% url 'saisie_notes_mali' %}" class="btn btn-primary btn-sm">📝 Saisir notes</a>
   </div>
 </div>
+
 {% if modele_actif %}
-<div class="alert alert-info">🖨️ Modele actif : <strong>{{ modele_actif.nom }}</strong> — <a href="{% url 'modifier_modele' modele_actif.pk %}" style="font-weight:700;color:var(--info);">Modifier →</a></div>
+<div class="alert alert-info">🖨️ Modèle actif : <strong>{{ modele_actif.nom }}</strong> — <a href="{% url 'modifier_modele' modele_actif.pk %}" style="font-weight:700;color:var(--info);">Modifier →</a></div>
 {% else %}
-<div class="alert alert-warning">⚠️ Aucun modele de bulletin actif. <a href="{% url 'creer_modele_type' 'bulletin' %}" style="font-weight:700;">Creer un modele →</a></div>
+<div class="alert alert-warning">⚠️ Aucun modèle de bulletin actif. <a href="{% url 'creer_modele_type' 'bulletin' %}" style="font-weight:700;">Créer un modèle →</a></div>
 {% endif %}
+
+<!-- Filtre classe + période -->
 <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:14px 18px;">
 <form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-  <div style="flex:1;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Classe</label><select name="classe" class="form-control"><option value="">-- Classe --</option>{% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}</select></div>
-  <div style="flex:1;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Periode</label><select name="periode" class="form-control"><option value="">-- Periode --</option>{% for p in periodes %}<option value="{{ p.pk }}"{% if periode_id == p.pk|stringformat:"s" %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}</select></div>
+  <div style="flex:1;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Classe</label>
+  <select name="classe" class="form-control"><option value="">-- Classe --</option>
+  {% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}
+  </select></div>
+  <div style="flex:1;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Période</label>
+  <select name="periode" class="form-control"><option value="">-- Période --</option>
+  {% for p in periodes %}<option value="{{ p.pk }}"{% if periode_id == p.pk|stringformat:"s" %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}
+  </select></div>
   <button type="submit" class="btn btn-primary">Afficher</button>
-</form></div></div>
+</form>
+</div></div>
+
 {% if resultats %}
-<div class="card">
-  <div class="card-header">
-    <div><span class="card-title">{{ classe.nom }} — {{ periode.libelle }}</span><div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">{{ resultats|length }} eleve(s) — Moy.du 1er : {% if moy_premier %}<strong style="color:var(--success);">{{ moy_premier|floatformat:2 }}/20</strong>{% else %}—{% endif %}</div></div>
-    <button onclick="imprimerTous()" class="btn btn-outline btn-sm">🖨️ Tout imprimer</button>
+<!-- ═══ Bandeau distribution des mentions ═══ -->
+<div class="card" style="margin-bottom:16px;">
+  <div style="padding:14px 20px;">
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">
+      Distribution des mentions — {{ classe.nom }} · {{ resultats|length }} élève(s)
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;" id="mention-stats">
+      <!-- Rempli par JS -->
+    </div>
+    <!-- Mini barre de progression par mention -->
+    <div style="height:6px;border-radius:99px;overflow:hidden;background:var(--border);margin-top:12px;display:flex;" id="mention-bar">
+      <!-- Rempli par JS -->
+    </div>
   </div>
-  <table class="table-modern">
-  <thead><tr><th style="text-align:center;">Rang</th><th>Eleve</th><th style="text-align:center;">Moyenne</th><th style="text-align:center;">Mention</th><th>Bulletin</th></tr></thead>
-  <tbody>
-  {% for r in resultats %}
-  <tr>
-    <td style="text-align:center;font-weight:800;font-size:18px;color:{% if r.rang == 1 %}var(--accent){% elif r.rang == 2 %}var(--primary){% else %}var(--text-muted){% endif %};">{{ r.rang }}{% if r.rang == 1 %} 🥇{% elif r.rang == 2 %} 🥈{% elif r.rang == 3 %} 🥉{% endif %}</td>
-    <td><div style="font-weight:700;">{{ r.eleve.nom }} {{ r.eleve.prenom }}</div><div style="font-size:11px;color:var(--text-muted);">{{ r.eleve.matricule }}</div></td>
-    <td style="text-align:center;"><span style="font-size:20px;font-weight:800;color:{% if r.moyenne and r.moyenne >= 10 %}var(--success){% elif r.moyenne %}var(--danger){% else %}var(--text-muted){% endif %};">{% if r.moyenne %}{{ r.moyenne|floatformat:2 }}/20{% else %}—{% endif %}</span></td>
-    <td style="text-align:center;">{% if r.moyenne %}{% if r.moyenne >= 16 %}<span class="badge badge-success">Tres Bien</span>{% elif r.moyenne >= 14 %}<span class="badge badge-info">Bien</span>{% elif r.moyenne >= 12 %}<span class="badge badge-primary">Assez Bien</span>{% elif r.moyenne >= 10 %}<span class="badge badge-warning">Passable</span>{% else %}<span class="badge badge-danger">Insuffisant</span>{% endif %}{% else %}—{% endif %}</td>
-    <td><a href="{% url 'bulletin_eleve' r.eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm">📄 Ouvrir</a></td>
-  </tr>
-  {% endfor %}
-  </tbody>
-  </table>
 </div>
+
+<!-- ═══ Liste bulletins ═══ -->
+<div class="card">
+  <div class="card-header" style="flex-wrap:wrap;gap:10px;">
+    <div>
+      <span class="card-title">{{ classe.nom }} — {{ periode.libelle }}</span>
+      <div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">
+        {{ resultats|length }} élève(s) —
+        Moy. du 1er : {% if moy_premier %}<strong style="color:var(--success);">{{ moy_premier|floatformat:2 }}/20</strong>{% else %}—{% endif %}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <!-- Recherche rapide -->
+      <input type="search" id="search-eleve" placeholder="🔍 Chercher un élève…"
+             class="form-control" style="max-width:200px;height:34px;font-size:13px;"
+             oninput="filterEleves(this.value)">
+      <button onclick="imprimerTous()" class="btn btn-outline btn-sm">🖨️ Imprimer tout</button>
+    </div>
+  </div>
+
+  <table class="table-modern" id="table-bulletins">
+    <thead>
+      <tr>
+        <th style="text-align:center;cursor:pointer;" onclick="sortTable(0)">Rang ↕</th>
+        <th onclick="sortTable(1)" style="cursor:pointer;">Élève ↕</th>
+        <th style="text-align:center;cursor:pointer;" onclick="sortTable(2)">Moyenne ↕</th>
+        <th style="text-align:center;">Mention</th>
+        <th style="text-align:center;">État</th>
+        <th>Bulletin</th>
+      </tr>
+    </thead>
+    <tbody id="tbody-bulletins">
+    {% for r in resultats %}
+    <tr class="eleve-row" data-nom="{{ r.eleve.nom }} {{ r.eleve.prenom }}" data-rang="{{ r.rang|default:999 }}" data-moy="{{ r.moyenne|default:0 }}">
+      <td style="text-align:center;font-weight:800;font-size:18px;color:{% if r.rang == 1 %}var(--accent){% elif r.rang == 2 %}var(--primary){% else %}var(--text-muted){% endif %};">
+        {{ r.rang }}{% if r.rang == 1 %} 🥇{% elif r.rang == 2 %} 🥈{% elif r.rang == 3 %} 🥉{% endif %}
+      </td>
+      <td>
+        <div style="font-weight:700;">{{ r.eleve.nom }} {{ r.eleve.prenom }}</div>
+        <div style="font-size:11px;color:var(--text-muted);">{{ r.eleve.matricule }}</div>
+      </td>
+      <td style="text-align:center;">
+        <span style="font-size:20px;font-weight:800;color:{% if r.moyenne and r.moyenne >= 10 %}var(--success){% elif r.moyenne %}var(--danger){% else %}var(--text-muted){% endif %};">
+          {% if r.moyenne %}{{ r.moyenne|floatformat:2 }}/20{% else %}—{% endif %}
+        </span>
+      </td>
+      <td style="text-align:center;">
+        {% if r.moyenne %}
+          {% if r.moyenne >= 16 %}<span class="badge badge-success">🌟 Très Bien</span>
+          {% elif r.moyenne >= 14 %}<span class="badge badge-info">👍 Bien</span>
+          {% elif r.moyenne >= 12 %}<span class="badge badge-primary">✅ Assez Bien</span>
+          {% elif r.moyenne >= 10 %}<span class="badge badge-warning">⚠️ Passable</span>
+          {% else %}<span class="badge badge-danger">❌ Insuffisant</span>{% endif %}
+        {% else %}—{% endif %}
+      </td>
+      <td style="text-align:center;">
+        {% if r.moyenne %}<span class="badge badge-success" title="Notes saisies">✅</span>
+        {% else %}<span class="badge badge-warning" title="Aucune note">⚠️ Incomplet</span>{% endif %}
+      </td>
+      <td>
+        <a href="{% url 'bulletin_eleve' r.eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm">📄 Ouvrir</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div id="no-results" style="display:none;text-align:center;padding:24px;color:var(--text-muted);">
+    Aucun élève trouvé pour cette recherche.
+  </div>
+</div>
+
 {% elif classe and periode %}
-<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;">📝</div><div style="font-weight:600;">Aucune note saisie</div><a href="{% url 'saisie_notes_mali' %}?classe={{ classe_id }}&periode={{ periode_id }}" class="btn btn-primary btn-sm" style="margin-top:14px;">+ Saisir des notes</a></div></div>
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
+  <div style="font-size:40px;margin-bottom:12px;">📝</div>
+  <div style="font-weight:600;">Aucune note saisie</div>
+  <a href="{% url 'saisie_notes_mali' %}?classe={{ classe_id }}&periode={{ periode_id }}" class="btn btn-primary btn-sm" style="margin-top:14px;">+ Saisir des notes</a>
+</div></div>
 {% else %}
-<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">📄</div><div style="font-size:16px;font-weight:700;">Selectionnez une classe et une periode</div></div></div>
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);">
+  <div style="font-size:48px;margin-bottom:14px;">📄</div>
+  <div style="font-size:16px;font-weight:700;">Sélectionnez une classe et une période</div>
+</div></div>
 {% endif %}
 {% endblock %}
 {% block extra_js %}
 <script>
+// ─── Données depuis Django ───
+const resultats = [
+  {% for r in resultats %}
+  { nom:"{{ r.eleve.nom }} {{ r.eleve.prenom }}", moy:{% if r.moyenne %}{{ r.moyenne }}{% else %}null{% endif %}, rang:{{ r.rang|default:0 }} },
+  {% endfor %}
+];
+
+// ─── Distribution mentions ───
+(function buildMentionStats(){
+  const statsEl = document.getElementById('mention-stats');
+  const barEl = document.getElementById('mention-bar');
+  if (!statsEl || !resultats.length) return;
+
+  const MENTIONS = [
+    { label:'🌟 Très Bien', min:16, max:20, color:'#2E7D32', bg:'#e8f5e9' },
+    { label:'👍 Bien',      min:14, max:16, color:'#1565C0', bg:'#e3f2fd' },
+    { label:'✅ Assez Bien',min:12, max:14, color:'#3949AB', bg:'#e8eaf6' },
+    { label:'⚠️ Passable',  min:10, max:12, color:'#E65100', bg:'#fff3e0' },
+    { label:'❌ Insuffisant',min:0, max:10, color:'#C62828', bg:'#ffebee' },
+  ];
+  const COLORS_BAR = ['#2E7D32','#1565C0','#3949AB','#E65100','#C62828'];
+  const total = resultats.filter(r => r.moy !== null).length;
+
+  MENTIONS.forEach((m, i) => {
+    const count = resultats.filter(r => r.moy !== null && r.moy >= m.min && r.moy < m.max).length;
+    if (count === 0) return;
+    const pct = total > 0 ? Math.round((count/total)*100) : 0;
+    // Pill
+    const pill = document.createElement('div');
+    pill.style.cssText = `background:${m.bg};color:${m.color};border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;display:flex;gap:6px;align-items:center;`;
+    pill.innerHTML = `${m.label} <strong style="font-size:16px;">${count}</strong><span style="opacity:0.7;font-size:11px;">(${pct}%)</span>`;
+    statsEl.appendChild(pill);
+    // Barre
+    const seg = document.createElement('div');
+    seg.style.cssText = `flex:${count};background:${COLORS_BAR[i]};transition:flex 0.5s;`;
+    seg.title = `${m.label}: ${count} élève(s)`;
+    barEl.appendChild(seg);
+  });
+})();
+
+// ─── Recherche rapide ───
+function filterEleves(query) {
+  const q = query.toLowerCase().trim();
+  let visible = 0;
+  document.querySelectorAll('.eleve-row').forEach(row => {
+    const nom = (row.dataset.nom || '').toLowerCase();
+    const show = !q || nom.includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const noRes = document.getElementById('no-results');
+  if (noRes) noRes.style.display = visible === 0 && q ? '' : 'none';
+}
+
+// ─── Tri colonnes ───
+let sortDir = {};
+function sortTable(colIdx) {
+  const tbody = document.getElementById('tbody-bulletins');
+  const rows = Array.from(tbody.querySelectorAll('.eleve-row'));
+  sortDir[colIdx] = !sortDir[colIdx];
+  const asc = sortDir[colIdx];
+
+  rows.sort((a, b) => {
+    let va, vb;
+    if (colIdx === 0) { va = parseFloat(a.dataset.rang); vb = parseFloat(b.dataset.rang); }
+    else if (colIdx === 1) { va = a.dataset.nom; vb = b.dataset.nom; }
+    else if (colIdx === 2) { va = parseFloat(a.dataset.moy) || -1; vb = parseFloat(b.dataset.moy) || -1; }
+    if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return asc ? va - vb : vb - va;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+// ─── Imprimer tous (avec confirmation) ───
 function imprimerTous(){
   {% if resultats %}
+  const total = {{ resultats|length }};
+  if (!confirm(`Cela va ouvrir ${total} onglet(s). Continuer ?`)) return;
   const urls=[{% for r in resultats %}"{% url 'bulletin_eleve' r.eleve.pk periode.pk %}",{% endfor %}];
-  urls.forEach((url,i)=>setTimeout(()=>window.open(url,'_blank'),i*300));
+  urls.forEach((url,i)=>setTimeout(()=>window.open(url,'_blank'),i*400));
   {% endif %}
 }
 </script>
-{% endblock %}
+{% endblock %}

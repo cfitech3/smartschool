@@ -2,24 +2,225 @@
 {% block title %}Absences{% endblock %}
 {% block topbar_title %}Absences — {{ eleve.nom }} {{ eleve.prenom }}{% endblock %}
 {% block nav_absences %}active{% endblock %}
+{% block extra_css %}
+<style>
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px;}
+.cal-header{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;}
+.cal-day-lbl{text-align:center;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;}
+.cal-day{
+  aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;cursor:default;position:relative;
+  transition:transform 0.15s;
+}
+.cal-day:hover{transform:scale(1.1);z-index:2;}
+.cal-day.empty{background:transparent;}
+.cal-day.present{background:#e8f5e9;color:#2E7D32;}
+.cal-day.absent{background:#ffebee;color:#C62828;}
+.cal-day.retard{background:#fff3e0;color:#E65100;}
+.cal-day.justifie{background:#e3f2fd;color:#1565C0;}
+.cal-day.today{box-shadow:0 0 0 2px var(--primary);}
+.cal-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:11.5px;font-weight:600;}
+.leg-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px;flex-shrink:0;}
+/* Taux de présence */
+.taux-bar-wrap{height:10px;background:var(--border);border-radius:99px;overflow:hidden;margin:8px 0;}
+.taux-bar-fill{height:100%;border-radius:99px;transition:width 0.6s ease;}
+/* Encouragement */
+.encouragement{
+  display:flex;align-items:center;gap:14px;padding:16px 18px;
+  border-radius:var(--radius);margin-bottom:16px;
+  background:linear-gradient(135deg,rgba(46,125,50,0.08),rgba(46,125,50,0.04));
+  border:1px solid rgba(46,125,50,0.2);
+}
+</style>
+{% endblock %}
 {% block content %}
-<div class="page-header"><a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a><h1>📋 Absences</h1></div>
-<div class="stats-grid" style="margin-bottom:16px;">
-  <div class="stat-card"><div class="stat-icon green">✅</div><div class="stat-body"><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total enregistrements</div></div></div>
-  <div class="stat-card"><div class="stat-icon" style="background:rgba(198,40,40,0.1);">❌</div><div class="stat-body"><div class="stat-value">{{ stats.absents }}</div><div class="stat-label">Absences</div></div></div>
-  <div class="stat-card"><div class="stat-icon orange">⏰</div><div class="stat-body"><div class="stat-value">{{ stats.retards }}</div><div class="stat-label">Retards</div></div></div>
-  <div class="stat-card"><div class="stat-icon blue">📝</div><div class="stat-body"><div class="stat-value">{{ stats.justifies }}</div><div class="stat-label">Justifies</div></div></div>
+<div class="page-header">
+  <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
+  <h1>📋 Absences</h1>
 </div>
-{% if stats.absents >= 3 %}<div class="alert alert-warning">⚠️ {{ stats.absents }} absences enregistrees — pensez a fournir des justificatifs aupres de l'etablissement si necessaire.</div>{% endif %}
-<div class="card"><div class="card-header"><span class="card-title">Historique</span></div>
-{% if presences %}
-<table class="table-modern"><thead><tr><th>Date</th><th>Statut</th><th>Motif</th></tr></thead>
-<tbody>{% for p in presences %}<tr>
-<td style="font-weight:600;">{{ p.date|date:"d/m/Y" }}</td>
-<td>{% if p.statut == 'present' %}<span class="badge badge-success">✅ Present</span>{% elif p.statut == 'absent' %}<span class="badge badge-danger">❌ Absent</span>{% elif p.statut == 'retard' %}<span class="badge badge-warning">⏰ Retard</span>{% else %}<span class="badge badge-info">📝 Justifie</span>{% endif %}</td>
-<td style="font-size:12.5px;color:var(--text-muted);">{{ p.motif|default:"—" }}</td>
-</tr>{% endfor %}</tbody>
-</table>
-{% else %}<div style="text-align:center;padding:40px;color:var(--text-muted);">Aucune presence enregistree</div>{% endif %}
+
+<!-- Statistiques en cards -->
+<div class="stats-grid" style="margin-bottom:16px;">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(198,40,40,0.1);">❌</div>
+    <div class="stat-body"><div class="stat-value" style="color:{% if stats.absents > 0 %}var(--danger){% else %}var(--success){% endif %};">{{ stats.absents }}</div><div class="stat-label">Absences</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange">⏰</div>
+    <div class="stat-body"><div class="stat-value">{{ stats.retards }}</div><div class="stat-label">Retards</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon blue">📝</div>
+    <div class="stat-body"><div class="stat-value">{{ stats.justifies }}</div><div class="stat-label">Justifiés</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green">✅</div>
+    <div class="stat-body"><div class="stat-value" id="taux-val">—</div><div class="stat-label">Taux présence</div></div>
+  </div>
+</div>
+
+<!-- Message d'encouragement -->
+{% if stats.absents == 0 and stats.retards == 0 %}
+<div class="encouragement">
+  <div style="font-size:36px;flex-shrink:0;">🏆</div>
+  <div>
+    <div style="font-size:15px;font-weight:800;color:var(--success);">Félicitations !</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">Aucune absence ni retard enregistré. Continuez ainsi !</div>
+  </div>
+</div>
+{% elif stats.absents >= 3 %}
+<div class="alert alert-warning">⚠️ <strong>{{ stats.absents }} absences</strong> enregistrées — pensez à fournir des justificatifs à l'établissement si nécessaire.</div>
+{% endif %}
+
+<!-- Barre de taux de présence -->
+<div class="card" style="margin-bottom:16px;">
+  <div style="padding:14px 18px;">
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Taux de présence</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <span style="font-size:13px;font-weight:600;" id="taux-label">Calcul en cours…</span>
+      <span style="font-size:20px;font-weight:900;color:var(--primary);" id="taux-pct">—</span>
+    </div>
+    <div class="taux-bar-wrap"><div class="taux-bar-fill" id="taux-fill" style="width:0%;"></div></div>
+  </div>
+</div>
+
+<!-- Calendrier mensuel -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <span class="card-title" id="cal-title">📅 Calendrier du mois</span>
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-outline btn-sm" onclick="changeMonth(-1)" id="btn-prev">◀</button>
+      <button class="btn btn-outline btn-sm" onclick="changeMonth(1)" id="btn-next">▶</button>
+    </div>
+  </div>
+  <div style="padding:12px 16px;">
+    <div class="cal-header">
+      {% for j in "LMMJVSD" %}<div class="cal-day-lbl">{{ j }}</div>{% endfor %}
+    </div>
+    <div class="cal-grid" id="calendar-grid"></div>
+    <!-- Légende -->
+    <div class="cal-legend" style="margin-top:12px;">
+      <span><span class="leg-dot" style="background:#2E7D32;"></span>Présent</span>
+      <span><span class="leg-dot" style="background:#C62828;"></span>Absent</span>
+      <span><span class="leg-dot" style="background:#E65100;"></span>Retard</span>
+      <span><span class="leg-dot" style="background:#1565C0;"></span>Justifié</span>
+    </div>
+  </div>
+</div>
+
+<!-- Historique détaillé -->
+<div class="card">
+  <div class="card-header"><span class="card-title">📜 Historique détaillé</span></div>
+  {% if presences %}
+  <div style="display:flex;flex-direction:column;">
+  {% for p in presences %}
+  <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);">
+    <div style="font-weight:700;font-size:13px;min-width:90px;">{{ p.date|date:"d/m/Y" }}</div>
+    <div>
+      {% if p.statut == 'present' %}<span class="badge badge-success">✅ Présent</span>
+      {% elif p.statut == 'absent' %}<span class="badge badge-danger">❌ Absent</span>
+      {% elif p.statut == 'retard' %}<span class="badge badge-warning">⏰ Retard</span>
+      {% else %}<span class="badge badge-info">📝 Justifié</span>{% endif %}
+    </div>
+    {% if p.motif %}<div style="font-size:12px;color:var(--text-muted);flex:1;">{{ p.motif }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:40px;color:var(--text-muted);">Aucune présence enregistrée</div>
+  {% endif %}
 </div>
 {% endblock %}
+{% block extra_js %}
+<script>
+// Données de présence depuis Django
+const PRESENCES = [
+  {% for p in presences %}
+  { date:"{{ p.date|date:'Y-m-d' }}", statut:"{{ p.statut }}" },
+  {% endfor %}
+];
+
+// Map par date
+const presenceMap = {};
+PRESENCES.forEach(p => presenceMap[p.date] = p.statut);
+
+// Calcul taux
+const total = PRESENCES.length;
+const presents = PRESENCES.filter(p => p.statut === 'present').length;
+const taux = total > 0 ? Math.round((presents / total) * 100) : null;
+
+// Afficher taux
+if (taux !== null) {
+  document.getElementById('taux-val').textContent = taux + '%';
+  document.getElementById('taux-pct').textContent = taux + '%';
+  const fill = document.getElementById('taux-fill');
+  const label = document.getElementById('taux-label');
+  fill.style.width = taux + '%';
+  fill.style.background = taux >= 90 ? '#2E7D32' : taux >= 75 ? '#E65100' : '#C62828';
+  label.textContent = presents + ' jours présent sur ' + total + ' enregistrés';
+}
+
+// Calendrier
+let currentYear, currentMonth;
+
+function initCalendar() {
+  const today = new Date();
+  // Trouver le mois le plus récent avec des données
+  if (PRESENCES.length > 0) {
+    const lastDate = new Date(PRESENCES[PRESENCES.length - 1].date);
+    currentYear = lastDate.getFullYear();
+    currentMonth = lastDate.getMonth();
+  } else {
+    currentYear = today.getFullYear();
+    currentMonth = today.getMonth();
+  }
+  renderCalendar();
+}
+
+function changeMonth(dir) {
+  currentMonth += dir;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  document.getElementById('cal-title').textContent = '📅 ' + MOIS[currentMonth] + ' ' + currentYear;
+
+  const grid = document.getElementById('calendar-grid');
+  grid.innerHTML = '';
+
+  const firstDay = new Date(currentYear, currentMonth, 1);
+  // Lundi = 0, ajustement: getDay() 0=dim → 6, 1=lun → 0
+  let startOffset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const today = new Date();
+
+  // Cases vides avant le 1er
+  for (let i = 0; i < startOffset; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'cal-day empty';
+    grid.appendChild(empty);
+  }
+
+  // Jours du mois
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = currentYear + '-' + String(currentMonth + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const statut = presenceMap[dateStr];
+    const isToday = today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === d;
+
+    const cell = document.createElement('div');
+    cell.className = 'cal-day' + (statut ? ' ' + statut : '') + (isToday ? ' today' : '');
+    cell.textContent = d;
+    if (statut) {
+      const labels = {present:'✅ Présent', absent:'❌ Absent', retard:'⏰ Retard', justifie:'📝 Justifié'};
+      cell.title = labels[statut] || statut;
+    }
+    grid.appendChild(cell);
+  }
+}
+
+initCalendar();
+</script>
+{% endblock %}
