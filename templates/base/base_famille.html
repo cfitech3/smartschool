@@ -11,6 +11,11 @@
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
   <link rel="manifest" href="{% url 'manifest' %}">
   {% block extra_css %}{% endblock %}
+  <style>
+    @media screen and (max-width:768px){
+      input,select,textarea{font-size:16px !important;-webkit-text-size-adjust:100%;}
+    }
+  </style>
 </head>
 <body class="has-bottom-nav">
 <div class="app-wrapper">

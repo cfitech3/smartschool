@@ -163,15 +163,45 @@ body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);co
   .page-content{padding:14px;}
   .login-left{display:none;}
   .login-right{width:100%;}
-  .page-header{margin-bottom:16px;}
-  .form-control{font-size:16px;}
-  /* Fix #4 — Tables scrollables horizontalement */
+  .page-header{margin-bottom:16px;flex-direction:column;align-items:flex-start;gap:10px;}
+  .page-header > div:last-child{width:100%;flex-wrap:wrap;}
+
+  /* P1 — Anti-zoom iOS : tous les champs 16px minimum */
+  input,select,textarea,.form-control{font-size:16px !important;}
+
+  /* P2 — Tables scrollables dans TOUTES les cards (pas seulement .card global) */
   .card{overflow-x:auto;}
-  .table-modern{min-width:480px;}
-  /* Fix #6 — Touch targets plus grands (recommandation Google 44-48px) */
+  .table-modern{min-width:520px;}
+
+  /* P2b — Pages spécifiques : impayes, situation élève */
+  .table-impayes-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
+  /* P3 — Grids multi-colonnes → 1 colonne sur mobile */
+  [style*='grid-template-columns']{grid-template-columns:1fr !important;}
+
+  /* P6 — Touch targets plus grands (recommandation Google 44-48px) */
   .topbar-btn{width:44px;height:44px;font-size:17px;}
+
+  /* P7 — Boutons pleine largeur sur petits écrans */
+  .btn.btn-full-mobile{width:100%;text-align:center;}
+
+  /* P8 — Page header actions empilées */
+  .page-header-actions{flex-direction:column;width:100%;}
+  .page-header-actions .btn{width:100%;text-align:center;}
 }
-@media(max-width:480px){.stats-grid{grid-template-columns:1fr;}}
+.responsive-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+@media(max-width:480px){
+  .responsive-grid{grid-template-columns:1fr 1fr !important;}
+
+  .stats-grid{grid-template-columns:1fr;}
+  /* Cards KPIs : 2 par ligne sur très petit écran */
+  .kpi-grid{grid-template-columns:1fr 1fr;}
+  /* Masquer colonnes secondaires dans les tables */
+  .table-modern .hide-xs{display:none;}
+  /* Formulaires : labels au-dessus des champs */
+  .form-row{flex-direction:column;}
+  .form-row > *{width:100% !important;}
+}
 
 /* ═══════════════════════════════════════════════
    BOTTOM NAVIGATION BAR — Mobile only

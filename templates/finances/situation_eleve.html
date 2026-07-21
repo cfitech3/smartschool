@@ -18,19 +18,19 @@
 
 {% if reductions %}
 <div class="card" style="margin-bottom:16px;"><div class="card-header"><span class="card-title">Bourses / Réductions</span></div>
-<table class="table-modern">
+<div class="table-scroll-mobile" style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table class="table-modern">
 <thead><tr><th>Type de frais</th><th>Montant de la réduction</th><th>Motif</th><th>Date</th></tr></thead>
 <tbody>{% for r in reductions %}<tr>
 <td>{{ r.type_frais.nom }}</td><td><strong>-{{ r.montant|floatformat:0 }} F</strong></td>
 <td>{{ r.motif }}</td>
 <td style="font-size:12px;color:var(--text-muted);">{{ r.date_accord|date:"d/m/Y" }}</td>
 </tr>{% endfor %}</tbody>
-</table>
+</table></div>
 </div>
 {% endif %}
 <div class="card"><div class="card-header"><span class="card-title">Historique des paiements</span><a href="{% url 'generer_document' eleve.pk 'recu_paiement_annuel' %}" target="_blank" class="btn btn-outline btn-sm">📄 Recapitulatif</a></div>
 {% if paiements %}
-<table class="table-modern">
+<div class="table-scroll-mobile" style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table class="table-modern">
 <thead><tr><th>Reference</th><th>Type</th><th>Montant</th><th>Mode</th><th>Statut</th><th>Date</th><th></th></tr></thead>
 <tbody>{% for p in paiements %}<tr>
 <td><code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;">{{ p.reference }}</code></td>
@@ -40,7 +40,7 @@
 <td style="font-size:12px;color:var(--text-muted);">{{ p.date_paiement|date:"d/m/Y" }}</td>
 <td><a href="{% url 'recu_paiement' p.pk %}" class="btn btn-outline btn-sm" target="_blank">🧾</a></td>
 </tr>{% endfor %}</tbody>
-</table>
+</table></div>
 {% else %}<div style="text-align:center;padding:32px;color:var(--text-muted);">Aucun paiement cette annee</div>{% endif %}
 </div>
 {% endblock %}

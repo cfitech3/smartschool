@@ -55,7 +55,7 @@
 <!-- Tableau mensuel -->
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><span class="card-title">📅 Détail mensuel</span></div>
-  <table class="table-modern">
+  <div class="table-scroll-mobile" style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table class="table-modern">
     <thead>
       <tr>
         <th>Mois</th>
@@ -89,13 +89,13 @@
       <td>100%</td>
     </tr>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <!-- Recettes par type de frais -->
 <div class="card">
   <div class="card-header"><span class="card-title">🗂️ Par type de frais</span></div>
-  <table class="table-modern">
+  <div class="table-scroll-mobile" style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table class="table-modern">
     <thead><tr><th>Type</th><th style="text-align:center;">Nb paiements</th><th style="text-align:right;">Total (FCFA)</th></tr></thead>
     <tbody>
     {% for t in par_type %}
@@ -108,7 +108,7 @@
     <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:20px;">Aucun paiement cette année</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 {% block extra_js %}

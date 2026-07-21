@@ -10,7 +10,7 @@
 </div>
 <div class="card"><div class="card-header"><span class="card-title">📋 Liste des eleves</span></div>
 {% if inscriptions %}
-<table class="table-modern">
+<div class="table-scroll-mobile" style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table class="table-modern">
 <thead><tr><th>#</th><th>Eleve</th><th>Matricule</th><th>Tuteur</th><th>Absences</th><th>Actions</th></tr></thead>
 <tbody>
 {% for i in inscriptions %}
@@ -23,7 +23,7 @@
   <td><a href="{% url 'detail_eleve' i.eleve.pk %}" class="btn btn-outline btn-sm">Voir</a></td>
 </tr>
 {% endfor %}
-</tbody></table>
+</tbody></table></div>
 {% else %}
 <div style="text-align:center;padding:40px;color:var(--text-muted);"><div style="font-size:36px;margin-bottom:10px;">📋</div>Aucun eleve dans cette classe</div>
 {% endif %}

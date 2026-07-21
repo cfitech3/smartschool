@@ -11,6 +11,19 @@
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
   <link rel="manifest" href="{% url 'manifest' %}">
   {% block extra_css %}{% endblock %}
+  <style>
+    /* Anti-zoom iOS : force 16px minimum sur tous les champs interactifs */
+    @media screen and (max-width:768px){
+      input,select,textarea,
+      input[type="text"],input[type="number"],input[type="date"],
+      input[type="email"],input[type="tel"],input[type="password"],
+      input[type="search"],input[type="color"],
+      select[multiple]{
+        font-size:16px !important;
+        -webkit-text-size-adjust:100%;
+      }
+    }
+  </style>
 </head>
 <body class="has-bottom-nav">
 <div class="app-wrapper">

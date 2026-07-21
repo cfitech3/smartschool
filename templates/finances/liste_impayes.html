@@ -91,7 +91,7 @@
     <a href="/finances/impayes/export/?classe={{ data.classe.pk|default:'' }}&mois={{ mois }}&annee={{ annee_val }}"
        style="font-size:12px;color:var(--danger);" title="Export cette classe">⬇️ Export</a>
   </div>
-  <table class="table-modern">
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table class="table-modern">
     <thead>
       <tr>
         <th>Élève</th>
@@ -140,7 +140,7 @@
     </tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </div>
 {% endfor %}
 
