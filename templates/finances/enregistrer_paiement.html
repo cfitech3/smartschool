@@ -49,7 +49,7 @@
         <option value="{{ e.pk }}"
                 data-classe="{{ e.classe_pk|default:'' }}"
                 {% if eleve_pre and e.pk == eleve_pre.pk %}selected{% endif %}>
-          {{ e.nom }} {{ e.prenom }} — {{ e.matricule }}{% if e.classe_nom %} ({{ e.classe_nom }}){% endif %}
+          {{ e.nom }} {{ e.prenom }}{% if e.classe_nom %} ({{ e.classe_nom }}){% endif %}
         </option>
         {% endfor %}
       </select>
@@ -62,7 +62,12 @@
               style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
         <option value="">— Choisir —</option>
         {% for tf in types_frais %}
-        <option value="{{ tf.pk }}" data-montant="{{ tf.montant_defaut|floatformat:0 }}">{{ tf.nom }}</option>
+        <option value="{{ tf.pk }}"
+                data-montant="{{ tf.montant_defaut|floatformat:0 }}"
+                data-periodicite="{{ tf.periodicite }}"
+                data-tranches="{{ tf.nombre_tranches|default:1 }}">
+          {{ tf.nom }} — {{ tf.montant_defaut|floatformat:0 }} FCFA
+        </option>
         {% endfor %}
       </select>
     </div>
@@ -81,7 +86,7 @@
       <div>
         <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Montant (FCFA) *</label>
         <input type="number" name="montant" id="inp-montant"
-               min="1" step="500" placeholder="0" required
+               min="1" step="500" placeholder="0"
                style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);font-size:15px;font-weight:700;">
         <div id="montant-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
       </div>
@@ -107,30 +112,26 @@
 </div>
 
 <div class="card">
-  <div style="padding:16px 18px;display:flex;gap:10px;">
+  <div style="padding:16px 18px;display:flex;gap:10px;flex-wrap:wrap;">
     <button type="submit" class="btn btn-primary">✅ Enregistrer</button>
-    <button type="submit" name="imprimer_recu" value="1" class="btn btn-outline">🧾 Enregistrer et imprimer reçu</button>
+    <button type="submit" name="imprimer_recu" value="1" class="btn btn-outline">🧾 Enregistrer + reçu</button>
     <a href="{% url 'liste_paiements' %}" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
   </div>
 </div>
 </form>
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-// ── Filtre par classe ──────────────────────────────────────────────────────
+// ── Filtre par classe (JS local, sans API) ──────────────────────────────────
 const selClasse = document.getElementById('sel-classe');
 const selEleve  = document.getElementById('sel-eleve');
-
-// Stocker toutes les options élèves
-const toutesOptions = Array.from(selEleve.options).slice(1); // sans le premier "—"
+const toutesOptions = Array.from(selEleve.options).slice(1);
 
 selClasse.addEventListener('change', function() {
   const classeId = this.value;
-  // Réinitialiser
   selEleve.innerHTML = '<option value="">— Sélectionner un élève —</option>';
-  selEleve.value = '';
-
   toutesOptions.forEach(opt => {
     if (!classeId || opt.dataset.classe === classeId) {
       selEleve.appendChild(opt.cloneNode(true));
@@ -138,46 +139,54 @@ selClasse.addEventListener('change', function() {
   });
 });
 
-// ── Auto-remplissage montant depuis le type de frais ───────────────────────
-const selFrais   = document.getElementById('sel-frais');
-const selPeriode = document.getElementById('sel-periode');
-const inpMontant = document.getElementById('inp-montant');
-const hintMontant= document.getElementById('montant-hint');
+// ── Auto-remplissage montant + périodes (JS local, sans API) ────────────────
+const selFrais    = document.getElementById('sel-frais');
+const selPeriode  = document.getElementById('sel-periode');
+const inpMontant  = document.getElementById('inp-montant');
+const hintMontant = document.getElementById('montant-hint');
 
-selFrais.addEventListener('change', async function() {
-  const pk = this.value;
-  const opt = this.selectedOptions[0];
-
-  selPeriode.innerHTML = '<option value="">Chargement...</option>';
-  inpMontant.value = '';
-  hintMontant.textContent = '';
-
-  if (!pk) {
-    selPeriode.innerHTML = '<option value="">— Choisir le type de frais d\'abord —</option>';
+function remplirDepuisFrais(opt) {
+  if (!opt || !opt.value) {
+    selPeriode.innerHTML = "<option value=''>— Choisir le type de frais d'abord —</option>";
+    hintMontant.textContent = '';
     return;
   }
 
-  try {
-    const res  = await fetch(`/finances/api/frais/${pk}/periodes/`);
-    const data = await res.json();
-
-    selPeriode.innerHTML = '';
-    data.periodes.forEach(p => {
-      const o = document.createElement('option');
-      o.value = o.textContent = p;
-      selPeriode.appendChild(o);
-    });
-
-    // Remplir le montant automatiquement
-    const montant = data.montant_defaut || parseInt(opt.dataset.montant) || 0;
-    if (montant > 0) {
-      inpMontant.value = montant;
-      hintMontant.textContent = `Montant par défaut : ${montant.toLocaleString('fr-FR')} FCFA`;
-    }
-  } catch(e) {
-    selPeriode.innerHTML = '<option value="">Erreur de chargement</option>';
+  // 1. Montant : data-montant injecté par Django — toujours disponible, pas d'API
+  const montant = parseInt(opt.dataset.montant) || 0;
+  if (montant > 0) {
+    inpMontant.value = montant;
+    hintMontant.textContent = 'Montant par défaut : ' + montant.toLocaleString('fr-FR') + ' FCFA';
+    hintMontant.style.color = 'var(--success)';
+  } else {
+    hintMontant.textContent = 'Entrez le montant manuellement';
+    hintMontant.style.color = 'var(--text-muted)';
   }
+
+  // 2. Périodes : calculées localement depuis data-periodicite et data-tranches
+  const periodicite = opt.dataset.periodicite || 'unique';
+  const nbTranches  = parseInt(opt.dataset.tranches) || 1;
+  let periodes = [];
+  if (periodicite === 'mensuel') {
+    periodes = ['Septembre','Octobre','Novembre','Décembre',
+                'Janvier','Février','Mars','Avril','Mai','Juin'];
+  } else if (periodicite === 'tranches') {
+    for (let i = 1; i <= nbTranches; i++) periodes.push('Tranche ' + i);
+  } else {
+    periodes = ['Frais Global'];
+  }
+  selPeriode.innerHTML = periodes
+    .map(p => '<option value="' + p + '">' + p + '</option>')
+    .join('');
+}
+
+selFrais.addEventListener('change', function() {
+  remplirDepuisFrais(this.selectedOptions[0]);
 });
+
+// Pré-remplir au chargement si type déjà sélectionné (ex: retour sur la page)
+if (selFrais.value) {
+  remplirDepuisFrais(selFrais.selectedOptions[0]);
+}
 </script>
-{% endblock %}
 {% endblock %}
