@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Matiere(models.Model):
@@ -111,7 +112,9 @@ class NotePeriode(models.Model):
     note_max_classe = models.DecimalField(max_digits=5, decimal_places=2, default=20)
     note_max_compo  = models.DecimalField(max_digits=5, decimal_places=2, default=40)
     # Pour la conduite : note unique sur 20
-    note_conduite = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    note_conduite = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
+                      validators=[MinValueValidator(0), MaxValueValidator(18)],
+                      help_text="Note de conduite sur 18")
     # Sécurité : qui a saisi et modifié
     saisi_par    = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, related_name='notes_saisies')
     modifie_par  = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='notes_modifiees')

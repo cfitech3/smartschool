@@ -47,6 +47,9 @@ def calculer_bulletin(eleve, periode, matieres, index_notes=None):
     if total_coef > 0:
         moy_gen = round(float(total_coeffic) / total_coef, 2)
 
+    # Conduite toujours en dernière ligne du bulletin
+    lignes.sort(key=lambda l: (1 if l['matiere'].is_conduite else 0, l['matiere'].nom))
+
     return lignes, moy_gen, total_coeffic, total_coef
 
 

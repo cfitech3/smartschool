@@ -10,7 +10,7 @@
   <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Code</label><input type="text" name="code" class="form-control" value="{% if matiere %}{{ matiere.code }}{% endif %}" placeholder="Ex: MATH, FR"></div><div><label class="form-label">Coefficient *</label><input type="number" name="coefficient" class="form-control" value="{% if matiere %}{{ matiere.coefficient }}{% else %}1{% endif %}" min="1" max="10" required></div></div>
   <div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(1,87,155,0.06);border-radius:var(--radius-sm);border:1.5px solid rgba(1,87,155,0.2);">
     <input type="checkbox" name="is_conduite" id="is_conduite" style="width:18px;height:18px;" {% if matiere and matiere.is_conduite %}checked{% endif %}>
-    <label for="is_conduite" style="margin:0;font-weight:600;cursor:pointer;">🔵 Matiere de conduite (geree par le Surveillant General)</label>
+    <label for="is_conduite" style="margin:0;font-weight:600;cursor:pointer;">Matière de conduite (geree par le Surveillant General)</label>
   </div>
   <div style="margin-top:10px;font-size:12.5px;color:var(--text-muted);">Si coche, cette matiere n'aura qu'une seule note sur 20 (pas de moy.classe + compo) et apparaîtra distinctement sur le bulletin.</div>
 </div>

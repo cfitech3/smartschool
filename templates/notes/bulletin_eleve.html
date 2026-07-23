@@ -131,12 +131,12 @@
     {% for l in lignes %}
     <tr class="{% if l.matiere.is_conduite %}conduite-row{% endif %}">
       <td style="font-weight:{% if l.matiere.is_conduite %}900{% else %}600{% endif %};">
-        {{ l.matiere.nom }}{% if l.matiere.is_conduite %} 🔵{% endif %}
+        {{ l.matiere.nom }}
       </td>
       {% if l.matiere.is_conduite %}
         {% if not modele or modele.col_moy_classe %}<td></td>{% endif %}
         {% if not modele or modele.col_moy_compo %}<td></td>{% endif %}
-        {% if not modele or modele.col_moyenne_finale %}<td class="conduite-note">{% if l.note_conduite is not None %}{{ l.note_conduite|floatformat:1 }}/20{% else %}—{% endif %}</td>{% endif %}
+        {% if not modele or modele.col_moyenne_finale %}<td class="conduite-note">{% if l.note_conduite is not None %}{{ l.note_conduite|floatformat:1 }}/18{% else %}—{% endif %}</td>{% endif %}
         {% if not modele or modele.col_coefficient %}<td style="text-align:center;">{{ l.matiere.coefficient }}</td>{% endif %}
         {% if not modele or modele.col_moy_coeffic %}<td class="moy-cell">{% if l.moy_coeffic is not None %}{{ l.moy_coeffic|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
         {% if not modele or modele.col_appreciation %}<td style="text-align:center;font-size:10px;">{{ l.appreciation|default:"—" }}</td>{% endif %}
