@@ -1,3 +1,8 @@
+"""
+Import élèves via fichier Excel.
+Colonnes attendues : Nom | Prénom | Sexe | Date naissance | Classe | Nom tuteur | Prénom tuteur | Téléphone tuteur
+"""
+import io
 import openpyxl
 from datetime import datetime
 from django.shortcuts import render, redirect
@@ -5,202 +10,213 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.db import transaction
-from django.contrib.auth.hashers import make_password
 from eleves.models import Eleve, Tuteur, Inscription
 from etablissements.models import Classe, AnneeScolaire
 from accounts.models import User
 import unicodedata
 
-def normalize_username(name):
-    """Génère un username propre sans accents ni espaces."""
-    n = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('utf-8')
-    return n.lower().replace(" ", "")
+
+def _slug(name):
+    """Slugifie un nom pour en faire un username."""
+    n = unicodedata.normalize('NFKD', str(name)).encode('ASCII', 'ignore').decode()
+    return n.lower().replace(' ', '').replace('-', '')
+
+
+def _unique_username(base):
+    username = base[:30]
+    i = 1
+    while User.objects.filter(username=username).exists():
+        username = f"{base[:28]}{i}"
+        i += 1
+    return username
+
+
+def _parse_date(val):
+    if not val:
+        return None
+    if isinstance(val, datetime):
+        return val.date()
+    for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%d/%m/%y'):
+        try:
+            return datetime.strptime(str(val).strip()[:10], fmt).date()
+        except ValueError:
+            continue
+    return None
+
 
 @login_required
 def telecharger_modele_excel(request):
-    if not request.user.role in ['admin', 'super_admin', 'secretariat']:
-        messages.error(request, "Accès refusé.")
+    if request.user.role not in ('admin', 'super_admin', 'secretariat'):
         return redirect('dashboard')
-        
+
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Import Eleves"
-    
+    ws.title = "Import Elèves"
+
     # En-têtes
     headers = [
-        "Nom de l'élève", "Prénom de l'élève", "Sexe (M/F)", 
-        "Date Naissance (JJ/MM/AAAA)", "Nom de la Classe",
-        "Nom du Parent", "Prénom du Parent", "Téléphone Parent"
+        "Nom élève *", "Prénom élève *", "Sexe (M/F) *",
+        "Date naissance (JJ/MM/AAAA)", "Classe *",
+        "Nom tuteur", "Prénom tuteur", "Téléphone tuteur",
     ]
     ws.append(headers)
-    
-    # Styliser la première ligne
-    for cell in ws[1]:
-        cell.font = openpyxl.styles.Font(bold=True)
-        cell.fill = openpyxl.styles.PatternFill(start_color="1E88E5", end_color="1E88E5", fill_type="solid")
-        cell.font = openpyxl.styles.Font(color="FFFFFF", bold=True)
-        
-    # Ajuster la largeur des colonnes
-    for col in ws.columns:
-        max_length = 0
-        column = col[0].column_letter
-        for cell in col:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(cell.value)
-            except:
-                pass
-        ws.column_dimensions[column].width = max_length + 5
 
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    # Style en-têtes
+    from openpyxl.styles import Font, PatternFill, Alignment
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="1565C0")
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    # Exemples
+    ws.append(["DIALLO", "Aminata", "F", "15/03/2012", "6A", "DIALLO", "Moussa", "76543210"])
+    ws.append(["COULIBALY", "Ibrahim", "M", "22/07/2011", "5B", "COULIBALY", "Fatoumata", "65432109"])
+
+    # Largeurs colonnes
+    for col in ws.columns:
+        max_w = max((len(str(c.value or "")) for c in col), default=10)
+        ws.column_dimensions[col[0].column_letter].width = max_w + 4
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
     response['Content-Disposition'] = 'attachment; filename="modele_import_eleves.xlsx"'
     wb.save(response)
     return response
 
+
 @login_required
 def import_eleves_excel(request):
-    if not request.user.role in ['admin', 'super_admin', 'secretariat']:
+    if request.user.role not in ('admin', 'super_admin', 'secretariat'):
         messages.error(request, "Accès refusé.")
         return redirect('dashboard')
 
-    etab = request.etablissement
+    etab  = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
 
     if not annee:
-        messages.error(request, "Aucune année scolaire active n'a été trouvée.")
+        messages.error(request, "Aucune année scolaire active.")
         return redirect('liste_eleves')
 
-    if request.method == "POST":
-        excel_file = request.FILES.get("fichier_excel")
-        if not excel_file:
-            messages.error(request, "Veuillez fournir un fichier Excel.")
-            return redirect('import_eleves_excel')
-            
-        if not excel_file.name.endswith('.xlsx'):
-            messages.error(request, "Le fichier doit être au format .xlsx.")
-            return redirect('import_eleves_excel')
+    if request.method != "POST":
+        classes = Classe.objects.filter(etablissement=etab, annee=annee).order_by('nom')
+        return render(request, 'eleves/import_excel.html', {'annee': annee, 'classes': classes})
+
+    # ── Lecture du fichier ─────────────────────────────────────────────────
+    fichier = request.FILES.get('fichier_excel') or request.FILES.get('fichier')
+    if not fichier:
+        messages.error(request, "Aucun fichier sélectionné.")
+        return redirect('import_eleves_excel')
+
+    if not fichier.name.endswith(('.xlsx', '.xls')):
+        messages.error(request, "Format non supporté — utilisez .xlsx")
+        return redirect('import_eleves_excel')
+
+    try:
+        wb = openpyxl.load_workbook(fichier, data_only=True)
+    except Exception as ex:
+        messages.error(request, f"Fichier illisible : {ex}")
+        return redirect('import_eleves_excel')
+
+    ws = wb.active
+    nb_crees = nb_ignore = 0
+    erreurs = []
+
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        if not any(row):
+            continue
 
         try:
-            wb = openpyxl.load_workbook(excel_file, data_only=True)
-            ws = wb.active
-            
-            nb_crees = 0
-            nb_erreurs = 0
-            erreurs_details = []
+            nom      = str(row[0] or '').strip().upper()
+            prenom   = str(row[1] or '').strip().title()
+            sexe_raw = str(row[2] or 'M').strip().upper()
+            sexe     = 'M' if sexe_raw.startswith('M') else 'F'
+            dob      = _parse_date(row[3])
+            nom_cl   = str(row[4] or '').strip()
+            nom_tut  = str(row[5] or '').strip().upper()
+            pre_tut  = str(row[6] or '').strip().title()
+            tel_tut  = str(row[7] or '').strip().replace(' ', '')
 
-            for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-                if not any(row):  # Ligne vide
-                    continue
-                    
-                try:
-                    # Extraction (en gérant les cases vides)
-                    nom_e = str(row[0] or "").strip()
-                    prenom_e = str(row[1] or "").strip()
-                    sexe = str(row[2] or "M").strip().upper()
-                    date_naiss = row[3]
-                    nom_classe = str(row[4] or "").strip()
-                    nom_p = str(row[5] or "").strip()
-                    prenom_p = str(row[6] or "").strip()
-                    tel_p = str(row[7] or "").strip()
+            if not nom or not prenom:
+                raise ValueError("Nom et prénom obligatoires")
+            if not nom_cl:
+                raise ValueError("Classe obligatoire")
 
-                    if not nom_e or not prenom_e or not nom_classe:
-                        raise ValueError("Nom, Prénom et Classe de l'élève sont obligatoires.")
+            # Classe
+            classe = Classe.objects.filter(
+                etablissement=etab, annee=annee, nom__iexact=nom_cl
+            ).first()
+            if not classe:
+                raise ValueError(f"Classe '{nom_cl}' introuvable")
 
-                    # Formatage Date
-                    if isinstance(date_naiss, datetime):
-                        dob = date_naiss.date()
-                    else:
-                        try:
-                            dob = datetime.strptime(str(date_naiss).strip()[:10], "%d/%m/%Y").date()
-                        except:
-                            dob = None # Toléré
+            # Doublon élève
+            if Eleve.objects.filter(etablissement=etab, nom__iexact=nom, prenom__iexact=prenom).exists():
+                raise ValueError(f"{nom} {prenom} déjà importé")
 
-                    # 1. Récupérer ou créer le Parent (Tuteur)
-                    tuteur = None
-                    if nom_p and tel_p:
-                        tuteur = Tuteur.objects.filter(telephone1=tel_p).first()
-                        if not tuteur:
-                            base_username = f"p.{normalize_username(nom_p)}.{normalize_username(prenom_p)}"
-                            username = base_username
-                            counter = 1
-                            while User.objects.filter(username=username).exists():
-                                username = f"{base_username}{counter}"
-                                counter += 1
-                                
-                            user_parent = User.objects.create(
-                                username=username,
-                                first_name=prenom_p,
-                                last_name=nom_p,
-                                role='parent',
-                                password=make_password("pass123"),
-                                is_active=True
-                            )
-                            tuteur = Tuteur.objects.create(
-                                user_compte=user_parent,
-                                nom=nom_p,
-                                prenom=prenom_p,
-                                telephone1=tel_p
-                            )
-
-                    # 2. Vérifier la Classe
-                    classe = Classe.objects.filter(etablissement=etab, annee=annee, nom__iexact=nom_classe).first()
-                    if not classe:
-                        raise ValueError(f"La classe '{nom_classe}' n'existe pas dans l'année active.")
-
-                    # 3. Créer l'Élève
-                    with transaction.atomic():
-                        base_eleve_usr = f"e.{normalize_username(nom_e)}.{normalize_username(prenom_e)}"
-                        e_username = base_eleve_usr
-                        e_counter = 1
-                        while User.objects.filter(username=e_username).exists():
-                            e_username = f"{base_eleve_usr}{e_counter}"
-                            e_counter += 1
-                            
-                        user_eleve = User.objects.create(
-                            username=e_username,
-                            first_name=prenom_e,
-                            last_name=nom_e,
-                            role='eleve',
-                            password=make_password("pass123"),
-                            is_active=True,
-                            etablissement=etab
+            with transaction.atomic():
+                # Tuteur
+                tuteur = None
+                if nom_tut and tel_tut:
+                    tuteur = Tuteur.objects.filter(
+                        etablissement=etab, telephone=tel_tut
+                    ).first()
+                    if not tuteur:
+                        u_tut = User.objects.create_user(
+                            username=_unique_username(f"p{_slug(nom_tut)}{_slug(pre_tut)}"),
+                            password=tel_tut[-8:] if len(tel_tut) >= 8 else 'pass1234',
+                            first_name=pre_tut, last_name=nom_tut,
+                            role='parent', etablissement=etab, is_active=True,
                         )
-                        
-                        eleve = Eleve.objects.create(
+                        tuteur = Tuteur.objects.create(
                             etablissement=etab,
-                            user_compte=user_eleve,
-                            matricule=f"E{etab.pk}{annee.pk}{Eleve.objects.count()+1}",
-                            nom=nom_e,
-                            prenom=prenom_e,
-                            sexe='M' if sexe.startswith('M') else 'F',
-                            date_naissance=dob,
-                            tuteur=tuteur
+                            nom=nom_tut, prenom=pre_tut,
+                            telephone=tel_tut, lien='pere',
+                            user_compte=u_tut,
                         )
-                        
-                        # 4. Inscription
-                        Inscription.objects.create(
-                            eleve=eleve,
-                            classe=classe,
-                            annee=annee,
-                            statut='actif'
-                        )
-                    nb_crees += 1
 
-                except Exception as e:
-                    nb_erreurs += 1
-                    erreurs_details.append(f"Ligne {row_idx} ({nom_e} {prenom_e}) : {str(e)}")
+                # Matricule unique
+                nb_total = Eleve.objects.filter(etablissement=etab).count()
+                matricule = f"{etab.code}-{annee.date_debut.year}-{nb_total+1:04d}"
+                while Eleve.objects.filter(matricule=matricule).exists():
+                    nb_total += 1
+                    matricule = f"{etab.code}-{annee.date_debut.year}-{nb_total:04d}"
 
-            if nb_crees > 0:
-                messages.success(request, f"✅ Import réussi : {nb_crees} élève(s) ajouté(s).")
-            if nb_erreurs > 0:
-                messages.error(request, f"⚠️ {nb_erreurs} ligne(s) ignorée(s) (voir détails plus bas).")
-                for err in erreurs_details[:10]:
-                    messages.warning(request, err)
+                # Compte élève
+                u_eleve = User.objects.create_user(
+                    username=_unique_username(matricule.lower().replace('-', '')),
+                    password=dob.strftime('%d%m%Y') if dob else 'eleve1234',
+                    first_name=prenom, last_name=nom,
+                    role='eleve', etablissement=etab, is_active=True,
+                )
 
-            return redirect('liste_eleves')
+                # Élève
+                eleve = Eleve.objects.create(
+                    etablissement=etab, matricule=matricule,
+                    nom=nom, prenom=prenom, sexe=sexe,
+                    date_naissance=dob,
+                    tuteur=tuteur, user_compte=u_eleve,
+                    is_active=True,
+                )
 
-        except Exception as e:
-            messages.error(request, f"Erreur lors de la lecture du fichier : {str(e)}")
-            return redirect('import_eleves_excel')
+                # Inscription
+                Inscription.objects.create(
+                    eleve=eleve, classe=classe, annee=annee,
+                    statut='actif', is_active=True,
+                )
 
-    return render(request, 'eleves/import_excel.html')
+            nb_crees += 1
+
+        except Exception as ex:
+            nb_ignore += 1
+            erreurs.append(f"Ligne {row_idx} : {ex}")
+
+    if nb_crees:
+        messages.success(request, f"✅ {nb_crees} élève(s) importé(s) avec succès.")
+    if nb_ignore:
+        messages.warning(request, f"⚠️ {nb_ignore} ligne(s) ignorée(s).")
+        for err in erreurs[:10]:
+            messages.error(request, err)
+
+    return redirect('liste_eleves')

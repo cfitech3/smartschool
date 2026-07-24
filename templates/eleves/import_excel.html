@@ -1,51 +1,107 @@
 {% extends "base/base.html" %}
-
-{% block title %}Importation Élèves{% endblock %}
-{% block topbar_title %}Importation massive (Excel){% endblock %}
-
+{% block title %}Import élèves{% endblock %}
+{% block topbar_title %}📥 Import élèves via Excel{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>📥 Importation Massive</h1>
-    <div class="page-subtitle">Ajoutez plusieurs élèves et leurs parents en une seule fois via un fichier Excel.</div>
+    <h1>📥 Import élèves via Excel</h1>
+    <div class="page-subtitle">Année active : {{ annee.libelle }}</div>
   </div>
-  <a href="{% url 'liste_eleves' %}" class="btn btn-outline">Retour à la liste</a>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'telecharger_modele_excel' %}" class="btn btn-outline">⬇️ Télécharger le modèle</a>
+    <a href="{% url 'liste_eleves' %}" class="btn btn-outline">← Retour</a>
+  </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
-  <!-- Colonne Explications -->
+{% if messages %}
+{% for msg in messages %}
+<div style="padding:12px 16px;border-radius:8px;margin-bottom:10px;
+  background:{% if 'error' in msg.tags %}var(--bg-danger){% elif 'warning' in msg.tags %}var(--bg-warning){% else %}#E8F5E9{% endif %};
+  color:{% if 'error' in msg.tags %}var(--danger){% elif 'warning' in msg.tags %}var(--warning){% else %}#2E7D32{% endif %};
+  border-left:4px solid {% if 'error' in msg.tags %}var(--danger){% elif 'warning' in msg.tags %}var(--warning){% else %}#2E7D32{% endif %};">
+  {{ msg }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+
+  <!-- Formulaire upload -->
   <div class="card">
-    <div class="card-header"><span class="card-title">📖 Comment ça marche ?</span></div>
-    <div class="card-body">
-      <ol style="margin-left: 20px; line-height: 1.8; color: var(--text-muted);">
-        <li><strong>Téléchargez le modèle :</strong> Cliquez sur le bouton ci-dessous pour obtenir le fichier Excel pré-formaté.</li>
-        <li><strong>Remplissez les données :</strong> Ouvrez le fichier et saisissez les informations des élèves. Ne modifiez pas la première ligne (les en-têtes).</li>
-        <li><strong>Attention à la classe :</strong> Le nom de la classe doit correspondre <em>exactement</em> au nom de la classe dans SmartSchool pour l'année scolaire en cours.</li>
-        <li><strong>Importez :</strong> Uploadez le fichier rempli ici. Le système créera automatiquement les profils Élèves, Parents (avec leurs accès) et les Inscriptions.</li>
-      </ol>
-      <div style="margin-top: 20px; text-align:center;">
-        <a href="{% url 'telecharger_modele_excel' %}" class="btn btn-outline">📄 Télécharger le Modèle Vierge</a>
+    <div class="card-header"><span class="card-title">📂 Importer un fichier</span></div>
+    <form method="post" enctype="multipart/form-data" style="padding:20px 24px;">
+      {% csrf_token %}
+      <div style="margin-bottom:16px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px;">
+          Fichier Excel (.xlsx) *
+        </label>
+        <div id="drop-zone" style="border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color .2s;"
+             onclick="document.getElementById('file-input').click()"
+             ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
+             ondragleave="this.style.borderColor='var(--border)'"
+             ondrop="handleDrop(event)">
+          <div style="font-size:36px;margin-bottom:8px;">📊</div>
+          <div style="font-size:13px;font-weight:600;color:var(--primary);">Cliquer ou glisser-déposer</div>
+          <div id="file-name" style="font-size:12px;color:var(--text-muted);margin-top:6px;">Aucun fichier sélectionné</div>
+        </div>
+        <input type="file" id="file-input" name="fichier_excel" accept=".xlsx,.xls"
+               style="display:none;" onchange="showFileName(this)">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">
+        ✅ Lancer l'import
+      </button>
+    </form>
+  </div>
+
+  <!-- Instructions -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📋 Instructions</span></div>
+    <div style="padding:16px 18px;font-size:13px;line-height:1.8;">
+      <div style="margin-bottom:12px;">
+        <strong>1.</strong> Téléchargez le modèle Excel ci-dessus
+      </div>
+      <div style="margin-bottom:12px;">
+        <strong>2.</strong> Remplissez les colonnes :
+        <div style="margin-top:6px;display:grid;gap:4px;">
+          {% for col in cols_import %}
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="background:var(--primary);color:#fff;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700;">{{ forloop.counter }}</span>
+            <span style="color:var(--text-muted);">{{ col }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div style="margin-bottom:12px;"><strong>3.</strong> Importez le fichier complété</div>
+      <div style="background:var(--bg-warning);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text-warning);">
+        ⚠️ La classe doit correspondre exactement à un nom existant dans l'année active.
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text-muted);">
+        Classes disponibles :
+        {% for cl in classes %}
+        <span style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 8px;font-size:11px;margin:2px;display:inline-block;">{{ cl.nom }}</span>
+        {% endfor %}
       </div>
     </div>
   </div>
 
-  <!-- Colonne Upload -->
-  <div class="card">
-    <div class="card-header"><span class="card-title">📤 Uploader le fichier rempli</span></div>
-    <div class="card-body">
-      <form method="POST" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div class="form-group">
-          <label class="form-label">Sélectionnez le fichier Excel (.xlsx)</label>
-          <div style="border: 2px dashed var(--border); padding: 40px; text-align:center; border-radius: var(--radius); background: var(--bg);">
-            <input type="file" name="fichier_excel" accept=".xlsx" required style="max-width: 100%; cursor: pointer;">
-          </div>
-        </div>
-        <div style="margin-top:20px; text-align:right;">
-          <button type="submit" class="btn btn-primary">🚀 Lancer l'importation</button>
-        </div>
-      </form>
-    </div>
-  </div>
 </div>
+
+<script>
+function showFileName(input) {
+  const name = input.files[0]?.name || 'Aucun fichier';
+  document.getElementById('file-name').textContent = name;
+  document.getElementById('drop-zone').style.borderColor = 'var(--success)';
+}
+function handleDrop(e) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if(file) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('file-input').files = dt.files;
+    showFileName(document.getElementById('file-input'));
+  }
+  e.currentTarget.style.borderColor = 'var(--border)';
+}
+</script>
 {% endblock %}
