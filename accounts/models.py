@@ -60,3 +60,37 @@ class User(AbstractUser):
     def is_eleve_user(self): return self.role == self.ROLE_ELEVE
     @property
     def is_comptable(self): return self.role in [self.ROLE_COMPTABLE, self.ROLE_ADMIN, self.ROLE_SUPER_ADMIN]
+
+
+class JournalConnexion(models.Model):
+    STATUTS = [
+        ('succes',  'Succès'),
+        ('echec',   'Échec'),
+        ('bloque',  'Compte bloqué'),
+    ]
+    user          = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='connexions')
+    username      = models.CharField(max_length=150, blank=True)
+    statut        = models.CharField(max_length=10, choices=STATUTS, default='succes')
+    ip            = models.GenericIPAddressField(null=True, blank=True)
+    user_agent    = models.CharField(max_length=300, blank=True)
+    date          = models.DateTimeField(auto_now_add=True)
+    etablissement = models.ForeignKey('etablissements.Etablissement', on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-date']
+        verbose_name = 'Journal connexion'
+
+    def __str__(self):
+        return f"{self.get_statut_display()} — {self.username} — {self.date:%d/%m/%Y %H:%M}"
+
+    @property
+    def navigateur(self):
+        ua = self.user_agent.lower()
+        if 'chrome' in ua: return 'Chrome'
+        if 'firefox' in ua: return 'Firefox'
+        if 'safari' in ua: return 'Safari'
+        return 'Autre'
+
+    @property
+    def est_mobile(self):
+        return any(k in self.user_agent.lower() for k in ['mobile', 'android', 'iphone', 'ipad'])

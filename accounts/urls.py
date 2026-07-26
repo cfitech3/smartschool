@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, views_comptes
+from . import views, views_comptes, views_journal
 urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('portail/<str:code_etab>/', views.login_portail, name='login_portail'),
@@ -8,4 +8,5 @@ urlpatterns = [
     path('utilisateurs/', views_comptes.liste_utilisateurs, name='liste_utilisateurs'),
     path('utilisateurs/acces/<int:eleve_pk>/', views_comptes.generer_acces_eleve, name='generer_acces_eleve'),
     path('utilisateurs/acces-classe/<int:classe_pk>/', views_comptes.generer_acces_classe, name='generer_acces_classe'),
+    path('journal/', views_journal.journal_connexions, name='journal_connexions'),
 ]

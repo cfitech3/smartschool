@@ -1,46 +1,67 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mode Hors-ligne - SmartSchool</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-            color: #343a40;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            text-align: center;
-        }
-        .icon {
-            font-size: 4rem;
-            color: #6c757d;
-            margin-bottom: 20px;
-        }
-        h1 { margin-bottom: 10px; color: #1565C0; }
-        p { margin-bottom: 30px; font-size: 1.1rem; }
-        .btn {
-            background-color: #1565C0;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            font-size: 1rem;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .btn:hover { background-color: #0D47A1; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>SmartSchool — Hors ligne</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+         background:#F0F4F8;display:flex;align-items:center;justify-content:center;
+         min-height:100vh;padding:20px;}
+    .card{background:#fff;border-radius:20px;padding:40px 32px;text-align:center;
+          max-width:420px;width:100%;box-shadow:0 4px 24px rgba(21,101,192,0.12);}
+    .icon{font-size:72px;margin-bottom:20px;}
+    h1{font-size:22px;font-weight:800;color:#1A237E;margin-bottom:10px;}
+    p{color:#546E7A;font-size:14px;line-height:1.7;margin-bottom:6px;}
+    .actions{margin-top:28px;display:flex;flex-direction:column;gap:10px;}
+    .btn{padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px;
+         text-decoration:none;border:none;cursor:pointer;transition:opacity .2s;}
+    .btn-primary{background:#1565C0;color:#fff;}
+    .btn-outline{background:transparent;color:#1565C0;border:2px solid #1565C0;}
+    .btn:hover{opacity:0.85;}
+    .info{margin-top:20px;padding:14px;background:#E3F2FD;border-radius:10px;
+          font-size:13px;color:#1565C0;}
+    #status{margin-top:12px;font-size:13px;font-weight:600;}
+    .online{color:#2E7D32;} .offline{color:#C62828;}
+  </style>
 </head>
 <body>
-    <div class="icon">📡</div>
-    <h1>Vous êtes hors-ligne</h1>
-    <p>Il semble que vous ayez perdu votre connexion internet.<br>Vérifiez votre réseau et réessayez.</p>
-    <button onclick="window.location.reload()" class="btn">Réessayer</button>
+<div class="card">
+  <div class="icon">📡</div>
+  <h1>Connexion indisponible</h1>
+  <p>Vous êtes actuellement <strong>hors ligne</strong>.</p>
+  <p>Vos données sont sauvegardées et seront synchronisées dès le retour du réseau.</p>
+
+  <div class="info">
+    💡 <strong>Ce qui fonctionne hors ligne :</strong><br>
+    Les pages récemment consultées, les présences déjà saisies.
+  </div>
+
+  <div id="status" class="offline">🔴 Hors ligne</div>
+
+  <div class="actions">
+    <button class="btn btn-primary" onclick="location.reload()">🔄 Réessayer</button>
+    <a class="btn btn-outline" href="/eleves/presences/">📋 Présences (cache)</a>
+    <a class="btn btn-outline" href="/dashboard/">🏠 Tableau de bord (cache)</a>
+  </div>
+</div>
+
+<script>
+function updateStatus() {
+  const s = document.getElementById('status');
+  if (navigator.onLine) {
+    s.textContent = '🟢 Connexion rétablie — rechargement...';
+    s.className = 'online';
+    setTimeout(() => location.reload(), 1200);
+  } else {
+    s.textContent = '🔴 Hors ligne';
+    s.className = 'offline';
+  }
+}
+window.addEventListener('online',  updateStatus);
+window.addEventListener('offline', updateStatus);
+updateStatus();
+</script>
 </body>
 </html>
