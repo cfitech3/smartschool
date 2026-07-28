@@ -14,14 +14,18 @@ def req(fn):
     w.__name__=fn.__name__; return w
 
 def req_gestion_enseignants(fn):
-    """Comme @req mais interdit explicitement au comptable
-    (gestion complète d'enseignant = admin/directeur/secretariat uniquement,
-    le comptable n'a que la vue lecture seule + salaire)."""
+    """Comme @req mais restreint la gestion complète d'enseignant
+    (creer/modifier/affecter) aux roles admin/directeur/secretariat uniquement.
+    Whitelist explicite : tout role non liste est refuse par defaut."""
+    ROLES_AUTORISES = ("super_admin", "admin", "secretariat")
     def w(request,*a,**k):
         if not request.etablissement: return redirect("dashboard")
-        if request.user.role == "comptable":
-            messages.error(request, "Accès réservé à la gestion administrative. Utilisez la vue Salaires.")
-            return redirect("enseignants_comptable")
+        if request.user.role not in ROLES_AUTORISES:
+            if request.user.role == "comptable":
+                messages.error(request, "Accès réservé à la gestion administrative. Utilisez la vue Salaires.")
+                return redirect("enseignants_comptable")
+            messages.error(request, "Accès réservé à l'administration de l'établissement.")
+            return redirect("dashboard")
         return fn(request,*a,**k)
     w.__name__=fn.__name__; return w
 

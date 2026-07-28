@@ -2,6 +2,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from accounts.permissions import permission_required
 from .models import Eleve, Tuteur, Inscription
 from etablissements.models import Classe, AnneeScolaire, Niveau
 from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_eleves_actifs, get_inscriptions_actives
@@ -13,6 +14,7 @@ def req(fn):
     w.__name__=fn.__name__; return w
 
 @login_required
+@permission_required("eleves")
 @req
 def modifier_eleve_complet(request,pk):
     etab=request.etablissement

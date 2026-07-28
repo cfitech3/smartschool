@@ -33,6 +33,7 @@ def liste_eleves(request):
     return render(request,"eleves/liste.html",{"eleves":eleves_page,"classes":classes,"annee":annee,"q":q,"classe_id":classe_id,"sexe":sexe,"total":paginator.count})
 
 @login_required
+@permission_required("eleves")
 @req
 def detail_eleve(request,pk):
     etab=request.etablissement
@@ -78,6 +79,7 @@ def supprimer_eleve(request,pk):
     return render(request,"eleves/confirmer_suppression.html",{"eleve":eleve})
 
 @login_required
+@permission_required("classes")
 @req
 def liste_classes(request):
     etab=request.etablissement
@@ -86,6 +88,7 @@ def liste_classes(request):
     return render(request,"eleves/classes.html",{"classes":classes,"annee":annee})
 
 @login_required
+@permission_required("classes")
 @req
 def detail_classe(request,pk):
     etab=request.etablissement
