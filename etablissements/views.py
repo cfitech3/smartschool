@@ -13,6 +13,18 @@ def req(fn):
         return fn(request,*a,**k)
     w.__name__=fn.__name__; return w
 
+def req_gestion_enseignants(fn):
+    """Comme @req mais interdit explicitement au comptable
+    (gestion complète d'enseignant = admin/directeur/secretariat uniquement,
+    le comptable n'a que la vue lecture seule + salaire)."""
+    def w(request,*a,**k):
+        if not request.etablissement: return redirect("dashboard")
+        if request.user.role == "comptable":
+            messages.error(request, "Accès réservé à la gestion administrative. Utilisez la vue Salaires.")
+            return redirect("enseignants_comptable")
+        return fn(request,*a,**k)
+    w.__name__=fn.__name__; return w
+
 @login_required
 @req
 def liste_enseignants(request):
@@ -39,7 +51,7 @@ def detail_enseignant(request,pk):
     return render(request,"etablissements/detail_enseignant.html",{"enseignant":ens,"affectations":affs,"annee":annee})
 
 @login_required
-@req
+@req_gestion_enseignants
 def ajouter_enseignant(request):
     etab = request.etablissement
     if request.method=="POST":
@@ -59,7 +71,7 @@ def ajouter_enseignant(request):
     return render(request,"etablissements/ajouter_enseignant.html",{})
 
 @login_required
-@req
+@req_gestion_enseignants
 def modifier_enseignant(request,pk):
     etab = request.etablissement
     ens = get_object_or_404(Enseignant,pk=pk,etablissement=etab)
@@ -77,7 +89,7 @@ def modifier_enseignant(request,pk):
     return render(request,"etablissements/modifier_enseignant.html",{"enseignant":ens})
 
 @login_required
-@req
+@req_gestion_enseignants
 def affecter_matiere(request,pk):
     etab=request.etablissement
     ens=get_object_or_404(Enseignant,pk=pk,etablissement=etab)
