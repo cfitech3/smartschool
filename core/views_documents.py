@@ -109,7 +109,8 @@ def carte_scolaire(request, eleve_pk):
 @login_required
 @req
 def cartes_classe(request, classe_pk):
-    from eleves.models import Classe, Inscription
+    from eleves.models import Inscription
+    from etablissements.models import Classe
     etab=request.etablissement
     classe=get_object_or_404(Classe, pk=classe_pk, etablissement=etab)
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
