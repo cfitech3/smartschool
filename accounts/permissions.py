@@ -125,7 +125,7 @@ SIDEBAR_ITEMS = {
         {'icon': '💵', 'label': 'Encaisser', 'url': 'enregistrer_paiement', 'key': 'nav_encaissement'},
         {'icon': '📈', 'label': 'Rapport', 'url': 'rapport_financier', 'key': 'nav_rapports'},
         {'section': 'Personnel'},
-        {'icon': '👩‍🏫', 'label': 'Salaires profs', 'url': 'liste_enseignants', 'key': 'nav_salaires'},
+        {'icon': '👩‍🏫', 'label': 'Salaires profs', 'url': 'enseignants_comptable', 'key': 'nav_salaires'},
     ],
     'enseignant': [
         {'section': 'Principal'},
