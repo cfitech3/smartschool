@@ -86,6 +86,7 @@ SIDEBAR_ITEMS = {
         {'section': 'Notes'},
         {'icon': '📝', 'label': 'Saisie notes', 'url': 'saisie_notes_mali', 'key': 'nav_notes'},
         {'icon': '📄', 'label': 'Bulletins', 'url': 'bulletins_classe_mali', 'key': 'nav_bulletins'},
+        {'icon': '📅', 'label': 'Périodes', 'url': 'liste_periodes', 'key': 'nav_periodes'},
         {'icon': '🏛️', 'label': 'Notes Université', 'url': 'saisie_notes_ue', 'key': 'nav_notes_ue'},
         {'section': 'Finances'},
         {'icon': '💳', 'label': 'Paiements', 'url': 'liste_paiements', 'key': 'nav_paiements'},
