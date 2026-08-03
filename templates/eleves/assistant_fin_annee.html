@@ -43,6 +43,24 @@
       </div>
       <button type="submit" class="btn btn-primary">Charger les élèves</button>
     </form>
+
+    {% with nb_autres_annees=annees|length|add:"-1" %}
+    {% if nb_autres_annees <= 0 %}
+    <div style="margin-top:16px;background:var(--bg-warning);border-left:4px solid var(--warning);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <span style="font-size:24px;">⚠️</span>
+      <div style="flex:1;min-width:200px;">
+        <div style="font-weight:700;color:var(--text-warning);">Aucune année de destination disponible</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+          Seule l'année <strong>{{ annee_active.libelle }}</strong> existe. Créez d'abord la nouvelle année
+          scolaire pour pouvoir y faire passer vos élèves.
+        </div>
+      </div>
+      <a href="{% url 'parametres' %}#dupliquer-annee" class="btn btn-primary" style="white-space:nowrap;">
+        + Créer la nouvelle année
+      </a>
+    </div>
+    {% endif %}
+    {% endwith %}
   </div>
 </div>
 

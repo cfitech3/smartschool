@@ -84,7 +84,7 @@
   <div style="display:flex;flex-direction:column;gap:14px;">
 
     <!-- ANNEES SCOLAIRES -->
-    <div class="card">
+    <div class="card" id="dupliquer-annee">
       <div class="card-header"><span class="card-title">📅 Annees scolaires</span></div>
       <form method="post">{% csrf_token %}<input type="hidden" name="action" value="annee">
       <div class="card-body">
