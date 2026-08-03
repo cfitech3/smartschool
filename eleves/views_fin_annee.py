@@ -13,9 +13,8 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from eleves.models import Eleve, Inscription
 from etablissements.models import Classe, AnneeScolaire, Niveau
-from notes.models import Periode
-from notes.views import calculer_moyenne_eleve
-from notes.models import Matiere
+from notes.models import Periode, Matiere
+from notes.services import calculer_bulletin
 from core.cycle_filter import get_classes_actives
 
 
@@ -43,20 +42,28 @@ def _get_classe_suivante(classe_actuelle):
 
 
 def _calculer_moyenne_annuelle(eleve, classe, annee):
-    """Calcule la moyenne annuelle d'un élève sur toutes les périodes actives."""
-    periodes = Periode.objects.filter(etablissement=classe.etablissement, is_active=True)
+    """
+    Calcule la moyenne annuelle d'un élève sur TOUTES les périodes
+    de l'année scolaire concernée (1er, 2e, 3e trimestre...), pas
+    seulement la période actuellement marquée comme active.
+    Une seule période est "active" à la fois dans le système — se
+    limiter à is_active donnerait une moyenne annuelle fausse basée
+    sur un seul trimestre.
+    """
+    periodes = Periode.objects.filter(etablissement=classe.etablissement, annee=annee)
     if not periodes.exists():
-        periodes = Periode.objects.filter(etablissement=classe.etablissement)
+        return None
+
+    matieres = Matiere.objects.filter(etablissement=classe.etablissement, is_conduite=False)
 
     total_points = 0.0
-    total_coef = 0.0
+    total_coef = 0
 
     for periode in periodes:
         try:
-            matieres = Matiere.objects.filter(etablissement=classe.etablissement)
-            moy, _ = calculer_moyenne_eleve(eleve, periode, matieres)
-            if moy is not None:
-                total_points += float(moy)
+            _, moy_periode, _, _ = calculer_bulletin(eleve, periode, matieres)
+            if moy_periode is not None:
+                total_points += float(moy_periode)
                 total_coef += 1
         except Exception:
             continue
