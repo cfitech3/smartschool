@@ -23,6 +23,72 @@
         -webkit-text-size-adjust:100%;
       }
     }
+
+    /* ═══════════════════════════════════════════════
+       BOTTOM NAVIGATION — CSS critique en inline
+       Garantit l'affichage même en cas de souci de
+       chargement/cache du fichier smartschool.css externe.
+    ═══════════════════════════════════════════════ */
+    nav.bottom-nav{
+      display:none !important;
+      position:fixed !important;
+      bottom:0 !important;left:0 !important;right:0 !important;
+      height:62px !important;
+      background:var(--card-bg,#ffffff) !important;
+      border-top:1px solid var(--border,#e3e8ef) !important;
+      z-index:9999 !important;
+      box-shadow:0 -4px 20px rgba(0,0,0,0.08) !important;
+      padding:0 4px !important;
+      padding-bottom:env(safe-area-inset-bottom) !important;
+      margin:0 !important;
+    }
+    .bottom-nav-inner{
+      display:flex !important;
+      align-items:stretch !important;
+      height:100% !important;
+      list-style:none !important;
+      margin:0 !important;padding:0 !important;
+    }
+    .bn-item{
+      flex:1 !important;
+      display:flex !important;flex-direction:column !important;
+      align-items:center !important;justify-content:center !important;
+      gap:3px !important;
+      text-decoration:none !important;
+      color:var(--text-muted,#546E7A) !important;
+      font-size:10px !important;font-weight:600 !important;
+      letter-spacing:0.3px !important;
+      padding:6px 2px !important;
+      position:relative !important;
+      background:transparent !important;
+      border:none !important;
+    }
+    .bn-item:visited{color:var(--text-muted,#546E7A) !important;}
+    .bn-item:hover,.bn-item.active{color:var(--primary,#1565C0) !important;}
+    .bn-item.active::before{
+      content:'' !important;position:absolute !important;
+      top:0 !important;left:20% !important;right:20% !important;
+      height:2.5px !important;
+      background:var(--primary,#1565C0) !important;
+      border-radius:0 0 3px 3px !important;
+    }
+    .bn-icon{font-size:20px !important;line-height:1 !important;}
+    .bn-badge{
+      position:absolute !important;top:5px !important;
+      right:calc(50% - 14px) !important;
+      background:var(--danger,#C62828) !important;color:#fff !important;
+      font-size:9px !important;font-weight:700 !important;
+      min-width:16px !important;height:16px !important;
+      border-radius:20px !important;
+      display:flex !important;align-items:center !important;justify-content:center !important;
+      padding:0 4px !important;
+      border:2px solid var(--card-bg,#ffffff) !important;
+    }
+    @media(max-width:768px){
+      nav.bottom-nav{display:flex !important;}
+      .page-content{padding-bottom:80px !important;}
+      body.has-bottom-nav #menu-btn{display:none !important;}
+    }
   </style>
 </head>
 <body class="has-bottom-nav">
