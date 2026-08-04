@@ -23,75 +23,9 @@
         -webkit-text-size-adjust:100%;
       }
     }
-
-    /* ═══════════════════════════════════════════════
-       BOTTOM NAVIGATION — CSS critique en inline
-       Garantit l'affichage même en cas de souci de
-       chargement/cache du fichier smartschool.css externe.
-    ═══════════════════════════════════════════════ */
-    nav.bottom-nav{
-      display:none !important;
-      position:fixed !important;
-      bottom:0 !important;left:0 !important;right:0 !important;
-      height:62px !important;
-      background:var(--card-bg,#ffffff) !important;
-      border-top:1px solid var(--border,#e3e8ef) !important;
-      z-index:9999 !important;
-      box-shadow:0 -4px 20px rgba(0,0,0,0.08) !important;
-      padding:0 4px !important;
-      padding-bottom:env(safe-area-inset-bottom) !important;
-      margin:0 !important;
-    }
-    .bottom-nav-inner{
-      display:flex !important;
-      align-items:stretch !important;
-      height:100% !important;
-      list-style:none !important;
-      margin:0 !important;padding:0 !important;
-    }
-    .bn-item{
-      flex:1 !important;
-      display:flex !important;flex-direction:column !important;
-      align-items:center !important;justify-content:center !important;
-      gap:3px !important;
-      text-decoration:none !important;
-      color:var(--text-muted,#546E7A) !important;
-      font-size:10px !important;font-weight:600 !important;
-      letter-spacing:0.3px !important;
-      padding:6px 2px !important;
-      position:relative !important;
-      background:transparent !important;
-      border:none !important;
-    }
-    .bn-item:visited{color:var(--text-muted,#546E7A) !important;}
-    .bn-item:hover,.bn-item.active{color:var(--primary,#1565C0) !important;}
-    .bn-item.active::before{
-      content:'' !important;position:absolute !important;
-      top:0 !important;left:20% !important;right:20% !important;
-      height:2.5px !important;
-      background:var(--primary,#1565C0) !important;
-      border-radius:0 0 3px 3px !important;
-    }
-    .bn-icon{font-size:20px !important;line-height:1 !important;}
-    .bn-badge{
-      position:absolute !important;top:5px !important;
-      right:calc(50% - 14px) !important;
-      background:var(--danger,#C62828) !important;color:#fff !important;
-      font-size:9px !important;font-weight:700 !important;
-      min-width:16px !important;height:16px !important;
-      border-radius:20px !important;
-      display:flex !important;align-items:center !important;justify-content:center !important;
-      padding:0 4px !important;
-      border:2px solid var(--card-bg,#ffffff) !important;
-    }
-    @media(max-width:768px){
-      nav.bottom-nav{display:flex !important;}
-      .page-content{padding-bottom:80px !important;}
-      body.has-bottom-nav #menu-btn{display:none !important;}
-    }
   </style>
 </head>
-<body class="has-bottom-nav">
+<body>
 <div class="app-wrapper">
   <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
   <aside class="sidebar" id="sidebar">
@@ -162,11 +96,6 @@
   </div>
 </div>
 
-<!-- BOTTOM NAVIGATION BAR — Mobile only (staff) -->
-<nav class="bottom-nav" id="bottom-nav" role="navigation" aria-label="Navigation principale">
-  <div class="bottom-nav-inner" id="bottom-nav-inner"></div>
-</nav>
-
 <!-- Gestion du thème -->
 <script>
 function initTheme() {
@@ -230,65 +159,6 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 function checkMobile(){const b=document.getElementById('menu-btn');if(b)b.style.display=window.innerWidth<=768?'flex':'none';if(window.innerWidth>768)closeSidebar();}
 checkMobile();window.addEventListener('resize',checkMobile);
 document.querySelectorAll('.nav-link').forEach(l=>l.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
-
-// BOTTOM NAV — config par rôle
-(function buildBottomNav(){
-  const role = SMARTSCHOOL_CONTEXT.role;
-  const path = SMARTSCHOOL_CONTEXT.currentPath;
-  const notifs = SMARTSCHOOL_CONTEXT.notifs || 0;
-  const msgs = SMARTSCHOOL_CONTEXT.messages_non_lus || 0;
-  const recl = SMARTSCHOOL_CONTEXT.reclamations || 0;
-
-  const navConfigs = {
-    'admin': [
-      {icon:'🏠', label:'Accueil', url:'/dashboard/'},
-      {icon:'👨‍🎓', label:'Élèves', url:'/eleves/'},
-      {icon:'💳', label:'Finances', url:'/paiements/'},
-      {icon:'🔔', label:'Notifs', url:'/notifications/', badge: notifs},
-    ],
-    'secretariat': [
-      {icon:'🏠', label:'Accueil', url:'/dashboard/'},
-      {icon:'👨‍🎓', label:'Élèves', url:'/eleves/'},
-      {icon:'💳', label:'Paiements', url:'/paiements/'},
-      {icon:'🔔', label:'Notifs', url:'/notifications/', badge: notifs},
-    ],
-    'enseignant': [
-      {icon:'🏠', label:'Accueil', url:'/dashboard/'},
-      {icon:'📝', label:'Notes', url:'/notes/saisie/'},
-      {icon:'🗓️', label:'EDT', url:'/notes/emploi-du-temps/'},
-      {icon:'📄', label:'Bulletins', url:'/notes/bulletins/'},
-    ],
-    'surveillant': [
-      {icon:'📋', label:'Appel', url:'/eleves/appel/'},
-      {icon:'⚠️', label:'Absences', url:'/notes/absences/'},
-      {icon:'🗓️', label:'EDT', url:'/notes/emploi-du-temps/'},
-      {icon:'📊', label:'Rapport', url:'/notes/rapport-absences/'},
-    ],
-    'comptable': [
-      {icon:'🏠', label:'Accueil', url:'/dashboard/'},
-      {icon:'💳', label:'Paiements', url:'/paiements/'},
-      {icon:'📊', label:'Rapport', url:'/finances/rapport/'},
-      {icon:'⚠️', label:'Impayés', url:'/finances/impayes/'},
-    ],
-  };
-
-  const items = navConfigs[role];
-  if (!items) return;
-
-  const nav = document.getElementById('bottom-nav-inner');
-  if (!nav) return;
-
-  nav.innerHTML = items.map(item => {
-    const isActive = path.startsWith(item.url) && item.url !== '/dashboard/'
-      ? 'active'
-      : (item.url === '/dashboard/' && path === '/dashboard/' ? 'active' : '');
-    const badge = (item.badge && item.badge > 0)
-      ? `<span class="bn-badge">${item.badge > 99 ? '99+' : item.badge}</span>` : '';
-    return `<a href="${item.url}" class="bn-item ${isActive}" id="bn-${item.url.replace(/\//g,'-')}">`
-          + `<span class="bn-icon">${item.icon}</span>${badge}`
-          + `<span>${item.label}</span></a>`;
-  }).join('');
-})();
 </script>
 <script>
   if ('serviceWorker' in navigator) {

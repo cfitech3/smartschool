@@ -236,51 +236,6 @@ body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);co
 }
 
 /* ═══════════════════════════════════════════════
-   BOTTOM NAVIGATION BAR — Mobile only
-═══════════════════════════════════════════════ */
-.bottom-nav{
-  display:none;
-  position:fixed;bottom:0;left:0;right:0;
-  height:62px;
-  background:var(--card-bg);
-  border-top:1px solid var(--border);
-  z-index:200;
-  box-shadow:0 -4px 20px rgba(0,0,0,0.08);
-  padding:0 4px;
-  padding-bottom:env(safe-area-inset-bottom);
-}
-.bottom-nav-inner{
-  display:flex;align-items:stretch;height:100%;
-}
-.bn-item{
-  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:3px;text-decoration:none;color:var(--text-muted);
-  font-size:10px;font-weight:600;letter-spacing:0.3px;
-  padding:6px 2px;border-radius:0;transition:color 0.15s;
-  position:relative;
-}
-.bn-item:hover,.bn-item.active{color:var(--primary);}
-.bn-item.active::before{
-  content:'';position:absolute;top:0;left:20%;right:20%;
-  height:2.5px;background:var(--primary);border-radius:0 0 3px 3px;
-}
-.bn-icon{font-size:20px;line-height:1;}
-.bn-badge{
-  position:absolute;top:5px;right:calc(50% - 14px);
-  background:var(--danger);color:#fff;
-  font-size:9px;font-weight:700;
-  min-width:16px;height:16px;border-radius:20px;
-  display:flex;align-items:center;justify-content:center;
-  padding:0 4px;border:2px solid var(--card-bg);
-}
-@media(max-width:768px){
-  .bottom-nav{display:flex;}
-  .page-content{padding-bottom:80px !important;}
-  /* Cacher le menu hamburger desktop si bottom nav présent */
-  body.has-bottom-nav #menu-btn{display:none !important;}
-}
-
-/* ═══════════════════════════════════════════════
    SAISIE NOTES — Mobile optimisé
 ═══════════════════════════════════════════════ */
 @media(max-width:768px){
@@ -390,4 +345,4 @@ body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);co
 .en-cours-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--success);animation:pulse-dot 1.2s infinite;}
 @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.5;transform:scale(1.3);}}
 
-@media print{.sidebar,.topbar,.topbar-actions,.bottom-nav{display:none!important;}.main-content{margin-left:0!important;}.page-content{padding:0!important;}.btn,.alert{display:none!important;}.card{box-shadow:none!important;border:1px solid #ddd!important;}}
+@media print{.sidebar,.topbar,.topbar-actions{display:none!important;}.main-content{margin-left:0!important;}.page-content{padding:0!important;}.btn,.alert{display:none!important;}.card{box-shadow:none!important;border:1px solid #ddd!important;}}
