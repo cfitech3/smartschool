@@ -315,6 +315,7 @@ def saisie_notes_mali(request):
 
 
 @login_required
+@permission_required('bulletins')
 @require_etab
 def releve_notes_classe(request):
     etab = request.etablissement
@@ -356,6 +357,7 @@ def releve_notes_classe(request):
 
 
 @login_required
+@permission_required('bulletins')
 @require_etab
 def bulletins_classe_mali(request):
     etab = request.etablissement

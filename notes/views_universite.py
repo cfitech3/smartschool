@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from decimal import Decimal
+from accounts.permissions import permission_required
 from etablissements.models import Classe, AnneeScolaire, UEUniversite
 from notes.models import NoteUE, Periode
 from eleves.models import Eleve
@@ -17,6 +18,7 @@ def req(fn):
 
 
 @login_required
+@permission_required('notes')
 @req
 def saisie_notes_ue(request):
     etab    = request.etablissement
@@ -115,6 +117,15 @@ def releve_notes_lmd(request, eleve_pk, periode_pk):
     from etablissements.models import ModeleDocument
     etab    = request.etablissement
     eleve   = get_object_or_404(Eleve, pk=eleve_pk, etablissement=etab)
+
+    # Sécurité IDOR Famille — même contrôle que bulletin_eleve (Mali)
+    if request.user.role in ['parent', 'eleve']:
+        from core.views_espace_famille import get_eleves_accessibles
+        eleves_ok = get_eleves_accessibles(request.user).values_list('pk', flat=True)
+        if eleve.pk not in eleves_ok:
+            messages.error(request, "Accès refusé. Ce relevé ne vous appartient pas.")
+            return redirect('dashboard')
+
     periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
     annee   = periode.annee
     insc    = eleve.get_inscription_active()
