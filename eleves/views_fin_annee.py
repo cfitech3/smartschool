@@ -188,12 +188,40 @@ def assistant_fin_annee(request):
         annee_a_cloturer_id = request.POST.get('annee_a_cloturer')
         annee_a_activer_id  = request.POST.get('annee_a_activer')
 
+        # Garde-fou CRITIQUE : ne jamais laisser l'établissement sans
+        # aucune année active. Sans ça, tous les dashboards, listes de
+        # classes et formulaires se vident silencieusement (aucune
+        # erreur visible), rendant la plateforme inutilisable jusqu'à
+        # ce qu'un administrateur comprenne le problème.
+        if not annee_a_cloturer_id or not annee_a_activer_id:
+            messages.error(
+                request,
+                "❌ Vous devez sélectionner à la fois l'année à clôturer ET "
+                "la nouvelle année à activer. Aucune des deux actions n'a été appliquée."
+            )
+            return redirect('assistant_fin_annee')
+
+        if annee_a_cloturer_id == annee_a_activer_id:
+            messages.error(
+                request,
+                "❌ L'année à clôturer et la nouvelle année active ne peuvent pas être identiques."
+            )
+            return redirect('assistant_fin_annee')
+
         try:
             with transaction.atomic():
-                if annee_a_cloturer_id:
-                    AnneeScolaire.objects.filter(pk=annee_a_cloturer_id, etablissement=etab).update(is_active=False)
-                if annee_a_activer_id:
-                    AnneeScolaire.objects.filter(pk=annee_a_activer_id, etablissement=etab).update(is_active=True)
+                AnneeScolaire.objects.filter(pk=annee_a_cloturer_id, etablissement=etab).update(is_active=False)
+                AnneeScolaire.objects.filter(pk=annee_a_activer_id, etablissement=etab).update(is_active=True)
+
+                # Vérification finale : s'assurer qu'il reste bien EXACTEMENT
+                # une année active pour cet établissement après l'opération.
+                nb_actives = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).count()
+                if nb_actives != 1:
+                    raise ValueError(
+                        f"Incohérence détectée : {nb_actives} année(s) active(s) "
+                        f"après l'opération (1 attendue). Opération annulée."
+                    )
+
             messages.success(request, "✅ Année clôturée et nouvelle année activée.")
         except Exception as ex:
             messages.error(request, f"Erreur clôture : {str(ex)}")

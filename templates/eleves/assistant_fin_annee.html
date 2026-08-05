@@ -214,7 +214,7 @@
       <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
         <div>
           <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Année à clôturer</label>
-          <select name="annee_a_cloturer" style="padding:9px 12px;border:1.5px solid var(--border-danger);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+          <select name="annee_a_cloturer" required style="padding:9px 12px;border:1.5px solid var(--border-danger);border-radius:8px;background:var(--bg);color:var(--text-primary);">
             <option value="">-- Sélectionner --</option>
             {% for a in annees %}{% if a.is_active %}
             <option value="{{ a.pk }}">{{ a.libelle }} (active)</option>
@@ -223,7 +223,7 @@
         </div>
         <div>
           <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Année à activer</label>
-          <select name="annee_a_activer" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+          <select name="annee_a_activer" required style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
             <option value="">-- Sélectionner --</option>
             {% for a in annees %}{% if not a.is_active %}
             <option value="{{ a.pk }}">{{ a.libelle }}</option>
