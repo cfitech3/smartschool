@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
-from .models import Etablissement, AnneeScolaire, JournalAction, ParametresReseau
+from .models import Etablissement, AnneeScolaire, JournalAction, ParametresReseau, Cycle, CycleActif
 from accounts.models import User
 from eleves.models import Eleve
 from finances.models import Paiement
@@ -217,14 +217,58 @@ def creer_etablissement(request):
             if request.FILES.get('logo'):
                 etab.logo = request.FILES['logo']
                 etab.save()
+
+            # ── Configuration pédagogique automatique ────────────────────
+            # Chaque type de cycle a ses réglages standard maliens préremplis.
+            # Le super admin n'a qu'à choisir le type, tout le reste suit.
+            cycle_type = request.POST.get('cycle_type', 'premier_cycle')
+            REGLAGES_CYCLE = {
+                'premier_cycle': {
+                    'nom': '1er Cycle Fondamental', 'mode_calcul': 'compo',
+                    'note_passage': 10, 'diplome_prepare': "Certificat de fin d'études du 1er cycle",
+                },
+                'second_cycle': {
+                    'nom': '2ème Cycle Fondamental', 'mode_calcul': 'compo',
+                    'note_passage': 10, 'diplome_prepare': 'DEF',
+                },
+                'lycee': {
+                    'nom': 'Lycée', 'mode_calcul': 'direct',
+                    'note_passage': 10, 'diplome_prepare': 'Baccalauréat',
+                },
+                'universite': {
+                    'nom': 'Université', 'mode_calcul': 'credit',
+                    'note_passage': 10, 'diplome_prepare': 'Licence / Master / Doctorat',
+                },
+            }
+            reglages = REGLAGES_CYCLE.get(cycle_type, REGLAGES_CYCLE['premier_cycle'])
+
+            nb_compo = 1
+            if cycle_type == 'premier_cycle':
+                try:
+                    nb_compo = max(1, min(9, int(request.POST.get('nb_compositions_trimestre', 1))))
+                except (ValueError, TypeError):
+                    nb_compo = 1
+
+            cycle = Cycle.objects.create(
+                etablissement=etab,
+                type_cycle=cycle_type,
+                nom=reglages['nom'],
+                mode_calcul=reglages['mode_calcul'],
+                note_passage=reglages['note_passage'],
+                diplome_prepare=reglages['diplome_prepare'],
+                nb_compositions_trimestre=nb_compo,
+            )
+            CycleActif.objects.create(etablissement=etab, cycle=cycle, is_active=True, ordre=1)
+
             JournalAction.log(request, 'creer_etab', cible=nom, etablissement=etab,
-                              detail=f'Code portail: {code}')
+                              detail=f'Code portail: {code} | Cycle: {reglages["nom"]}')
             messages.success(request, f"Établissement '{nom}' créé ! Portail : /auth/portail/{code}/")
             return redirect('liste_etablissements')
 
     return render(request, 'etablissements/superadmin/form.html', {
         'mode': 'creer',
         'types': Etablissement.TYPES,
+        'cycle_types': Cycle.TYPES,
     })
 
 

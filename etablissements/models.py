@@ -211,6 +211,17 @@ class Cycle(models.Model):
     # Diplôme préparé
     diplome_prepare = models.CharField(max_length=100, blank=True,
         help_text="Ex: DEF, BAC, Licence... Apparait sur les documents")
+    # Compositions multiples par trimestre — uniquement utile pour le 1er cycle
+    # fondamental où chaque établissement décide de son propre nombre de
+    # compositions (2, 3, 4...). moy_compo se calcule alors automatiquement
+    # comme la moyenne de ces compositions au lieu d'être saisi directement.
+    nb_compositions_trimestre = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Nombre de compositions par trimestre pour ce cycle. "
+                   "1 = saisie directe de moy_compo (comportement standard). "
+                   "2+ = l'enseignant saisit chaque composition séparément, "
+                   "moy_compo est alors calculé automatiquement."
+    )
     # Ordre d'affichage
     ordre           = models.PositiveSmallIntegerField(default=1)
     is_active       = models.BooleanField(default=True)
@@ -235,6 +246,13 @@ class Cycle(models.Model):
     @property
     def utilise_compo(self):
         return self.mode_calcul == 'compo'
+
+    @property
+    def utilise_compositions_multiples(self):
+        """True si ce cycle utilise le système de compositions multiples
+        (saisie séparée de chaque composition, moy_compo calculé automatiquement)
+        plutôt que la saisie directe classique de moy_compo."""
+        return self.type_cycle == 'premier_cycle' and self.nb_compositions_trimestre > 1
 
     @property
     def utilise_credits(self):
