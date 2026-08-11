@@ -3,7 +3,7 @@ from accounts.permissions import permission_required, role_required
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
-from .models import Matiere, Periode, NotePeriode, LogModificationNote
+from .models import Matiere, Periode, NotePeriode, LogModificationNote, Composition
 from django.utils import timezone as dj_timezone
 from .services import calculer_bulletin
 from etablissements.models import Classe, AnneeScolaire, ModeleDocument, AffectationMatiere
@@ -171,6 +171,17 @@ def saisie_notes_mali(request):
     periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
     matiere = get_object_or_404(Matiere, pk=matiere_id, etablissement=etab) if matiere_id else None
 
+    # Détecter le cycle de la classe pour adapter le formulaire — déplacé
+    # avant eleves_data car nécessaire pour savoir si on charge les
+    # compositions multiples (1er cycle avec nb_compositions_trimestre > 1)
+    cycle = None
+    mode_calcul = 'compo'  # défaut
+    if classe and classe.niveau and classe.niveau.cycle:
+        cycle = classe.niveau.cycle
+        mode_calcul = cycle.mode_calcul
+    compositions_multiples = bool(cycle and cycle.utilise_compositions_multiples)
+    compo_numeros = list(range(1, cycle.nb_compositions_trimestre + 1)) if compositions_multiples else []
+
     eleves_data = []
     if classe and periode and matiere:
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve').order_by('eleve__nom')
@@ -179,7 +190,19 @@ def saisie_notes_mali(request):
             peut, raison = peut_modifier_note(
                 request.user, note_periode=note, matiere=matiere, classe=classe, periode=periode
             )
-            eleves_data.append({'eleve': insc.eleve, 'note': note, 'peut_modifier': peut, 'raison': raison})
+            item = {'eleve': insc.eleve, 'note': note, 'peut_modifier': peut, 'raison': raison}
+
+            if compositions_multiples and not matiere.is_conduite:
+                compos_existantes = {
+                    c.numero: c for c in Composition.objects.filter(
+                        eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode
+                    )
+                }
+                item['compos_list'] = [
+                    {'numero': n, 'objet': compos_existantes.get(n)} for n in compo_numeros
+                ]
+
+            eleves_data.append(item)
 
     if request.method == 'POST' and classe and periode and matiere:
         note_max_c = Decimal(request.POST.get('note_max_classe', '20'))
@@ -188,6 +211,69 @@ def saisie_notes_mali(request):
         modifiees = 0
 
         for insc in classe.inscriptions.filter(is_active=True).select_related('eleve'):
+            if compositions_multiples and not matiere.is_conduite:
+                # ── Compositions multiples (1er cycle, N compositions/trimestre) ──
+                # Chaque composition est indépendante : on la crée/modifie/vide
+                # individuellement. Composition.save() recalcule automatiquement
+                # NotePeriode.moy_compo — voir notes/models.py.
+                mc = request.POST.get(f'mc_{insc.eleve.pk}', '').strip()
+                note_existante = NotePeriode.objects.filter(
+                    eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode
+                ).first()
+                peut, raison = peut_modifier_note(
+                    request.user, note_periode=note_existante, matiere=matiere, classe=classe, periode=periode
+                )
+                if not peut:
+                    messages.error(request, raison)
+                    continue
+
+                from decimal import InvalidOperation
+                touche = False
+
+                # Moy. classe (identique au cas standard)
+                if mc:
+                    try:
+                        val_mc = Decimal(mc.replace(',', '.'))
+                    except InvalidOperation:
+                        messages.warning(request, f"Format de note classe invalide pour {insc.eleve.nom_complet}.")
+                        val_mc = None
+                    if val_mc is not None and 0 <= val_mc <= note_max_c:
+                        note_existante = note_existante or NotePeriode.objects.create(
+                            eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode,
+                            note_max_classe=note_max_c, note_max_compo=note_max_n, saisi_par=request.user,
+                        )
+                        avant = note_existante.moy_classe
+                        note_existante.moy_classe = val_mc
+                        note_existante.note_max_classe = note_max_c
+                        note_existante.modifie_par = request.user
+                        note_existante.save()
+                        if avant != val_mc:
+                            enregistrer_log(note_existante, request.user, 'moy_classe', avant, val_mc)
+                        touche = True
+
+                # Chaque composition individuelle
+                for numero in compo_numeros:
+                    cc = request.POST.get(f'compo{numero}_{insc.eleve.pk}', '').strip()
+                    if not cc:
+                        continue
+                    try:
+                        val_cc = Decimal(cc.replace(',', '.'))
+                    except InvalidOperation:
+                        messages.warning(request, f"Format Compo {numero} invalide pour {insc.eleve.nom_complet}.")
+                        continue
+                    if not (0 <= val_cc <= 20):
+                        messages.warning(request, f"Compo {numero} hors plage (0-20) ignorée pour {insc.eleve.nom_complet}.")
+                        continue
+                    Composition.objects.update_or_create(
+                        eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode, numero=numero,
+                        defaults={'note': val_cc, 'note_max': 20, 'saisi_par': request.user},
+                    )
+                    touche = True
+
+                if touche:
+                    modifiees += 1
+                continue  # passe au prochain élève, on ne retombe pas dans les branches ci-dessous
+
             if matiere.is_conduite:
                 nc = request.POST.get(f'nc_{insc.eleve.pk}', '').strip()
                 if nc:
@@ -298,17 +384,12 @@ def saisie_notes_mali(request):
         messages.success(request, msg)
         return redirect(f"{request.path}?classe={classe_id}&periode={periode_id}&matiere={matiere_id}")
 
-    # Détecter le cycle de la classe pour adapter le formulaire
-    cycle = None
-    mode_calcul = 'compo'  # défaut
-    if classe and classe.niveau and classe.niveau.cycle:
-        cycle = classe.niveau.cycle
-        mode_calcul = cycle.mode_calcul
-
     return render(request, 'notes/saisie_notes.html', {
         'classes': classes, 'periodes': periodes, 'matieres': matieres,
         'classe': classe, 'periode': periode, 'matiere': matiere,
         'eleves_data': eleves_data,
+        'compositions_multiples': compositions_multiples,
+        'compo_numeros': compo_numeros,
         'classe_id': classe_id, 'periode_id': periode_id, 'matiere_id': matiere_id,
         'is_conduite': matiere.is_conduite if matiere else False,
     })
