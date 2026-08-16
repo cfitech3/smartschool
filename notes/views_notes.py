@@ -550,6 +550,74 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
 
 
 @login_required
+def bulletin_composition(request, eleve_pk, periode_pk, numero):
+    """
+    Bulletin d'une composition individuelle (1er cycle fondamental,
+    établissements avec compositions multiples par trimestre). Distinct
+    du bulletin trimestriel classique : affiche uniquement la note
+    obtenue à CETTE composition précise, matière par matière.
+    """
+    etab  = request.etablissement
+    eleve = get_object_or_404(Eleve, pk=eleve_pk, etablissement=etab)
+
+    # Sécurité IDOR Famille — même contrôle que bulletin_eleve
+    if request.user.role in ['parent', 'eleve']:
+        from core.views_espace_famille import get_eleves_accessibles
+        eleves_ok = get_eleves_accessibles(request.user).values_list('pk', flat=True)
+        if eleve.pk not in eleves_ok:
+            messages.error(request, "Accès refusé. Ce bulletin ne vous appartient pas.")
+            return redirect('dashboard')
+
+    periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
+    annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
+    inscription = eleve.get_inscription_active()
+
+    # Vérifier que le cycle de l'élève utilise bien les compositions multiples
+    cycle = None
+    if inscription and inscription.classe.niveau and inscription.classe.niveau.cycle:
+        cycle = inscription.classe.niveau.cycle
+    if not cycle or not cycle.utilise_compositions_multiples:
+        messages.error(request, "Cet établissement n'utilise pas le système de compositions multiples.")
+        return redirect('bulletins_classe_mali')
+    if numero < 1 or numero > cycle.nb_compositions_trimestre:
+        messages.error(request, f"Composition {numero} invalide pour ce cycle ({cycle.nb_compositions_trimestre} compositions).")
+        return redirect('bulletins_classe_mali')
+
+    from .services import get_matieres_pour_eleve, calculer_bulletin_composition
+    matieres = get_matieres_pour_eleve(eleve, periode, inscription.classe if inscription else None)
+
+    modele = ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()
+
+    lignes, moy_gen, total_coeffic, total_coef = calculer_bulletin_composition(eleve, periode, numero, matieres)
+
+    rang, effectif, moy_premier = None, 0, None
+    if inscription:
+        classe = inscription.classe
+        effectif = classe.inscriptions.filter(is_active=True).count()
+
+    appre_dir = ''
+    if moy_gen is not None:
+        if moy_gen >= 16:   appre_dir = 'Excellent Travail'
+        elif moy_gen >= 14: appre_dir = 'Bon Travail'
+        elif moy_gen >= 12: appre_dir = 'Travail Assez Bien'
+        elif moy_gen >= 10: appre_dir = 'Travail Passable'
+        elif moy_gen >= 6:  appre_dir = 'Travail Insuffisant'
+        else:               appre_dir = 'Travail Tres Insuffisant'
+
+    return render(request, 'notes/bulletin_composition.html', {
+        'eleve': eleve, 'periode': periode, 'annee': annee,
+        'etab': etab, 'modele': modele, 'inscription': inscription,
+        'numero': numero, 'nb_compositions': cycle.nb_compositions_trimestre,
+        'compo_range': range(1, cycle.nb_compositions_trimestre + 1),
+        'lignes': lignes, 'moy_generale': moy_gen,
+        'total_coeffic': total_coeffic, 'total_coef': total_coef,
+        'rang': rang, 'effectif': effectif, 'moy_premier': moy_premier,
+        'appre_directeur': appre_dir,
+        'today': dj_timezone.now().date(),
+    })
+
+
+@login_required
 @require_etab
 def logs_modifications(request):
     """Journal des modifications de notes — visible par admin et super admin."""

@@ -53,6 +53,60 @@ def calculer_bulletin(eleve, periode, matieres, index_notes=None):
     return lignes, moy_gen, total_coeffic, total_coef
 
 
+def calculer_bulletin_composition(eleve, periode, numero, matieres):
+    """
+    Calcule le 'bulletin de composition' : pour le 1er cycle fondamental
+    avec compositions multiples, chaque composition (1 à 9) génère son
+    propre document, listant la note obtenue à CETTE composition précise
+    pour chaque matière — distinct du bulletin trimestriel classique qui,
+    lui, affiche Moy.Classe + Moy.Compo (moyenne des compositions).
+
+    Retourne: lignes, moyenne_generale, total_coeffic, total_coef
+    (même structure que calculer_bulletin, pour réutiliser les mêmes
+    templates/logique d'affichage).
+    """
+    from .models import Composition
+
+    lignes = []
+    total_coeffic = Decimal('0')
+    total_coef = 0
+
+    for mat in matieres:
+        if mat.is_conduite:
+            continue  # la conduite n'a pas de composition individuelle
+        compo = Composition.objects.filter(
+            eleve=eleve, matiere=mat, periode=periode, numero=numero
+        ).first()
+
+        if compo and compo.note is not None:
+            note_sur_20 = round((float(compo.note) / float(compo.note_max)) * 20, 2)
+            moy_coeff = round(note_sur_20 * mat.coefficient, 2)
+            total_coeffic += Decimal(str(moy_coeff))
+            total_coef += mat.coefficient
+            appre = (
+                'Tres-Bien' if note_sur_20 >= 16 else
+                'Bien' if note_sur_20 >= 14 else
+                'Assez-Bien' if note_sur_20 >= 12 else
+                'Passable' if note_sur_20 >= 10 else
+                'Mal' if note_sur_20 >= 6 else 'Tres Mal'
+            )
+            lignes.append({
+                'matiere': mat, 'note': note_sur_20, 'moy_coeffic': moy_coeff,
+                'appreciation': appre,
+            })
+        else:
+            lignes.append({
+                'matiere': mat, 'note': None, 'moy_coeffic': None, 'appreciation': '',
+            })
+
+    moy_gen = None
+    if total_coef > 0:
+        moy_gen = round(float(total_coeffic) / total_coef, 2)
+
+    lignes.sort(key=lambda l: l['matiere'].nom)
+    return lignes, moy_gen, total_coeffic, total_coef
+
+
 def get_matieres_pour_eleve(eleve, periode, classe=None):
     from etablissements.models import AffectationMatiere
     from .models import Matiere, NotePeriode

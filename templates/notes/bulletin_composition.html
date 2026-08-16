@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Composition {{ numero }} — {{ eleve.nom }} {{ eleve.prenom }} — {{ periode.libelle }}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:{{ modele.police|default:"Arial" }},sans-serif;background:#f5f5f5;padding:20px;font-size:{{ modele.taille_police|default:12 }}px;}
+    .actions{max-width:900px;margin:0 auto 14px;display:flex;gap:8px;font-family:sans-serif;flex-wrap:wrap;}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;border:none;cursor:pointer;text-decoration:none;}
+    .btn-primary{background:#1565C0;color:#fff;} .btn-outline{background:#fff;border:1.5px solid #ccc;color:#555;}
+    .bulletin{max-width:900px;margin:0 auto;background:#fff;padding:22px 26px;border:1px solid #ccc;box-shadow:0 4px 20px rgba(0,0,0,0.08);}
+    .entete{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-bottom:2px solid {{ modele.couleur_bordure|default:"#000" }};padding-bottom:12px;margin-bottom:12px;font-size:10.5px;line-height:1.7;}
+    .entete-d{text-align:right;}
+    .etab-nom{text-align:center;font-size:14px;font-weight:900;text-transform:uppercase;color:{{ modele.couleur_titre_bg|default:"#1565C0" }};margin-bottom:6px;}
+    .titre-bloc{background:{{ modele.couleur_titre_bg|default:"#555" }};color:{{ modele.couleur_titre_texte|default:"#fff" }};text-align:center;padding:7px;font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;border-radius:2px;}
+    .sous-titre-compo{text-align:center;font-size:11px;font-weight:700;color:#666;margin-top:-8px;margin-bottom:12px;letter-spacing:1px;}
+    .info-eleve{border:1px solid #999;padding:8px 12px;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:12px;font-size:11px;}
+    .info-eleve span{font-weight:700;}
+    table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10.5px;}
+    thead th{background:{{ modele.couleur_tableau_header|default:"#ddd" }};border:1px solid {{ modele.couleur_bordure|default:"#000" }};padding:5px 6px;font-weight:700;text-align:center;}
+    tbody td{border:1px solid {{ modele.couleur_bordure|default:"#999" }};padding:4px 6px;}
+    tbody tr:nth-child(even){background:#f9f9f9;}
+    .moy-cell{text-align:center;font-weight:800;}
+    .moy-cell.ok{color:#2E7D32;} .moy-cell.ko{color:#C62828;}
+    .resume{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;}
+    .resume-box{border:1.5px solid {{ modele.couleur_bordure|default:"#333" }};padding:8px 12px;text-align:center;}
+    .resume-box .lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#555;display:block;}
+    .resume-box .val{font-size:18px;font-weight:900;color:#1A237E;display:block;margin-top:3px;}
+    .signatures{display:flex;justify-content:space-between;margin-top:18px;}
+    .sign-bloc{text-align:center;font-size:10.5px;font-weight:700;}
+    .sign-ligne{width:160px;border-top:1px solid #000;margin-top:40px;padding-top:4px;}
+    .pied{margin-top:12px;font-size:10px;color:#888;text-align:center;font-style:italic;border-top:1px solid #eee;padding-top:8px;}
+    .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .mention-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:0.3px;}
+    .mention-tb{background:#e8f5e9;color:#2E7D32;}
+    .mention-b{background:#e3f2fd;color:#1565C0;}
+    .mention-ab{background:#e8eaf6;color:#3949AB;}
+    .mention-p{background:#fff3e0;color:#E65100;}
+    .mention-i{background:#ffebee;color:#C62828;}
+    .compo-nav{display:flex;gap:4px;justify-content:center;margin-bottom:14px;flex-wrap:wrap;}
+    .compo-nav a{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;border:1.5px solid #ccc;color:#555;}
+    .compo-nav a.active{background:{{ modele.couleur_titre_bg|default:"#1565C0" }};color:#fff;border-color:transparent;}
+    @media print{
+      body{background:#fff;padding:0;}
+      .actions,.compo-nav{display:none;}
+      .bulletin{box-shadow:none;padding:15px 20px;margin:0;}
+      @page{margin:8mm;size:A4;}
+    }
+  </style>
+  <style>
+    @media screen and (max-width:768px){
+      input,select,textarea{font-size:16px !important;-webkit-text-size-adjust:100%;}
+    }
+  </style>
+</head>
+<body>
+<div class="actions" role="toolbar" aria-label="Actions bulletin composition">
+  <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
+  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button>
+</div>
+
+<!-- Navigation entre compositions -->
+<div class="compo-nav">
+  {% for n in compo_range %}
+  <a href="{% url 'bulletin_composition' eleve.pk periode.pk n %}" class="{% if n == numero %}active{% endif %}">Compo {{ n }}</a>
+  {% endfor %}
+</div>
+
+{% load dict_extras %}
+<div class="bulletin">
+  <!-- EN-TETE -->
+  {% if modele and modele.entete_personnalise %}
+    <div style="margin-bottom:12px;">
+      {{ modele.entete_personnalise|render_tags:eleve }}
+    </div>
+  {% else %}
+    <div class="entete" style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="flex:1;">{% if modele and modele.ligne1_gauche %}{{ modele.ligne1_gauche }}<br>{% endif %}{% if modele and modele.ligne2_gauche %}{{ modele.ligne2_gauche }}<br>{% endif %}{% if modele and modele.ligne3_gauche %}{{ modele.ligne3_gauche }}{% endif %}</div>
+      {% if modele and modele.afficher_logo and etab.logo %}
+      <div style="flex:1; text-align:center;">
+        <img src="{{ etab.logo.url }}" alt="Logo" style="max-height:80px; max-width:120px; object-fit:contain;">
+      </div>
+      {% endif %}
+      <div class="entete-d" style="flex:1; text-align:right;">{% if modele and modele.ligne1_droite %}{{ modele.ligne1_droite }}<br>{% endif %}{% if modele and modele.ligne2_droite %}{{ modele.ligne2_droite }}<br>{% endif %}{% if modele and modele.ligne3_droite %}{{ modele.ligne3_droite }}{% endif %}</div>
+    </div>
+  {% endif %}
+  <div class="etab-nom">{{ modele.nom_etablissement_custom|default:etab.nom }}</div>
+  <div class="titre-bloc">Bulletin de Composition — {{ periode.libelle }}</div>
+  <div class="sous-titre-compo">COMPOSITION N° {{ numero }} SUR {{ nb_compositions }}</div>
+
+  <!-- INFOS ELEVE -->
+  <div class="info-eleve">
+    <div>Nom et prenom : <span>{{ eleve.nom }} {{ eleve.prenom }}</span></div>
+    <div>Annee scolaire : <span>{{ annee.libelle|default:"—" }}</span></div>
+    <div>Matricule : <span>{{ eleve.matricule }}</span></div>
+    <div>Classe : <span>{% if inscription %}{{ inscription.classe.nom }}{% else %}—{% endif %}</span></div>
+    <div>Date et lieu naissance : <span>{{ eleve.date_naissance|date:"d/m/Y" }}{% if eleve.lieu_naissance %} — {{ eleve.lieu_naissance }}{% endif %}</span></div>
+  </div>
+
+  <!-- TABLEAU DES NOTES -->
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align:left;min-width:120px;">Matieres</th>
+        <th>Note /20</th>
+        <th>Coef</th>
+        <th>Moy.Coeff</th>
+        <th>Appreciation</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for l in lignes %}
+    <tr>
+      <td style="font-weight:600;">{{ l.matiere.nom }}</td>
+      <td class="moy-cell {% if l.note is not None %}{% if l.note >= 10 %}ok{% else %}ko{% endif %}{% endif %}">{% if l.note is not None %}{{ l.note|floatformat:2 }}{% else %}—{% endif %}</td>
+      <td style="text-align:center;">{{ l.matiere.coefficient }}</td>
+      <td class="moy-cell">{% if l.moy_coeffic is not None %}{{ l.moy_coeffic|floatformat:2 }}{% else %}—{% endif %}</td>
+      <td style="text-align:center;font-size:10px;">{{ l.appreciation|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div><!-- /table-wrap -->
+
+  <!-- RESUME -->
+  <div class="resume">
+    <div class="resume-box">
+      <span class="lbl">Moyenne Composition {{ numero }}</span>
+      <span class="val" style="color:{% if moy_generale and moy_generale >= 10 %}#2E7D32{% elif moy_generale %}#C62828{% else %}#555{% endif %};">{% if moy_generale %}{{ moy_generale|floatformat:2 }}/20{% else %}—{% endif %}</span>
+      {% if moy_generale %}
+      <div style="margin-top:6px;">
+        {% if moy_generale >= 16 %}<span class="mention-badge mention-tb">🌟 Très Bien</span>
+        {% elif moy_generale >= 14 %}<span class="mention-badge mention-b">👍 Bien</span>
+        {% elif moy_generale >= 12 %}<span class="mention-badge mention-ab">✅ Assez Bien</span>
+        {% elif moy_generale >= 10 %}<span class="mention-badge mention-p">⚠️ Passable</span>
+        {% else %}<span class="mention-badge mention-i">❌ Insuffisant</span>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div style="border:1px solid #999;padding:6px 12px;margin-bottom:12px;font-size:11px;">
+    <strong>Appreciation du Directeur :</strong> {{ appre_directeur|default:"—" }}
+  </div>
+
+  <!-- SIGNATURES -->
+  <div class="signatures">
+    <div class="sign-bloc"><div>{{ modele.label_signature_gauche|default:"Le Directeur" }}</div><div class="sign-ligne">Signature et cachet</div></div>
+    <div class="sign-bloc"><div>{{ modele.label_signature_droite|default:"Le Parent ou Tuteur" }}</div><div class="sign-ligne">Signature</div></div>
+  </div>
+
+  <div class="pied">Bamako, le {{ today|date:"d F Y" }}</div>
+</div>
+</body>
+</html>
