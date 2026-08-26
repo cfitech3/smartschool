@@ -244,6 +244,16 @@ class Cycle(models.Model):
         return self.type_cycle == 'lycee'
 
     @property
+    def is_premier_cycle(self):
+        """True si ce cycle est le 1er cycle fondamental (compositions /10)."""
+        return self.type_cycle == 'premier_cycle'
+
+    @property
+    def is_second_cycle(self):
+        """True si ce cycle est le 2ème cycle fondamental."""
+        return self.type_cycle == 'second_cycle'
+
+    @property
     def utilise_compo(self):
         return self.mode_calcul == 'compo'
 
@@ -444,3 +454,4 @@ class ParametresReseau(models.Model):
         """Retourne le singleton, le crée si absent."""
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
