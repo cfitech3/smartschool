@@ -159,77 +159,49 @@ class NotePeriode(models.Model):
 
 class Composition(models.Model):
     """
-    Une composition individuelle dans un trimestre, pour les établissements
-    du 1er cycle fondamental qui organisent plusieurs compositions par
-    trimestre (nombre défini par établissement via Cycle.nb_compositions_trimestre).
+    Composition individuelle — 1er cycle fondamental uniquement.
 
-    Chaque Composition ajoutée/modifiée/supprimée déclenche le recalcul
-    automatique de NotePeriode.moy_compo (moyenne simple, coefficients égaux)
-    pour le même élève/matière/période — voir recalculer_moy_compo().
-
-    Pour les cycles avec nb_compositions_trimestre=1 (comportement standard),
-    ce modèle n'est pas utilisé — moy_compo continue d'être saisi directement.
+    - annee  : lien structurant principal (AnneeScolaire)
+    - periode: conservé nullable pour compatibilité future
+    - note_max=10 par défaut (barème /10 du 1er cycle)
+    - Aucun recalcul automatique de NotePeriode (obsolète pour ce cycle).
     """
     eleve   = models.ForeignKey('eleves.Eleve', on_delete=models.CASCADE, related_name='compositions')
     matiere = models.ForeignKey(Matiere, on_delete=models.CASCADE)
     classe  = models.ForeignKey('etablissements.Classe', on_delete=models.CASCADE)
-    periode = models.ForeignKey(Periode, on_delete=models.CASCADE)
+    annee   = models.ForeignKey(
+        'etablissements.AnneeScolaire',
+        on_delete=models.CASCADE,
+        related_name='compositions',
+        null=True, blank=True,
+        help_text="Année scolaire structurante (1er cycle)"
+    )
+    periode = models.ForeignKey(
+        Periode,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        help_text="Période optionnelle (compatibilité future)"
+    )
     numero  = models.PositiveSmallIntegerField(help_text="1ère, 2ème, 3ème composition...")
     note    = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    note_max = models.DecimalField(max_digits=5, decimal_places=2, default=20)
+    note_max = models.DecimalField(max_digits=5, decimal_places=2, default=10)
     saisi_par   = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, related_name='compositions_saisies')
     date_saisie = models.DateTimeField(auto_now_add=True)
     date_modif  = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ['eleve', 'matiere', 'classe', 'periode', 'numero']
+        unique_together = ['eleve', 'matiere', 'classe', 'annee', 'numero']
         ordering = ['numero']
         verbose_name = 'Composition'
         verbose_name_plural = 'Compositions'
 
     def __str__(self):
-        return f"{self.eleve} — {self.matiere.nom} — {self.periode.libelle} — Compo {self.numero}"
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        self.recalculer_moy_compo()
+        ref = self.annee.libelle if self.annee else (self.periode.libelle if self.periode else '—')
+        return f"{self.eleve} — {self.matiere.nom} — {ref} — Compo {self.numero}"
 
     def delete(self, *args, **kwargs):
-        eleve, matiere, classe, periode = self.eleve, self.matiere, self.classe, self.periode
         super().delete(*args, **kwargs)
         Composition.recalculer_moy_compo_pour(eleve, matiere, classe, periode)
-
-    def recalculer_moy_compo(self):
-        Composition.recalculer_moy_compo_pour(self.eleve, self.matiere, self.classe, self.periode)
-
-    @staticmethod
-    def recalculer_moy_compo_pour(eleve, matiere, classe, periode):
-        """
-        Recalcule NotePeriode.moy_compo comme la moyenne simple (coefficients
-        égaux) de toutes les Composition saisies pour ce quadruplet
-        eleve/matiere/classe/periode, ramenée sur note_max_compo (40 par
-        défaut, cohérent avec le mode de calcul malien classe+compo).
-        Ne touche jamais moy_classe ni le reste de NotePeriode.
-        """
-        compos = Composition.objects.filter(
-            eleve=eleve, matiere=matiere, classe=classe, periode=periode,
-            note__isnull=False,
-        )
-        note_periode, _ = NotePeriode.objects.get_or_create(
-            eleve=eleve, matiere=matiere, classe=classe, periode=periode,
-        )
-
-        if not compos.exists():
-            note_periode.moy_compo = None
-        else:
-            total_sur_20 = sum(
-                (float(c.note) / float(c.note_max)) * 20 for c in compos
-            )
-            moyenne_sur_20 = total_sur_20 / compos.count()
-            note_periode.moy_compo = round(
-                (moyenne_sur_20 / 20) * float(note_periode.note_max_compo), 2
-            )
-        note_periode.save()
 
 
 class LogModificationNote(models.Model):
@@ -356,3 +328,4 @@ class MessageFamille(models.Model):
 
     def __str__(self):
         return f"{self.expediteur} → {self.get_destinataire_role_display()} : {self.sujet}"
+
