@@ -7,30 +7,44 @@
 <div class="page-header">
   <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
   <div><h1>📝 Notes</h1></div>
-  {% if periode %}<a href="{% url 'espace_bulletin' eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm">📄 Bulletin</a>{% endif %}
+  {% if is_premier_cycle %}
+    <a href="{% url 'espace_bulletin' eleve.pk numero %}" target="_blank" class="btn btn-primary btn-sm">📄 Bulletin</a>
+  {% elif periode %}
+    <a href="{% url 'espace_bulletin' eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm">📄 Bulletin</a>
+  {% endif %}
 </div>
 
 <!-- Sélecteur de période -->
 <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:12px 16px;">
-  <form method="get"><select name="periode" class="form-control" onchange="this.form.submit()" style="max-width:260px;">
-  {% for p in periodes %}<option value="{{ p.pk }}"{% if periode and periode.pk == p.pk %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}
+  <form method="get"><select name="{% if is_premier_cycle %}numero{% else %}periode{% endif %}" class="form-control" onchange="this.form.submit()" style="max-width:260px;">
+  {% if is_premier_cycle %}
+    {% for n in numeros %}
+      <option value="{{ n }}"{% if numero == n %} selected{% endif %}>Composition {{ n }}</option>
+    {% endfor %}
+  {% else %}
+    {% for p in periodes %}<option value="{{ p.pk }}"{% if periode and periode.pk == p.pk %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}
+  {% endif %}
   </select></form>
 </div></div>
 
 {% if lignes %}
 <!-- Bandeau moyenne générale -->
 {% if moy_generale %}
-<div class="card" style="margin-bottom:16px;background:{% if moy_generale >= 10 %}rgba(46,125,50,0.06){% else %}rgba(198,40,40,0.06){% endif %};border-color:{% if moy_generale >= 10 %}var(--success){% else %}var(--danger){% endif %};">
+<div class="card" style="margin-bottom:16px;background:{% if moy_generale >= 10 and not is_premier_cycle or is_premier_cycle and moy_generale >= 5 %}rgba(46,125,50,0.06){% else %}rgba(198,40,40,0.06){% endif %};border-color:{% if moy_generale >= 10 and not is_premier_cycle or is_premier_cycle and moy_generale >= 5 %}var(--success){% else %}var(--danger){% endif %};">
   <div style="padding:16px 20px;display:flex;align-items:center;gap:16px;">
-    <div style="width:60px;height:60px;border-radius:50%;background:{% if moy_generale >= 10 %}rgba(46,125,50,0.15){% else %}rgba(198,40,40,0.12){% endif %};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
-      <span style="font-size:18px;font-weight:900;color:{% if moy_generale >= 10 %}var(--success){% else %}var(--danger){% endif %};line-height:1;">{{ moy_generale|floatformat:2 }}</span>
-      <span style="font-size:9px;color:var(--text-muted);font-weight:600;">/20</span>
+    <div style="width:60px;height:60px;border-radius:50%;background:{% if moy_generale >= 10 and not is_premier_cycle or is_premier_cycle and moy_generale >= 5 %}rgba(46,125,50,0.15){% else %}rgba(198,40,40,0.12){% endif %};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
+      <span style="font-size:18px;font-weight:900;color:{% if moy_generale >= 10 and not is_premier_cycle or is_premier_cycle and moy_generale >= 5 %}var(--success){% else %}var(--danger){% endif %};line-height:1;">{{ moy_generale|floatformat:2 }}</span>
+      <span style="font-size:9px;color:var(--text-muted);font-weight:600;">/{% if is_premier_cycle %}10{% else %}20{% endif %}</span>
     </div>
     <div>
       <div style="font-weight:800;font-size:15px;color:var(--text);">Moyenne générale</div>
-      <div style="font-size:12px;color:var(--text-muted);">{{ periode.libelle }}</div>
-      <div style="font-size:12px;font-weight:600;color:{% if moy_generale >= 10 %}var(--success){% else %}var(--danger){% endif %};margin-top:3px;">
-        {% if moy_generale >= 16 %}Excellent 🌟{% elif moy_generale >= 14 %}Très bien 👍{% elif moy_generale >= 12 %}Bien ✅{% elif moy_generale >= 10 %}Passable{% else %}Insuffisant — effort requis{% endif %}
+      <div style="font-size:12px;color:var(--text-muted);">{% if is_premier_cycle %}Composition {{ numero }} ({{ annee.libelle }}){% else %}{{ periode.libelle }}{% endif %}</div>
+      <div style="font-size:12px;font-weight:600;color:{% if moy_generale >= 10 and not is_premier_cycle or is_premier_cycle and moy_generale >= 5 %}var(--success){% else %}var(--danger){% endif %};margin-top:3px;">
+        {% if is_premier_cycle %}
+          {% if moy_generale >= 8 %}Excellent 🌟{% elif moy_generale >= 6.5 %}Très bien 👍{% elif moy_generale >= 5 %}Bien ✅{% else %}Insuffisant — effort requis{% endif %}
+        {% else %}
+          {% if moy_generale >= 16 %}Excellent 🌟{% elif moy_generale >= 14 %}Très bien 👍{% elif moy_generale >= 12 %}Bien ✅{% elif moy_generale >= 10 %}Passable{% else %}Insuffisant — effort requis{% endif %}
+        {% endif %}
       </div>
     </div>
   </div>
@@ -51,11 +65,17 @@
     {% endif %}
   {% else %}
     {% if l.moyenne_finale is not None %}
-      <div class="note-circle {% if l.moyenne_finale >= 10 %}pass{% else %}fail{% endif %}">
-        {{ l.moyenne_finale|floatformat:1 }}<small>/20</small>
-      </div>
+      {% if is_premier_cycle %}
+        <div class="note-circle {% if l.moyenne_finale >= 5 %}pass{% else %}fail{% endif %}">
+          {{ l.moyenne_finale|floatformat:1 }}<small>/10</small>
+        </div>
+      {% else %}
+        <div class="note-circle {% if l.moyenne_finale >= 10 %}pass{% else %}fail{% endif %}">
+          {{ l.moyenne_finale|floatformat:1 }}<small>/20</small>
+        </div>
+      {% endif %}
     {% else %}
-      <div class="note-circle none">—<small>/20</small></div>
+      <div class="note-circle none">—<small>/{% if is_premier_cycle %}10{% else %}20{% endif %}</small></div>
     {% endif %}
   {% endif %}
   <div style="flex:1;min-width:0;">

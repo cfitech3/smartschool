@@ -199,9 +199,8 @@ class Composition(models.Model):
         ref = self.annee.libelle if self.annee else (self.periode.libelle if self.periode else '—')
         return f"{self.eleve} — {self.matiere.nom} — {ref} — Compo {self.numero}"
 
-    def delete(self, *args, **kwargs):
-        super().delete(*args, **kwargs)
-        Composition.recalculer_moy_compo_pour(eleve, matiere, classe, periode)
+    # Pas de recalcul automatique nécessaire : le 1er cycle utilise
+    # les Compositions directement, sans passer par NotePeriode.
 
 
 class LogModificationNote(models.Model):

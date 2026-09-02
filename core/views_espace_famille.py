@@ -89,24 +89,54 @@ def espace_notes(request, eleve_pk):
     eleve = get_eleve_ou_403(request, eleve_pk)
     etab = eleve.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
-    periode_id = request.GET.get('periode')
-    periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else periodes.filter(is_active=True).first()
+    
+    inscription = eleve.get_inscription_active()
+    cycle = None
+    is_premier_cycle = False
+    if inscription and inscription.classe.niveau and inscription.classe.niveau.cycle:
+        cycle = inscription.classe.niveau.cycle
+        is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
 
-    lignes, moy_gen, total_coeffic, total_coef = ([], None, 0, 0)
-    if periode:
+    if is_premier_cycle:
+        nb_compos = cycle.nb_compositions_trimestre if cycle else 3
+        numeros = list(range(1, nb_compos + 1))
+        try:
+            numero = int(request.GET.get('numero', 1))
+        except ValueError:
+            numero = 1
+
+        from notes.services import calculer_bulletin_composition
         matieres = Matiere.objects.filter(etablissement=etab)
-        lignes, moy_gen, total_coeffic, total_coef = calculer_bulletin(eleve, periode, matieres)
-        # IDs des notes pour permettre la reclamation
+        lignes, moy_gen, _, _ = calculer_bulletin_composition(eleve, annee, numero, matieres)
+        
+        # Adaptation pour le template notes.html
         for l in lignes:
-            note_obj = NotePeriode.objects.filter(eleve=eleve, matiere=l['matiere'], periode=periode).first()
-            l['note_id'] = note_obj.pk if note_obj else None
-            l['a_reclamation'] = Reclamation.objects.filter(note_periode=note_obj).exists() if note_obj else False
+            l['note_id'] = None
+            l['a_reclamation'] = False
+            l['moyenne_finale'] = l['note']
+            
+        return render(request, 'core/famille/notes.html', {
+            'eleve': eleve, 'annee': annee, 'numeros': numeros, 'numero': numero,
+            'lignes': lignes, 'moy_generale': moy_gen, 'is_premier_cycle': True
+        })
+    else:
+        periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
+        periode_id = request.GET.get('periode')
+        periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else periodes.filter(is_active=True).first()
 
-    return render(request, 'core/famille/notes.html', {
-        'eleve': eleve, 'periodes': periodes, 'periode': periode,
-        'lignes': lignes, 'moy_generale': moy_gen,
-    })
+        lignes, moy_gen = [], None
+        if periode:
+            matieres = Matiere.objects.filter(etablissement=etab)
+            lignes, moy_gen, _, _ = calculer_bulletin(eleve, periode, matieres)
+            for l in lignes:
+                note_obj = NotePeriode.objects.filter(eleve=eleve, matiere=l['matiere'], periode=periode).first()
+                l['note_id'] = note_obj.pk if note_obj else None
+                l['a_reclamation'] = Reclamation.objects.filter(note_periode=note_obj).exists() if note_obj else False
+
+        return render(request, 'core/famille/notes.html', {
+            'eleve': eleve, 'periodes': periodes, 'periode': periode,
+            'lignes': lignes, 'moy_generale': moy_gen, 'is_premier_cycle': False
+        })
 
 
 @login_required
@@ -128,9 +158,22 @@ def espace_absences(request, eleve_pk):
 @require_famille
 def espace_bulletin(request, eleve_pk, periode_pk):
     eleve = get_eleve_ou_403(request, eleve_pk)
-    # Reutilise directement la vue bulletin existante (lecture seule, format imprimable)
-    from notes.views_notes import bulletin_eleve
-    return bulletin_eleve(request, eleve_pk=eleve.pk, periode_pk=periode_pk)
+    
+    inscription = eleve.get_inscription_active()
+    is_premier_cycle = False
+    if inscription and inscription.classe.niveau and inscription.classe.niveau.cycle:
+        cycle = inscription.classe.niveau.cycle
+        is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+
+    if is_premier_cycle:
+        from notes.views_notes import bulletin_composition
+        etab = eleve.etablissement
+        annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
+        # Le paramètre periode_pk fait office de numero pour le 1er cycle
+        return bulletin_composition(request, eleve_pk=eleve.pk, annee_pk=annee.pk, numero=periode_pk)
+    else:
+        from notes.views_notes import bulletin_eleve
+        return bulletin_eleve(request, eleve_pk=eleve.pk, periode_pk=periode_pk)
 
 
 @login_required

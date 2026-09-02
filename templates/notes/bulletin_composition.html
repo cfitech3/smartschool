@@ -116,7 +116,7 @@
     <tr>
       <td style="font-weight:600;">{{ l.matiere.nom }}</td>
       <td class="moy-cell {% if l.note is not None %}{% if l.note >= 5 %}ok{% else %}ko{% endif %}{% endif %}">{% if l.note is not None %}{{ l.note|floatformat:2 }}{% else %}—{% endif %}</td>
-      <td style="text-align:center;">{{ l.matiere.coefficient }}</td>
+      <td style="text-align:center;">{{ l.coef|default:1 }}</td>
       <td class="moy-cell">{% if l.moy_coeffic is not None %}{{ l.moy_coeffic|floatformat:2 }}{% else %}—{% endif %}</td>
       <td style="text-align:center;font-size:10px;">{{ l.appreciation|default:"—" }}</td>
     </tr>

@@ -44,12 +44,43 @@ def _get_classe_suivante(classe_actuelle):
 def _calculer_moyenne_annuelle(eleve, classe, annee):
     """
     Calcule la moyenne annuelle d'un élève sur TOUTES les périodes
-    de l'année scolaire concernée (1er, 2e, 3e trimestre...), pas
-    seulement la période actuellement marquée comme active.
-    Une seule période est "active" à la fois dans le système — se
-    limiter à is_active donnerait une moyenne annuelle fausse basée
-    sur un seul trimestre.
+    de l'année scolaire concernée.
+
+    Pour le 1er cycle (compositions /10, coef=1) :
+      → Moyenne de toutes les compositions de l'année scolaire.
+
+    Pour les autres cycles (NotePeriode /20+/40) :
+      → Moyenne des moyennes trimestrielles.
     """
+    # Détecter le cycle
+    cycle = None
+    if classe.niveau and classe.niveau.cycle:
+        cycle = classe.niveau.cycle
+
+    # ── 1ER CYCLE : Compositions /10 ─────────────────────────────
+    if cycle and cycle.is_premier_cycle and cycle.utilise_compositions_multiples:
+        from notes.models import Composition
+        from decimal import Decimal
+        compos = Composition.objects.filter(
+            eleve=eleve, classe=classe, annee=annee
+        ).exclude(note__isnull=True).select_related('matiere')
+
+        if not compos.exists():
+            return None
+
+        total_notes = Decimal('0')
+        count = 0
+        for c in compos:
+            # note sur 10, coef=1 pour le 1er cycle
+            note_sur_10 = (c.note / c.note_max) * 10
+            total_notes += note_sur_10
+            count += 1
+
+        if count == 0:
+            return None
+        return round(float(total_notes / count), 2)
+
+    # ── AUTRES CYCLES : NotePeriode classique ────────────────────
     periodes = Periode.objects.filter(etablissement=classe.etablissement, annee=annee)
     if not periodes.exists():
         return None

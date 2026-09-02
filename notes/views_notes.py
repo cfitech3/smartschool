@@ -193,9 +193,10 @@ def saisie_notes_mali(request):
             item = {'eleve': insc.eleve, 'note': note, 'peut_modifier': peut, 'raison': raison}
 
             if compositions_multiples and not matiere.is_conduite:
+                # 1er cycle : les compositions sont liées à l'année scolaire, pas à la période
                 compos_existantes = {
                     c.numero: c for c in Composition.objects.filter(
-                        eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode
+                        eleve=insc.eleve, matiere=matiere, classe=classe, annee=annee
                     )
                 }
                 item['compos_list'] = [
@@ -261,12 +262,14 @@ def saisie_notes_mali(request):
                     except InvalidOperation:
                         messages.warning(request, f"Format Compo {numero} invalide pour {insc.eleve.nom_complet}.")
                         continue
-                    if not (0 <= val_cc <= 20):
-                        messages.warning(request, f"Compo {numero} hors plage (0-20) ignorée pour {insc.eleve.nom_complet}.")
+                    if not (0 <= val_cc <= 10):
+                        messages.warning(request, f"Compo {numero} hors plage (0-10) ignorée pour {insc.eleve.nom_complet}.")
                         continue
+                    # Lier la composition à l'année scolaire (pas à la période)
+                    # et stocker avec note_max=10
                     Composition.objects.update_or_create(
-                        eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode, numero=numero,
-                        defaults={'note': val_cc, 'note_max': 20, 'saisi_par': request.user},
+                        eleve=insc.eleve, matiere=matiere, classe=classe, annee=annee, numero=numero,
+                        defaults={'note': val_cc, 'note_max': 10, 'saisi_par': request.user},
                     )
                     touche = True
 
@@ -451,6 +454,13 @@ def bulletins_classe_mali(request):
     classe  = get_object_or_404(Classe,  pk=classe_id,  etablissement=etab) if classe_id  else None
     periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
 
+    # Détecter le cycle de la classe
+    cycle = None
+    is_premier_cycle = False
+    if classe and classe.niveau and classe.niveau.cycle:
+        cycle = classe.niveau.cycle
+        is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+
     resultats = []
     moy_premier = None
     matieres = Matiere.objects.filter(etablissement=etab)
@@ -458,9 +468,28 @@ def bulletins_classe_mali(request):
 
     if classe and periode:
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve')
-        for insc in inscriptions:
-            _, moy, _, _ = calculer_bulletin(insc.eleve, periode, matieres)
-            resultats.append({'eleve': insc.eleve, 'moyenne': moy})
+
+        if is_premier_cycle and annee:
+            # 1er cycle : calculer les moyennes depuis les Compositions /10
+            from notes.services import calculer_bulletin_composition
+            nb_compos = cycle.nb_compositions_trimestre
+            for insc in inscriptions:
+                # Moyenne sur toutes les compositions de l'année
+                total_moy = 0
+                nb_valides = 0
+                for numero in range(1, nb_compos + 1):
+                    _, moy_compo, _, _ = calculer_bulletin_composition(insc.eleve, annee, numero, matieres)
+                    if moy_compo is not None:
+                        total_moy += moy_compo
+                        nb_valides += 1
+                moy = round(total_moy / nb_valides, 2) if nb_valides > 0 else None
+                resultats.append({'eleve': insc.eleve, 'moyenne': moy})
+        else:
+            # Autres cycles : NotePeriode classique
+            for insc in inscriptions:
+                _, moy, _, _ = calculer_bulletin(insc.eleve, periode, matieres)
+                resultats.append({'eleve': insc.eleve, 'moyenne': moy})
+
         resultats.sort(key=lambda x: x['moyenne'] or 0, reverse=True)
         for i, r in enumerate(resultats, 1):
             r['rang'] = i
@@ -473,6 +502,9 @@ def bulletins_classe_mali(request):
         'resultats': resultats, 'moy_premier': moy_premier,
         'modele_actif': modele_actif,
         'classe_id': classe_id, 'periode_id': periode_id,
+        'is_premier_cycle': is_premier_cycle,
+        'annee': annee,
+        'cycle': cycle,
     })
 
 
@@ -489,8 +521,9 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
         if eleve.pk not in eleves_ok:
             messages.error(request, "Accès refusé. Ce bulletin ne vous appartient pas.")
             return redirect('dashboard')
-            
-    annee = get_object_or_404(AnneeScolaire, pk=annee_pk, etablissement=etab)
+
+    periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
+    annee = periode.annee
     inscription = eleve.get_inscription_active()
     
     from .services import get_matieres_pour_eleve
@@ -585,6 +618,7 @@ def bulletin_composition(request, eleve_pk, annee_pk, numero):
         return redirect('bulletins_classe_mali')
 
     from .services import get_matieres_pour_eleve, calculer_bulletin_composition
+    # Pour le 1er cycle, on récupère les matières via l'année scolaire
     matieres = get_matieres_pour_eleve(eleve, annee, inscription.classe if inscription else None)
 
     modele = ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()

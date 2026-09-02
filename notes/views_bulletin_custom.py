@@ -4,7 +4,7 @@ Génère le bulletin en utilisant les paramètres du ModeleDocument
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from etablissements.models import ModeleDocument, AnneeScolaire
-from eleves.models import Eleve
+from eleves.models import Eleve, Inscription
 from notes.models import Matiere, Periode
 from notes.services import calculer_bulletin, get_matieres_pour_eleve
 
@@ -24,12 +24,26 @@ def require_etab(fn):
 def bulletin_custom(request, eleve_pk, periode_pk, modele_pk=None):
     etab = request.etablissement
     eleve = get_object_or_404(Eleve, pk=eleve_pk, etablissement=etab)
-    periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
     inscription = eleve.get_inscription_active()
-    
+
+    is_premier_cycle = False
+    if inscription and inscription.classe.niveau and inscription.classe.niveau.cycle:
+        cycle = inscription.classe.niveau.cycle
+        is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+
     classe_pour_matieres = inscription.classe if inscription else None
-    matieres = get_matieres_pour_eleve(eleve, periode, classe_pour_matieres)
+
+    if is_premier_cycle:
+        numero = periode_pk
+        matieres = get_matieres_pour_eleve(eleve, annee, classe_pour_matieres)
+        from notes.services import calculer_bulletin_composition
+        lignes, moy_generale, total_coeffic, total_coef = calculer_bulletin_composition(eleve, annee, numero, matieres)
+        periode = None
+    else:
+        periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
+        matieres = get_matieres_pour_eleve(eleve, periode, classe_pour_matieres)
+        lignes, moy_generale, total_coeffic, total_coef = calculer_bulletin(eleve, periode, matieres)
 
     # Récupérer le modèle actif ou spécifié
     if modele_pk:
@@ -41,13 +55,11 @@ def bulletin_custom(request, eleve_pk, periode_pk, modele_pk=None):
             is_actif=True
         ).first()
 
-    lignes, moy_generale, total_coeffic, total_coef = calculer_bulletin(eleve, periode, matieres)
-
     # Rang + moy premier
     rang = None
     moy_premier = None
     effectif = 0
-    if inscription:
+    if inscription and not is_premier_cycle:
         classe = inscription.classe
         effectif = classe.inscriptions.filter(is_active=True).count()
         
@@ -65,12 +77,18 @@ def bulletin_custom(request, eleve_pk, periode_pk, modele_pk=None):
 
     appre_directeur = ''
     if moy_generale is not None:
-        if moy_generale >= 16:   appre_directeur = 'Excellent Travail'
-        elif moy_generale >= 14: appre_directeur = 'Bon Travail'
-        elif moy_generale >= 12: appre_directeur = 'Travail Assez Bien'
-        elif moy_generale >= 10: appre_directeur = 'Travail Passable'
-        elif moy_generale >= 6:  appre_directeur = 'Travail Insuffisant'
-        else:                     appre_directeur = 'Travail Très Insuffisant'
+        if is_premier_cycle:
+            if moy_generale >= 8: appre_directeur = 'Excellent Travail'
+            elif moy_generale >= 6.5: appre_directeur = 'Bon Travail'
+            elif moy_generale >= 5: appre_directeur = 'Travail Passable'
+            else: appre_directeur = 'Travail Insuffisant'
+        else:
+            if moy_generale >= 16:   appre_directeur = 'Excellent Travail'
+            elif moy_generale >= 14: appre_directeur = 'Bon Travail'
+            elif moy_generale >= 12: appre_directeur = 'Travail Assez Bien'
+            elif moy_generale >= 10: appre_directeur = 'Travail Passable'
+            elif moy_generale >= 6:  appre_directeur = 'Travail Insuffisant'
+            else:                     appre_directeur = 'Travail Très Insuffisant'
 
     return render(request, 'notes/bulletin_custom.html', {
         'eleve': eleve, 'periode': periode, 'annee': annee,

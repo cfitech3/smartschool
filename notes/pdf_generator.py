@@ -88,7 +88,8 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
     elements.append(Spacer(1, 0.5*cm))
     
     # Titre du bulletin
-    titre_bulletin = f"BULLETIN DE NOTES — {periode.libelle.upper()} — {annee.libelle if annee else ''}"
+    titre_periode = periode.libelle.upper() if periode else "PÉRIODE"
+    titre_bulletin = f"BULLETIN DE NOTES — {titre_periode} — {annee.libelle if annee else ''}"
     elements.append(Paragraph(titre_bulletin, subtitle_style))
     elements.append(Spacer(1, 0.5*cm))
     

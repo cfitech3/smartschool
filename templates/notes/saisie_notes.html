@@ -66,9 +66,9 @@
       {% elif compositions_multiples %}
       <th style="text-align:center;min-width:110px;">Moy.Classe /20</th>
       {% for numero in compo_numeros %}
-      <th style="text-align:center;min-width:90px;">Compo {{ numero }} /20</th>
+      <th style="text-align:center;min-width:90px;">Compo {{ numero }} /10</th>
       {% endfor %}
-      <th style="text-align:center;min-width:110px;background:var(--bg);">Moy.Compo /40</th>
+      <th style="text-align:center;min-width:110px;background:var(--bg);">Moy.Compo /10</th>
       <th style="text-align:center;min-width:100px;">Moy.Finale</th>
       <th style="text-align:center;min-width:90px;">Moy.Coeff</th>
       {% else %}
@@ -111,7 +111,7 @@
     {% for c in item.compos_list %}
     <td style="text-align:center;">
       {% if item.peut_modifier %}
-      <input type="number" name="compo{{ c.numero }}_{{ item.eleve.pk }}" class="form-control" style="width:75px;margin:0 auto;text-align:center;font-weight:600;font-size:14px;" min="0" max="20" step="0.5"
+      <input type="number" name="compo{{ c.numero }}_{{ item.eleve.pk }}" class="form-control" style="width:75px;margin:0 auto;text-align:center;font-weight:600;font-size:14px;" min="0" max="10" step="0.25"
         value="{% if c.objet and c.objet.note is not None %}{{ c.objet.note }}{% endif %}" placeholder="—">
       {% else %}&nbsp;{% endif %}
     </td>

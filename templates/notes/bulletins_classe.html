@@ -96,11 +96,18 @@
       </td>
       <td style="text-align:center;">
         {% if r.moyenne %}
-          {% if r.moyenne >= 16 %}<span class="badge badge-success">🌟 Très Bien</span>
-          {% elif r.moyenne >= 14 %}<span class="badge badge-info">👍 Bien</span>
-          {% elif r.moyenne >= 12 %}<span class="badge badge-primary">✅ Assez Bien</span>
-          {% elif r.moyenne >= 10 %}<span class="badge badge-warning">⚠️ Passable</span>
-          {% else %}<span class="badge badge-danger">❌ Insuffisant</span>{% endif %}
+          {% if is_premier_cycle %}
+            {% if r.moyenne >= 8 %}<span class="badge badge-success">🌟 Très Bien</span>
+            {% elif r.moyenne >= 6.5 %}<span class="badge badge-info">👍 Bien</span>
+            {% elif r.moyenne >= 5 %}<span class="badge badge-warning">⚠️ Passable</span>
+            {% else %}<span class="badge badge-danger">❌ Insuffisant</span>{% endif %}
+          {% else %}
+            {% if r.moyenne >= 16 %}<span class="badge badge-success">🌟 Très Bien</span>
+            {% elif r.moyenne >= 14 %}<span class="badge badge-info">👍 Bien</span>
+            {% elif r.moyenne >= 12 %}<span class="badge badge-primary">✅ Assez Bien</span>
+            {% elif r.moyenne >= 10 %}<span class="badge badge-warning">⚠️ Passable</span>
+            {% else %}<span class="badge badge-danger">❌ Insuffisant</span>{% endif %}
+          {% endif %}
         {% else %}—{% endif %}
       </td>
       <td style="text-align:center;">
@@ -108,7 +115,11 @@
         {% else %}<span class="badge badge-warning" title="Aucune note">⚠️ Incomplet</span>{% endif %}
       </td>
       <td>
-        <a href="{% url 'bulletin_eleve' r.eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm">📄 Ouvrir</a>
+        {% if is_premier_cycle %}
+          <a href="{% url 'bulletin_composition' r.eleve.pk annee.pk 1 %}" target="_blank" class="btn btn-primary btn-sm">📄 Ouvrir</a>
+        {% else %}
+          <a href="{% url 'bulletin_eleve' r.eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm">📄 Ouvrir</a>
+        {% endif %}
       </td>
     </tr>
     {% endfor %}
@@ -213,7 +224,11 @@ function imprimerTous(){
   {% if resultats %}
   const total = {{ resultats|length }};
   if (!confirm(`Cela va ouvrir ${total} onglet(s). Continuer ?`)) return;
+  {% if is_premier_cycle %}
+  const urls=[{% for r in resultats %}"{% url 'bulletin_composition' r.eleve.pk annee.pk 1 %}",{% endfor %}];
+  {% else %}
   const urls=[{% for r in resultats %}"{% url 'bulletin_eleve' r.eleve.pk periode.pk %}",{% endfor %}];
+  {% endif %}
   urls.forEach((url,i)=>setTimeout(()=>window.open(url,'_blank'),i*400));
   {% endif %}
 }
