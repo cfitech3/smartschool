@@ -90,8 +90,7 @@ def creer_division(request):
                     dir_user = User.objects.get(pk=dir_pk, etablissement=etab)
                     div.directeur_user = dir_user
                     div.save()
-                    dir_user.division = div
-                    dir_user.save()
+                    dir_user.divisions.add(div)
                 except User.DoesNotExist:
                     pass
             messages.success(request, f"Division '{nom}' créée.")
@@ -140,9 +139,9 @@ def modifier_division(request, pk):
                 div.directeur_user = dir_user
                 div.save()
                 # Mettre à jour le lien sur l'user
-                User.objects.filter(etablissement=etab, division=div).update(division=None)
-                dir_user.division = div
-                dir_user.save()
+                for u in div.utilisateurs.all():
+                    u.divisions.remove(div)
+                dir_user.divisions.add(div)
             except User.DoesNotExist:
                 pass
         else:
