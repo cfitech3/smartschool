@@ -8,7 +8,7 @@ from reportlab.lib.units import cm
 from django.conf import settings
 from django.utils.html import strip_tags
 
-def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lignes, moy_generale, total_coeffic, total_coef, rang, effectif, appre_directeur, modele=None):
+def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lignes, moy_generale, total_coeffic, total_coef, rang, effectif, appre_directeur, modele=None, is_premier_cycle=False, moy_premier=None):
     """Génère le bulletin en PDF avec ReportLab."""
     doc = SimpleDocTemplate(
         response,
@@ -114,21 +114,30 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
     elements.append(Spacer(1, 0.5*cm))
     
     # 3. Tableau des notes
-    headers = ["Matières", "Moy.\nClasse (/20)", "Moy.\nCompo (/40)", "Moy.\nFinale (/20)", "Coef", "Moy x Coef", "Appréciations"]
+    if is_premier_cycle:
+        headers = ["Matières", "Note /10", "Coef", "Moy x Coef", "Appréciations"]
+    else:
+        headers = ["Matières", "Moy.\nClasse (/20)", "Moy.\nCompo (/40)", "Moy.\nFinale (/20)", "Coef", "Moy x Coef", "Appréciations"]
     data_notes = [headers]
     
     for ligne in lignes:
-        matiere = ligne['matiere'].nom[:20] # Truncate if too long
-        moy_c = f"{ligne['moy_classe']:.2f}" if ligne['moy_classe'] is not None else "-"
-        moy_cmp = f"{ligne['moy_compo']:.2f}" if ligne['moy_compo'] is not None else "-"
-        moy_f = f"{ligne['moyenne_finale']:.2f}" if ligne.get('moyenne_finale') is not None else "-"
+        matiere = ligne['matiere'].nom[:20]
         coef = str(ligne.get('coef', ligne.get('coefficient', ligne.get('matiere').coefficient if ligne.get('matiere') else '')))
         coeffic = f"{ligne['moy_coeffic']:.2f}" if ligne.get('moy_coeffic') is not None else "-"
         appre = ligne.get('appre', ligne.get('appreciation', ''))
+        if is_premier_cycle:
+            note_val = f"{ligne['note']:.2f}" if ligne.get('note') is not None else "-"
+            data_notes.append([matiere, note_val, coef, coeffic, appre])
+        else:
+            moy_c = f"{ligne['moy_classe']:.2f}" if ligne['moy_classe'] is not None else "-"
+            moy_cmp = f"{ligne['moy_compo']:.2f}" if ligne['moy_compo'] is not None else "-"
+            moy_f = f"{ligne['moyenne_finale']:.2f}" if ligne.get('moyenne_finale') is not None else "-"
+            data_notes.append([matiere, moy_c, moy_cmp, moy_f, coef, coeffic, appre])
         
-        data_notes.append([matiere, moy_c, moy_cmp, moy_f, coef, coeffic, appre])
-        
-    t_notes = Table(data_notes, colWidths=[4.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 1.5*cm, 2*cm, 3*cm])
+    if is_premier_cycle:
+        t_notes = Table(data_notes, colWidths=[5*cm, 3*cm, 2*cm, 3*cm, 5.5*cm])
+    else:
+        t_notes = Table(data_notes, colWidths=[4.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 1.5*cm, 2*cm, 3*cm])
     t_notes.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#E3E8EF')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.HexColor('#1A237E')),
@@ -147,19 +156,13 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
     elements.append(Spacer(1, 0.5*cm))
     
     # 4. Tableau Récapitulatif (Moyenne, Rang)
+    moy_sur = "/10" if is_premier_cycle else "/20"
     data_recap = [
-        ["TOTAL MOY X COEF", f"{total_coeffic:.2f}" if total_coeffic else "-", "MOYENNE GÉNÉRALE", f"{moy_generale:.2f}/20" if moy_generale else "-"],
+        ["TOTAL MOY X COEF", f"{total_coeffic:.2f}" if total_coeffic else "-", "MOYENNE GÉNÉRALE", f"{moy_generale:.2f}{moy_sur}" if moy_generale else "-"],
         ["TOTAL COEFF.", str(total_coef) if total_coef else "-", "RANG DANS LA CLASSE", f"{rang} / {effectif}" if rang else "-"],
-        ["APPRÉCIATION DIRECTEUR", appre_directeur, "MOYENNE DU PREMIER", f"{moy_premier:.2f}/20" if 'moy_premier' in locals() and moy_premier else "-"]
+        ["APPRÉCIATION DIRECTEUR", appre_directeur, "MOYENNE DU PREMIER", f"{moy_premier:.2f}{moy_sur}" if moy_premier else "-"]
     ]
-    # Handle moy_premier if missing gracefully
-    try:
-        from django.db.models import Sum # just to avoid import errors if needed elsewhere
-        mp = f"{moy_premier:.2f}/20" if moy_premier else "-"
-    except:
-        mp = "-"
-    data_recap[2][3] = mp
-    
+
     t_recap = Table(data_recap, colWidths=[5*cm, 3.5*cm, 6*cm, 3.5*cm])
     t_recap.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#E3E8EF')),

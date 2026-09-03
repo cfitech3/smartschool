@@ -59,20 +59,31 @@ def bulletin_custom(request, eleve_pk, periode_pk, modele_pk=None):
     rang = None
     moy_premier = None
     effectif = 0
-    if inscription and not is_premier_cycle:
+    if inscription:
         classe = inscription.classe
         effectif = classe.inscriptions.filter(is_active=True).count()
-        
-        # P2.5 : Utilisation de calculer_rangs_classe en O(n)
-        from notes.views_notes import calculer_rangs_classe
-        rangs_classe = calculer_rangs_classe(classe, periode, matieres)
-        rang = rangs_classe.get(eleve.pk)
 
-        if rangs_classe:
-            # Retrouver la moyenne du premier élève
-            pk_premier = next((pk for pk, r in rangs_classe.items() if r == 1), None)
-            if pk_premier is not None:
-                _, moy_premier, _, _ = calculer_bulletin(Eleve.objects.get(pk=pk_premier), periode, matieres)
+        if is_premier_cycle:
+            # 1er cycle : rang basé sur les Compositions
+            from notes.views_notes import calculer_rangs_classe_composition
+            rangs_classe = calculer_rangs_classe_composition(classe, annee, numero, matieres)
+            rang = rangs_classe.get(eleve.pk)
+            if rangs_classe:
+                pk_premier = next((pk for pk, r in rangs_classe.items() if r == 1), None)
+                if pk_premier is not None:
+                    from notes.services import calculer_bulletin_composition
+                    _, moy_premier, _, _ = calculer_bulletin_composition(
+                        Eleve.objects.get(pk=pk_premier), annee, numero, matieres
+                    )
+        else:
+            # Autres cycles : rang basé sur NotePeriode
+            from notes.views_notes import calculer_rangs_classe
+            rangs_classe = calculer_rangs_classe(classe, periode, matieres)
+            rang = rangs_classe.get(eleve.pk)
+            if rangs_classe:
+                pk_premier = next((pk for pk, r in rangs_classe.items() if r == 1), None)
+                if pk_premier is not None:
+                    _, moy_premier, _, _ = calculer_bulletin(Eleve.objects.get(pk=pk_premier), periode, matieres)
 
 
     appre_directeur = ''

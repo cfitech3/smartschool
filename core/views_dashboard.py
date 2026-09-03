@@ -122,7 +122,7 @@ def _dashboard_admin(request, etab, annee, today):
     stats = {}
     stats['total_eleves']     = get_eleves_actifs(etab, annee).count()  # Fix: filtre par année active
     stats['total_enseignants']= User.objects.filter(etablissement=etab, role='enseignant', is_active=True).count()
-    stats['total_classes']    = get_classes_actives(etab, annee).count() if annee else 0
+    stats['total_classes']    = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
     stats['total_staff']      = User.objects.filter(etablissement=etab, is_active=True).exclude(
         role__in=['parent', 'eleve', 'admin', 'super_admin']
     ).count()
@@ -197,7 +197,7 @@ def _dashboard_admin(request, etab, annee, today):
 
     classes_data = []
     if annee:
-        classes_data = get_classes_actives(etab, annee).annotate(
+        classes_data = get_classes_actives(etab, annee, user=request.user).annotate(
             nb=Count('inscriptions', filter=Q(inscriptions__is_active=True))
         ).order_by('niveau__ordre', 'nom')[:8]
 
@@ -219,7 +219,7 @@ def _dashboard_secretariat(request, etab, annee, today):
     cycles_ids = get_cycles_actifs_ids(etab)
     stats = {}
     stats['total_eleves']  = get_eleves_actifs(etab, annee).count()  # Fix: filtre par année active
-    stats['total_classes'] = get_classes_actives(etab, annee).count() if annee else 0
+    stats['total_classes'] = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
     stats['presents_today'] = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='present').count()
     stats['absents_today']  = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='absent').count()
     stats['retards_today']  = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='retard').count()
@@ -398,7 +398,7 @@ def _dashboard_surveillant(request, etab, annee, today):
     stats['retards_today']  = Presence.objects.filter(
         classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='retard'
     ).count()
-    stats['total_classes']  = get_classes_actives(etab, annee).count() if annee else 0
+    stats['total_classes']  = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
     stats['total_eleves']   = get_eleves_actifs(etab, annee).count()  # Fix: filtre par année active
 
     # Taux de présence
@@ -407,7 +407,7 @@ def _dashboard_surveillant(request, etab, annee, today):
 
     # Classes sans appel aujourd'hui
     if annee:
-        toutes = get_classes_actives(etab, annee)
+        toutes = get_classes_actives(etab, annee, user=request.user)
         avec_appel = Presence.objects.filter(
             classe__etablissement=etab, date=today
         ).values_list('classe_id', flat=True).distinct()

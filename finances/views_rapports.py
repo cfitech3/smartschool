@@ -84,7 +84,7 @@ def rapport_bilan_annuel(request):
 
     # Stats élèves
     nb_eleves = get_eleves_actifs(etab).count()
-    nb_classes = get_classes_actives(etab, annee).count() if annee else 0
+    nb_classes = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
     eleves_jamais_payes = get_eleves_actifs(etab).exclude(
         pk__in=Paiement.objects.filter(
             etablissement=etab, statut='valide',

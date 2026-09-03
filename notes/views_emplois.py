@@ -19,7 +19,7 @@ def req(fn):
 @req
 def emploi_du_temps(request):
     etab=request.etablissement; annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    classes=get_classes_actives(etab, annee) if annee else []
+    classes=get_classes_actives(etab, annee, user=request.user) if annee else []
     matieres=Matiere.objects.filter(etablissement=etab); enseignants=Enseignant.objects.filter(etablissement=etab).select_related("user")
     classe_id=request.GET.get("classe"); classe=get_object_or_404(Classe,pk=classe_id,etablissement=etab) if classe_id else None
     creneaux={}

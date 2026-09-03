@@ -113,7 +113,7 @@ def assistant_fin_annee(request):
     etab = request.etablissement
     annees = AnneeScolaire.objects.filter(etablissement=etab).order_by('-date_debut')
     annee_active = annees.filter(is_active=True).first()
-    classes = get_classes_actives(etab, annee_active) if annee_active else []
+    classes = get_classes_actives(etab, annee_active, user=request.user) if annee_active else []
 
     classe_actuelle_id = request.GET.get('classe_actuelle') or request.POST.get('classe_actuelle')
     annee_suivante_id  = request.GET.get('annee_suivante')  or request.POST.get('annee_suivante')

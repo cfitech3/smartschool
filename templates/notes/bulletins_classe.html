@@ -19,15 +19,22 @@
 
 <!-- Filtre classe + période -->
 <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:14px 18px;">
-<form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+<form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;" id="form-filtre-bulletins">
   <div style="flex:1;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Classe</label>
-  <select name="classe" class="form-control"><option value="">-- Classe --</option>
+  <select name="classe" class="form-control" onchange="this.form.submit()"><option value="">-- Classe --</option>
   {% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}
   </select></div>
+  {% if is_premier_cycle %}
+  <div style="flex:1;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Composition N°</label>
+  <select name="numero" class="form-control"><option value="">-- Composition --</option>
+  {% for n in compo_numeros %}<option value="{{ n }}"{% if numero == n %} selected{% endif %}>Composition {{ n }}</option>{% endfor %}
+  </select></div>
+  {% else %}
   <div style="flex:1;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Période</label>
   <select name="periode" class="form-control"><option value="">-- Période --</option>
   {% for p in periodes %}<option value="{{ p.pk }}"{% if periode_id == p.pk|stringformat:"s" %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}
   </select></div>
+  {% endif %}
   <button type="submit" class="btn btn-primary">Afficher</button>
 </form>
 </div></div>
@@ -53,10 +60,13 @@
 <div class="card">
   <div class="card-header" style="flex-wrap:wrap;gap:10px;">
     <div>
-      <span class="card-title">{{ classe.nom }} — {{ periode.libelle }}</span>
+      <span class="card-title">
+        {{ classe.nom }} —
+        {% if is_premier_cycle %}Composition {{ numero }}{% else %}{{ periode.libelle }}{% endif %}
+      </span>
       <div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">
         {{ resultats|length }} élève(s) —
-        Moy. du 1er : {% if moy_premier %}<strong style="color:var(--success);">{{ moy_premier|floatformat:2 }}/20</strong>{% else %}—{% endif %}
+        Moy. du 1er : {% if moy_premier %}<strong style="color:var(--success);">{{ moy_premier|floatformat:2 }}{% if is_premier_cycle %}/10{% else %}/20{% endif %}</strong>{% else %}—{% endif %}
       </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -90,8 +100,8 @@
         <div style="font-size:11px;color:var(--text-muted);">{{ r.eleve.matricule }}</div>
       </td>
       <td style="text-align:center;">
-        <span style="font-size:20px;font-weight:800;color:{% if r.moyenne and r.moyenne >= 10 %}var(--success){% elif r.moyenne %}var(--danger){% else %}var(--text-muted){% endif %};">
-          {% if r.moyenne %}{{ r.moyenne|floatformat:2 }}/20{% else %}—{% endif %}
+        <span style="font-size:20px;font-weight:800;color:{% if r.moyenne and r.moyenne >= 10 and not is_premier_cycle %}var(--success){% elif r.moyenne and is_premier_cycle and r.moyenne >= 5 %}var(--success){% elif r.moyenne %}var(--danger){% else %}var(--text-muted){% endif %};">
+          {% if r.moyenne %}{{ r.moyenne|floatformat:2 }}{% if is_premier_cycle %}/10{% else %}/20{% endif %}{% else %}—{% endif %}
         </span>
       </td>
       <td style="text-align:center;">
@@ -116,7 +126,7 @@
       </td>
       <td>
         {% if is_premier_cycle %}
-          <a href="{% url 'bulletin_composition' r.eleve.pk annee.pk 1 %}" target="_blank" class="btn btn-primary btn-sm">📄 Ouvrir</a>
+          <a href="{% url 'bulletin_composition' r.eleve.pk annee.pk numero %}" target="_blank" class="btn btn-primary btn-sm">📄 Ouvrir</a>
         {% else %}
           <a href="{% url 'bulletin_eleve' r.eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm">📄 Ouvrir</a>
         {% endif %}
@@ -131,6 +141,12 @@
   </div>
 </div>
 
+{% elif is_premier_cycle and classe and numero %}
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
+  <div style="font-size:40px;margin-bottom:12px;">📝</div>
+  <div style="font-weight:600;">Aucune note saisie</div>
+  <a href="{% url 'saisie_notes_mali' %}?classe={{ classe_id }}&numero={{ numero }}" class="btn btn-primary btn-sm" style="margin-top:14px;">+ Saisir des notes</a>
+</div></div>
 {% elif classe and periode %}
 <div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
   <div style="font-size:40px;margin-bottom:12px;">📝</div>
@@ -140,7 +156,7 @@
 {% else %}
 <div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);">
   <div style="font-size:48px;margin-bottom:14px;">📄</div>
-  <div style="font-size:16px;font-weight:700;">Sélectionnez une classe et une période</div>
+  <div style="font-size:16px;font-weight:700;">Sélectionnez une classe et {% if is_premier_cycle %}une composition{% else %}une période{% endif %}</div>
 </div></div>
 {% endif %}
 {% endblock %}
@@ -225,7 +241,7 @@ function imprimerTous(){
   const total = {{ resultats|length }};
   if (!confirm(`Cela va ouvrir ${total} onglet(s). Continuer ?`)) return;
   {% if is_premier_cycle %}
-  const urls=[{% for r in resultats %}"{% url 'bulletin_composition' r.eleve.pk annee.pk 1 %}",{% endfor %}];
+  const urls=[{% for r in resultats %}"{% url 'bulletin_composition' r.eleve.pk annee.pk numero %}",{% endfor %}];
   {% else %}
   const urls=[{% for r in resultats %}"{% url 'bulletin_eleve' r.eleve.pk periode.pk %}",{% endfor %}];
   {% endif %}

@@ -47,7 +47,7 @@ def calculer_moyenne_eleve(eleve, periode, matieres):
 def saisie_notes(request):
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    classes = get_classes_actives(etab, annee) if annee else []
+    classes = get_classes_actives(etab, annee, user=request.user) if annee else []
     periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
     matieres = Matiere.objects.filter(etablissement=etab)
 
@@ -105,7 +105,7 @@ def saisie_notes(request):
 def releve_notes_classe(request):
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    classes = get_classes_actives(etab, annee) if annee else []
+    classes = get_classes_actives(etab, annee, user=request.user) if annee else []
     periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
 
     classe_id = request.GET.get('classe')
@@ -143,7 +143,7 @@ def releve_notes_classe(request):
 def generer_bulletins(request):
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    classes = get_classes_actives(etab, annee) if annee else []
+    classes = get_classes_actives(etab, annee, user=request.user) if annee else []
     periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
 
     classe_id = request.GET.get('classe')

@@ -28,7 +28,7 @@ def liste_eleves(request):
     if q: eleves=eleves.filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))
     if classe_id: eleves=eleves.filter(inscriptions__classe_id=classe_id,inscriptions__is_active=True)
     if sexe: eleves=eleves.filter(sexe=sexe)
-    classes=get_classes_actives(etab, annee) if annee else []
+    classes=get_classes_actives(etab, annee, user=request.user) if annee else []
     paginator=Paginator(eleves,25); page=request.GET.get("page",1); eleves_page=paginator.get_page(page)
     return render(request,"eleves/liste.html",{"eleves":eleves_page,"classes":classes,"annee":annee,"q":q,"classe_id":classe_id,"sexe":sexe,"total":paginator.count})
 
@@ -84,7 +84,7 @@ def supprimer_eleve(request,pk):
 def liste_classes(request):
     etab=request.etablissement
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    classes=get_classes_actives(etab, annee).select_related("niveau","niveau__cycle").annotate(nb=Count("inscriptions",filter=Q(inscriptions__is_active=True))).order_by("niveau__cycle__ordre","niveau__ordre","nom") if annee else []
+    classes=get_classes_actives(etab, annee, user=request.user).select_related("niveau","niveau__cycle").annotate(nb=Count("inscriptions",filter=Q(inscriptions__is_active=True))).order_by("niveau__cycle__ordre","niveau__ordre","nom") if annee else []
     return render(request,"eleves/classes.html",{"classes":classes,"annee":annee})
 
 @login_required

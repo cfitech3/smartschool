@@ -132,6 +132,58 @@ def calculer_rangs_classe(classe, periode, matieres):
     return rangs
 
 
+def calculer_rangs_classe_composition(classe, annee, numero, matieres):
+    """
+    Calcule les rangs de tous les élèves d'une classe pour UNE composition
+    du 1er cycle fondamental. Utilise le modèle Composition (/10) au lieu
+    de NotePeriode.
+
+    Retourne un dict : {eleve_pk: rang, ...}
+    """
+    from .models import Composition
+
+    # Charger toutes les compositions de la classe/annee/numero en un seul appel DB
+    toutes_compos = (
+        Composition.objects
+        .filter(classe=classe, annee=annee, numero=numero)
+        .select_related('matiere')
+    )
+
+    # Indexer par (eleve_pk, matiere_pk)
+    index_compos = {(c.eleve_id, c.matiere_id): c for c in toutes_compos}
+
+    # Récupérer les élèves inscrits
+    inscriptions = (
+        classe.inscriptions
+        .filter(is_active=True)
+        .select_related('eleve')
+        .only('eleve__id')
+    )
+
+    moyennes = []
+    for insc in inscriptions:
+        eleve_pk = insc.eleve_id
+        total_coeffic = Decimal('0')
+        total_coef = 0
+
+        for mat in matieres:
+            if mat.is_conduite:
+                continue
+            compo = index_compos.get((eleve_pk, mat.pk))
+            if compo and compo.note is not None:
+                note_sur_10 = round((float(compo.note) / float(compo.note_max)) * 10, 2)
+                total_coeffic += Decimal(str(note_sur_10))
+                total_coef += 1  # coef forcé à 1 pour le 1er cycle
+
+        if total_coef > 0:
+            moy_gen = round(float(total_coeffic) / total_coef, 2)
+            moyennes.append((eleve_pk, moy_gen))
+
+    moyennes.sort(key=lambda x: x[1], reverse=True)
+    rangs = {eleve_pk: rang for rang, (eleve_pk, _) in enumerate(moyennes, start=1)}
+    return rangs
+
+
 
 @login_required
 @permission_required('notes')
@@ -148,7 +200,7 @@ def saisie_notes_mali(request):
         ).values_list('classe_id', flat=True)
         classes = Classe.objects.filter(etablissement=etab, annee=annee, pk__in=aff_ids)
     else:
-        classes = get_classes_actives(etab, annee) if annee else []
+        classes = get_classes_actives(etab, annee, user=request.user) if annee else []
 
     periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
 
@@ -163,33 +215,64 @@ def saisie_notes_mali(request):
     else:
         matieres = Matiere.objects.filter(etablissement=etab, is_conduite=False)
 
+    # Détecter si l'établissement est globalement 1er cycle (pour adapter le filtre dès la page d'accueil)
+    # On vérifie la classe sélectionnée EN PRIORITÉ, sinon on détecte depuis toutes les classes
     classe_id  = request.GET.get('classe')
     periode_id = request.GET.get('periode')
+    numero_str = request.GET.get('numero')  # pour le 1er cycle
     matiere_id = request.GET.get('matiere')
 
     classe  = get_object_or_404(Classe,  pk=classe_id,  etablissement=etab) if classe_id  else None
-    periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
     matiere = get_object_or_404(Matiere, pk=matiere_id, etablissement=etab) if matiere_id else None
 
-    # Détecter le cycle de la classe pour adapter le formulaire — déplacé
-    # avant eleves_data car nécessaire pour savoir si on charge les
-    # compositions multiples (1er cycle avec nb_compositions_trimestre > 1)
+    # Détecter le cycle de la classe pour adapter le formulaire
     cycle = None
     mode_calcul = 'compo'  # défaut
     if classe and classe.niveau and classe.niveau.cycle:
         cycle = classe.niveau.cycle
         mode_calcul = cycle.mode_calcul
+    elif not classe:
+        # Aucune classe sélectionnée : détecter depuis la première classe disponible
+        # Si l'établissement n'a que des classes 1er cycle, on affiche Composition dès l'ouverture
+        premiere_classe = Classe.objects.filter(
+            etablissement=etab, annee=annee
+        ).select_related('niveau__cycle').first()
+        if premiere_classe and premiere_classe.niveau and premiere_classe.niveau.cycle:
+            cycle = premiere_classe.niveau.cycle
+            mode_calcul = cycle.mode_calcul
     compositions_multiples = bool(cycle and cycle.utilise_compositions_multiples)
     compo_numeros = list(range(1, cycle.nb_compositions_trimestre + 1)) if compositions_multiples else []
+    nb_compositions = cycle.nb_compositions_trimestre if compositions_multiples else 0
+    is_premier_cycle = bool(cycle and cycle.is_premier_cycle and cycle.utilise_compositions_multiples)
+
+    # Si 1er cycle : on utilise 'numero' (numéro de composition) au lieu de 'periode'
+    # Si autre cycle : on utilise 'periode' (clé de Periode)
+    if is_premier_cycle:
+        numero = int(numero_str) if numero_str and numero_str.isdigit() else None
+        periode = None  # pas de Periode pour le 1er cycle
+    else:
+        numero = None
+        periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
 
     eleves_data = []
-    if classe and periode and matiere:
+    # 1er cycle : charger les élèves si classe + matiere + numero valides
+    # Autres cycles : charger si classe + periode + matiere
+    peut_afficher = (
+        (is_premier_cycle and classe and numero and matiere) or
+        (not is_premier_cycle and classe and periode and matiere)
+    )
+    if peut_afficher:
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve').order_by('eleve__nom')
         for insc in inscriptions:
-            note = NotePeriode.objects.filter(eleve=insc.eleve, matiere=matiere, periode=periode, classe=classe).first()
-            peut, raison = peut_modifier_note(
-                request.user, note_periode=note, matiere=matiere, classe=classe, periode=periode
-            )
+            if is_premier_cycle:
+                # Pour le 1er cycle : pas de NotePeriode, seulement Compositions
+                note = None
+                peut, raison = True, None  # permission gérée à la soumission
+            else:
+                note = NotePeriode.objects.filter(eleve=insc.eleve, matiere=matiere, periode=periode, classe=classe).first()
+                peut, raison = peut_modifier_note(
+                    request.user, note_periode=note, matiere=matiere, classe=classe, periode=periode
+                )
             item = {'eleve': insc.eleve, 'note': note, 'peut_modifier': peut, 'raison': raison}
 
             if compositions_multiples and not matiere.is_conduite:
@@ -205,7 +288,7 @@ def saisie_notes_mali(request):
 
             eleves_data.append(item)
 
-    if request.method == 'POST' and classe and periode and matiere:
+    if request.method == 'POST' and classe and matiere and (periode or (is_premier_cycle and numero)):
         note_max_c = Decimal(request.POST.get('note_max_classe', '20'))
         note_max_n = Decimal(request.POST.get('note_max_compo', '40'))
         saved = 0
@@ -385,6 +468,8 @@ def saisie_notes_mali(request):
         if modifiees and (request.user.is_enseignant or request.user.is_surveillant):
             msg += " — Le directeur a ete notifie"
         messages.success(request, msg)
+        if is_premier_cycle:
+            return redirect(f"{request.path}?classe={classe_id}&numero={numero}&matiere={matiere_id}")
         return redirect(f"{request.path}?classe={classe_id}&periode={periode_id}&matiere={matiere_id}")
 
     return render(request, 'notes/saisie_notes.html', {
@@ -393,8 +478,13 @@ def saisie_notes_mali(request):
         'eleves_data': eleves_data,
         'compositions_multiples': compositions_multiples,
         'compo_numeros': compo_numeros,
+        'nb_compositions': nb_compositions,
+        'is_premier_cycle': is_premier_cycle,
+        'numero': numero,
+        'peut_afficher': peut_afficher,
         'classe_id': classe_id, 'periode_id': periode_id, 'matiere_id': matiere_id,
         'is_conduite': matiere.is_conduite if matiere else False,
+        'cycle': cycle, 'mode_calcul': mode_calcul,
     })
 
 
@@ -404,7 +494,7 @@ def saisie_notes_mali(request):
 def releve_notes_classe(request):
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    classes = get_classes_actives(etab, annee) if annee else []
+    classes = get_classes_actives(etab, annee, user=request.user) if annee else []
     periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
 
     classe_id  = request.GET.get('classe')
@@ -446,43 +536,65 @@ def releve_notes_classe(request):
 def bulletins_classe_mali(request):
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    classes = get_classes_actives(etab, annee) if annee else []
+    classes = get_classes_actives(etab, annee, user=request.user) if annee else []
     periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
 
     classe_id  = request.GET.get('classe')
     periode_id = request.GET.get('periode')
+    numero_str = request.GET.get('numero')  # pour le 1er cycle
     classe  = get_object_or_404(Classe,  pk=classe_id,  etablissement=etab) if classe_id  else None
-    periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
 
     # Détecter le cycle de la classe
     cycle = None
     is_premier_cycle = False
+    nb_compositions = 0
+    compo_numeros = []
     if classe and classe.niveau and classe.niveau.cycle:
         cycle = classe.niveau.cycle
         is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+        if is_premier_cycle:
+            nb_compositions = cycle.nb_compositions_trimestre
+            compo_numeros = list(range(1, nb_compositions + 1))
+    elif not classe:
+        # Aucune classe sélectionnée : détecter depuis la première classe disponible
+        premiere_classe = Classe.objects.filter(
+            etablissement=etab, annee=annee
+        ).select_related('niveau__cycle').first()
+        if premiere_classe and premiere_classe.niveau and premiere_classe.niveau.cycle:
+            cycle = premiere_classe.niveau.cycle
+            is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+            if is_premier_cycle:
+                nb_compositions = cycle.nb_compositions_trimestre
+                compo_numeros = list(range(1, nb_compositions + 1))
+
+
+    # 1er cycle : utiliser 'numero', autres cycles : utiliser 'periode'
+    if is_premier_cycle:
+        numero = int(numero_str) if numero_str and numero_str.isdigit() else None
+        periode = None
+    else:
+        numero = None
+        periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
 
     resultats = []
     moy_premier = None
     matieres = Matiere.objects.filter(etablissement=etab)
     modele_actif = ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()
 
-    if classe and periode:
+    # 1er cycle : afficher si classe + numero valides
+    peut_afficher = (
+        (is_premier_cycle and classe and numero) or
+        (not is_premier_cycle and classe and periode)
+    )
+
+    if peut_afficher:
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve')
 
         if is_premier_cycle and annee:
-            # 1er cycle : calculer les moyennes depuis les Compositions /10
+            # 1er cycle : calculer depuis les Compositions /10 pour la composition choisie
             from notes.services import calculer_bulletin_composition
-            nb_compos = cycle.nb_compositions_trimestre
             for insc in inscriptions:
-                # Moyenne sur toutes les compositions de l'année
-                total_moy = 0
-                nb_valides = 0
-                for numero in range(1, nb_compos + 1):
-                    _, moy_compo, _, _ = calculer_bulletin_composition(insc.eleve, annee, numero, matieres)
-                    if moy_compo is not None:
-                        total_moy += moy_compo
-                        nb_valides += 1
-                moy = round(total_moy / nb_valides, 2) if nb_valides > 0 else None
+                _, moy, _, _ = calculer_bulletin_composition(insc.eleve, annee, numero, matieres)
                 resultats.append({'eleve': insc.eleve, 'moyenne': moy})
         else:
             # Autres cycles : NotePeriode classique
@@ -505,7 +617,11 @@ def bulletins_classe_mali(request):
         'is_premier_cycle': is_premier_cycle,
         'annee': annee,
         'cycle': cycle,
+        'numero': numero,
+        'nb_compositions': nb_compositions,
+        'compo_numeros': compo_numeros,
     })
+
 
 
 @login_required

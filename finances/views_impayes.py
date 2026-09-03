@@ -135,7 +135,7 @@ def liste_impayes(request):
     MOIS_FR = ['','Janvier','Février','Mars','Avril','Mai','Juin',
                'Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 
-    classes   = get_classes_actives(etab, annee)
+    classes   = get_classes_actives(etab, annee, user=request.user)
     types_frais = TypeFrais.objects.filter(
         etablissement=etab
     ).filter(Q(annee=annee) | Q(annee__isnull=True)) if annee else TypeFrais.objects.filter(etablissement=etab)

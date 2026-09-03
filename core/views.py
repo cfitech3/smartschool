@@ -31,7 +31,7 @@ def dashboard(request):
         if not cached:
             stats['total_eleves'] = get_eleves_actifs(etab).count()
             stats['total_enseignants'] = User.objects.filter(etablissement=etab, role='enseignant', is_active=True).count()
-            stats['total_classes'] = get_classes_actives(etab, annee).count() if annee else 0
+            stats['total_classes'] = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
             pay_today = Paiement.objects.filter(etablissement=etab, date_paiement__date=today, statut='valide')
             stats['paiements_jour'] = float(pay_today.aggregate(t=Sum('montant'))['t'] or 0)
             stats['nb_paiements_jour'] = pay_today.count()
@@ -56,7 +56,7 @@ def dashboard(request):
             chart_paiements = cached['chart']
 
         paiements_recent = Paiement.objects.filter(etablissement=etab, statut='valide').select_related('eleve','type_frais').order_by('-date_paiement')[:6]
-        classes_data = get_classes_actives(etab, annee).select_related('niveau').annotate(nb=Count('inscriptions', filter=Q(inscriptions__is_active=True))) if annee else []
+        classes_data = get_classes_actives(etab, annee, user=request.user).select_related('niveau').annotate(nb=Count('inscriptions', filter=Q(inscriptions__is_active=True))) if annee else []
 
         # Notifications non lues (pour admin)
         if request.user.is_admin:

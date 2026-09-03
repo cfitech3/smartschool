@@ -50,7 +50,7 @@ def liste_documents(request):
     eleves=get_eleves_actifs(etab).order_by("nom","prenom")
     if q: eleves=eleves.filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))
     modeles_actifs={m.type_document:m for m in ModeleDocument.objects.filter(etablissement=etab,is_actif=True)}
-    classes = get_classes_actives(etab)
+    classes = get_classes_actives(etab, user=request.user)
     return render(request,"core/documents.html",{"eleves":eleves,"annee":annee,"q":q,"modeles_actifs":modeles_actifs,"classes":classes})
 
 @login_required

@@ -22,7 +22,7 @@ def req(fn):
 def appel_presences(request):
     etab=request.etablissement
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    classes=get_classes_actives(etab, annee) if annee else []
+    classes=get_classes_actives(etab, annee, user=request.user) if annee else []
     classe_id=request.GET.get("classe"); date_str=request.GET.get("date",timezone.now().date().isoformat())
     try: date_appel=datetime.date.fromisoformat(date_str)
     except: date_appel=timezone.now().date()
@@ -51,7 +51,7 @@ def appel_presences(request):
 @req
 def historique_presences(request):
     etab=request.etablissement; annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    classes=get_classes_actives(etab, annee) if annee else []
+    classes=get_classes_actives(etab, annee, user=request.user) if annee else []
     classe_id=request.GET.get("classe"); mois=request.GET.get("mois",timezone.now().strftime("%Y-%m"))
     presences=[]; classe=None; stats={}
     if classe_id:

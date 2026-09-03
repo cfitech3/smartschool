@@ -21,7 +21,7 @@ def modifier_eleve_complet(request,pk):
     eleve=get_object_or_404(Eleve,pk=pk,etablissement=etab)
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     inscription=eleve.get_inscription_active()
-    classes=get_classes_actives(etab, annee).select_related("niveau").order_by("niveau__ordre","nom") if annee else []
+    classes=get_classes_actives(etab, annee, user=request.user).select_related("niveau").order_by("niveau__ordre","nom") if annee else []
     if request.method=="POST":
         eleve.nom=request.POST.get("nom",eleve.nom).strip()
         eleve.prenom=request.POST.get("prenom",eleve.prenom).strip()

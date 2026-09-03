@@ -109,7 +109,7 @@ def enregistrer_paiement(request):
         e.classe_pk  = cl.pk  if cl else None
         e.classe_nom = cl.nom if cl else None
         eleves_avec_classe.append(e)
-    classes = get_classes_actives(etab, annee) if annee else []
+    classes = get_classes_actives(etab, annee, user=request.user) if annee else []
     return render(request,"finances/enregistrer_paiement.html",{
         "eleves":eleves_avec_classe, "classes":classes,
         "types_frais":types_frais, "modes":Paiement.MODES,

@@ -98,7 +98,7 @@ def affecter_matiere(request,pk):
     etab=request.etablissement
     ens=get_object_or_404(Enseignant,pk=pk,etablissement=etab)
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    classes=get_classes_actives(etab, annee) if annee else []
+    classes=get_classes_actives(etab, annee, user=request.user) if annee else []
     matieres=Matiere.objects.filter(etablissement=etab,is_conduite=False)
     if request.method=="POST":
         c_id=request.POST.get("classe"); m_id=request.POST.get("matiere"); h=request.POST.get("heures_semaine",2)

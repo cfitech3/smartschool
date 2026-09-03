@@ -22,9 +22,13 @@
   <a href="{% url 'bulletins_classe_mali' %}" class="btn btn-outline btn-sm">📄 Bulletins</a>
 </div>
 <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:14px 18px;">
-<form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-  <div style="flex:1;min-width:150px;"><label class="form-label" style="margin-bottom:4px;">Classe</label><select name="classe" class="form-control"><option value="">-- Classe --</option>{% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}</select></div>
+<form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;" id="form-filtre-notes">
+  <div style="flex:1;min-width:150px;"><label class="form-label" style="margin-bottom:4px;">Classe</label><select name="classe" class="form-control" onchange="this.form.submit()"><option value="">-- Classe --</option>{% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}</select></div>
+  {% if is_premier_cycle %}
+  <div style="flex:1;min-width:150px;"><label class="form-label" style="margin-bottom:4px;">Composition N°</label><select name="numero" class="form-control"><option value="">-- Composition --</option>{% for n in compo_numeros %}<option value="{{ n }}"{% if numero == n %} selected{% endif %}>Composition {{ n }}</option>{% endfor %}</select></div>
+  {% else %}
   <div style="flex:1;min-width:150px;"><label class="form-label" style="margin-bottom:4px;">Periode</label><select name="periode" class="form-control"><option value="">-- Periode --</option>{% for p in periodes %}<option value="{{ p.pk }}"{% if periode_id == p.pk|stringformat:"s" %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}</select></div>
+  {% endif %}
   <div style="flex:1;min-width:150px;"><label class="form-label" style="margin-bottom:4px;">Matiere</label><select name="matiere" class="form-control"><option value="">-- Matiere --</option>{% for m in matieres %}<option value="{{ m.pk }}"{% if matiere_id == m.pk|stringformat:"s" %} selected{% endif %}>{{ m.nom }}{% if m.is_conduite %} 🔵{% endif %} (coef.{{ m.coefficient }})</option>{% endfor %}</select></div>
   <button type="submit" class="btn btn-primary">Afficher</button>
 </form></div></div>
@@ -48,8 +52,8 @@
 {% endif %}
 <div class="card">
   <div class="card-header">
-    <div><span class="card-title">{{ classe.nom }} — {{ periode.libelle }} — {{ matiere.nom }}</span>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">coef.{{ matiere.coefficient }} {% if not is_conduite %}• /20 + /40{% else %}• /20 (conduite){% endif %}</div></div>
+    <div><span class="card-title">{{ classe.nom }} &mdash; {% if is_premier_cycle %}Composition {{ numero }}{% else %}{{ periode.libelle }}{% endif %} &mdash; {{ matiere.nom }}</span>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">coef.{{ matiere.coefficient }} {% if is_premier_cycle %}• /10 (1er cycle){% elif not is_conduite %}• /20 + /40{% else %}• /20 (conduite){% endif %}</div></div>
     <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
   </div>
   <div style="overflow-x:auto;">
@@ -147,10 +151,10 @@
   <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;"><button type="submit" class="btn btn-primary">💾 Enregistrer les notes</button></div>
 </div>
 </form>
-{% elif classe and periode and matiere %}
+{% elif peut_afficher %}
 <div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;">📝</div><div style="font-weight:600;">Aucun eleve dans cette classe</div></div></div>
 {% else %}
-<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">📝</div><div style="font-size:16px;font-weight:700;">Selectionnez classe, periode et matiere</div></div></div>
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">📝</div><div style="font-size:16px;font-weight:700;">Selectionnez classe, {% if is_premier_cycle %}composition{% else %}periode{% endif %} et matiere</div></div></div>
 {% endif %}
 {% endblock %}
 {% block extra_js %}

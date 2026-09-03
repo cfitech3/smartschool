@@ -38,7 +38,7 @@ def saisie_conduite(request):
     """Saisie de la note de conduite par le surveillant général."""
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    classes = get_classes_actives(etab, annee) if annee else []
+    classes = get_classes_actives(etab, annee, user=request.user) if annee else []
     periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
     matiere_conduite = Matiere.objects.filter(etablissement=etab, is_conduite=True).first()
 
@@ -119,7 +119,7 @@ def rapport_absences(request):
     """Rapport des absences pour le surveillant général."""
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    classes = get_classes_actives(etab, annee) if annee else []
+    classes = get_classes_actives(etab, annee, user=request.user) if annee else []
     today = timezone.now().date()
 
     classe_id = request.GET.get('classe')

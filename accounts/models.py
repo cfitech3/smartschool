@@ -31,10 +31,12 @@ class User(AbstractUser):
         'etablissements.Etablissement', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='utilisateurs'
     )
-    division = models.ForeignKey(
-        'etablissements.Division', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='utilisateurs',
-        help_text="Division géree (si établissement multi-cycles)"
+    divisions = models.ManyToManyField(
+        'etablissements.Division',
+        blank=True,
+        related_name='utilisateurs',
+        help_text="Divisions gérées par cet utilisateur. "
+                  "Vide = accès à tous les cycles (super admin / admin global)."
     )
     date_creation = models.DateTimeField(auto_now_add=True)
 

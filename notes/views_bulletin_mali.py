@@ -60,15 +60,29 @@ def telecharger_bulletin_pdf_mali(request, eleve_pk, periode_pk):
     rang = None
     moy_premier = None
     effectif = 0
-    if inscription and not is_premier_cycle:
+    if inscription:
         classe = inscription.classe
         effectif = classe.inscriptions.filter(is_active=True).count()
-        rangs_classe = calculer_rangs_classe(classe, periode, matieres)
-        rang = rangs_classe.get(eleve.pk)
-        if rangs_classe:
-            pk_premier = next((pk for pk, r in rangs_classe.items() if r == 1), None)
-            if pk_premier is not None:
-                _, moy_premier, _, _ = calculer_bulletin(Eleve.objects.get(pk=pk_premier), periode, matieres)
+
+        if is_premier_cycle:
+            # 1er cycle : rang basé sur les Compositions
+            from notes.views_notes import calculer_rangs_classe_composition
+            rangs_classe = calculer_rangs_classe_composition(classe, annee, numero, matieres)
+            rang = rangs_classe.get(eleve.pk)
+            if rangs_classe:
+                pk_premier = next((pk for pk, r in rangs_classe.items() if r == 1), None)
+                if pk_premier is not None:
+                    from notes.services import calculer_bulletin_composition
+                    _, moy_premier, _, _ = calculer_bulletin_composition(
+                        Eleve.objects.get(pk=pk_premier), annee, numero, matieres
+                    )
+        else:
+            rangs_classe = calculer_rangs_classe(classe, periode, matieres)
+            rang = rangs_classe.get(eleve.pk)
+            if rangs_classe:
+                pk_premier = next((pk for pk, r in rangs_classe.items() if r == 1), None)
+                if pk_premier is not None:
+                    _, moy_premier, _, _ = calculer_bulletin(Eleve.objects.get(pk=pk_premier), periode, matieres)
 
     appre_directeur = ''
     if moy_generale is not None:
@@ -91,6 +105,6 @@ def telecharger_bulletin_pdf_mali(request, eleve_pk, periode_pk):
     
     modele = ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()
 
-    generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lignes, moy_generale, total_coeffic, total_coef, rang, effectif, appre_directeur, modele)
+    generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lignes, moy_generale, total_coeffic, total_coef, rang, effectif, appre_directeur, modele, is_premier_cycle=is_premier_cycle, moy_premier=moy_premier)
     
     return response
