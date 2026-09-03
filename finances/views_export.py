@@ -172,7 +172,7 @@ def export_excel_finances(request):
             date_paiement__month=mois, date_paiement__year=annee_val
         ).values_list('eleve_id', flat=True).distinct()
 
-        eleves_retard = get_eleves_actifs(etab).exclude(pk__in=payes_ids).prefetch_related('tuteur', 'inscriptions__classe').order_by('nom', 'prenom')
+        eleves_retard = get_eleves_actifs(etab, user=request.user).exclude(pk__in=payes_ids).prefetch_related('tuteur', 'inscriptions__classe').order_by('nom', 'prenom')
 
         row = 5
         for i, eleve in enumerate(eleves_retard, 1):

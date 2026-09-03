@@ -95,7 +95,7 @@ def enregistrer_paiement(request):
     # Enrichir les élèves avec leur classe actuelle
     from eleves.models import Inscription
     from core.cycle_filter import get_classes_actives
-    eleves_qs = get_eleves_actifs(etab).order_by("nom","prenom")
+    eleves_qs = get_eleves_actifs(etab, user=request.user).order_by("nom","prenom")
     # Ajouter classe_pk et classe_nom pour le filtre JS
     inscriptions_map = {
         i.eleve_id: i.classe
@@ -147,7 +147,7 @@ def rapport_financier(request):
     if not annee:
         return render(request,"finances/rapport.html",{"mois_data":[],"par_type":[],"eleves_en_retard":[],"total_annee":0,"annee":None,"today":today})
 
-    eleves_actifs_ids = list(get_eleves_actifs(etab, annee).values_list('pk', flat=True))
+    eleves_actifs_ids = list(get_eleves_actifs(etab, annee, user=request.user).values_list('pk', flat=True))
     base_paiements = Paiement.objects.filter(etablissement=etab, statut="valide", eleve_id__in=eleves_actifs_ids)
     
     mois_data=[]
@@ -229,7 +229,7 @@ def ajouter_reduction(request):
             return redirect("situation_eleve", pk=eleve.pk)
         except Exception as e: messages.error(request,f"Erreur: {e}")
 
-    eleves=get_eleves_actifs(etab).order_by("nom")
+    eleves=get_eleves_actifs(etab, user=request.user).order_by("nom")
     return render(request,"finances/ajouter_reduction.html",{"eleves":eleves,"types_frais":types_frais,"eleve_pre":eleve_pre})
 
 @login_required

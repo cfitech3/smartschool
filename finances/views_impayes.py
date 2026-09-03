@@ -31,7 +31,7 @@ def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val
         ).select_related('eleve', 'classe')
         eleves_qs = [i.eleve for i in inscriptions]
     else:
-        eleves_qs = list(get_eleves_actifs(etab))
+        eleves_qs = list(get_eleves_actifs(etab, user=request.user))
 
     if not eleves_qs:
         return []

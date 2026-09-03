@@ -37,7 +37,7 @@ def recherche_globale(request):
     resultats={"eleves":[],"paiements":[],"enseignants":[]}
     if q and len(q)>=2:
         from accounts.models import User
-        resultats["eleves"]=get_eleves_actifs(etab).filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))[:10]
+        resultats["eleves"]=get_eleves_actifs(etab, user=request.user).filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))[:10]
         resultats["paiements"]=Paiement.objects.filter(etablissement=etab).filter(Q(eleve__nom__icontains=q)|Q(eleve__prenom__icontains=q)|Q(reference__icontains=q)).select_related("eleve","type_frais")[:5]
         resultats["enseignants"]=User.objects.filter(etablissement=etab,role="enseignant").filter(Q(first_name__icontains=q)|Q(last_name__icontains=q))[:5]
     return render(request,"core/recherche.html",{"q":q,"resultats":resultats,"total":sum(len(v) for v in resultats.values())})
@@ -47,7 +47,7 @@ def recherche_globale(request):
 def liste_documents(request):
     etab=request.etablissement; annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     q=request.GET.get("q","")
-    eleves=get_eleves_actifs(etab).order_by("nom","prenom")
+    eleves=get_eleves_actifs(etab, user=request.user).order_by("nom","prenom")
     if q: eleves=eleves.filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))
     modeles_actifs={m.type_document:m for m in ModeleDocument.objects.filter(etablissement=etab,is_actif=True)}
     classes = get_classes_actives(etab, user=request.user)
@@ -136,7 +136,7 @@ def cartes_classe(request, classe_pk):
 def export_eleves_excel(request):
     import openpyxl; from openpyxl.styles import Font,PatternFill,Alignment,Border,Side
     etab=request.etablissement; annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    eleves=get_eleves_actifs(etab).select_related("tuteur").prefetch_related("inscriptions__classe__niveau").order_by("nom","prenom")
+    eleves=get_eleves_actifs(etab, user=request.user).select_related("tuteur").prefetch_related("inscriptions__classe__niveau").order_by("nom","prenom")
     wb=openpyxl.Workbook(); ws=wb.active; ws.title="Eleves"
     hf=PatternFill(start_color="1565C0",end_color="1565C0",fill_type="solid"); hft=Font(color="FFFFFF",bold=True)
     b=Border(left=Side(style="thin"),right=Side(style="thin"),top=Side(style="thin"),bottom=Side(style="thin"))

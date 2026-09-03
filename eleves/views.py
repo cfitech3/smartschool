@@ -23,7 +23,7 @@ def liste_eleves(request):
     from core.cycle_filter import get_eleves_actifs, get_classes_actives
     etab=request.etablissement
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    eleves=get_eleves_actifs(etab).select_related("tuteur").prefetch_related("inscriptions__classe__niveau").order_by("nom","prenom")
+    eleves=get_eleves_actifs(etab, user=request.user).select_related("tuteur").prefetch_related("inscriptions__classe__niveau").order_by("nom","prenom")
     q=request.GET.get("q",""); classe_id=request.GET.get("classe",""); sexe=request.GET.get("sexe","")
     if q: eleves=eleves.filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))
     if classe_id: eleves=eleves.filter(inscriptions__classe_id=classe_id,inscriptions__is_active=True)

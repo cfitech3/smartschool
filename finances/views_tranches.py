@@ -57,7 +57,7 @@ def generer_echeances(request, type_frais_pk):
             for e in errors:
                 messages.error(request, e)
         else:
-            eleves = get_eleves_actifs(etab)
+            eleves = get_eleves_actifs(etab, user=request.user)
             nb_crees = 0
             with transaction.atomic():
                 for eleve in eleves:
@@ -93,7 +93,7 @@ def generer_echeances(request, type_frais_pk):
         'type_frais': type_frais,
         'tranches': tranches_init,
         'annee': annee,
-        'nb_eleves': get_eleves_actifs(etab).count(),
+        'nb_eleves': get_eleves_actifs(etab, user=request.user).count(),
     })
 
 

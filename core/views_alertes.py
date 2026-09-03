@@ -121,7 +121,7 @@ def get_alertes_etablissement(etab, annee, user_role):
     if user_role in ('admin', 'comptable', 'super_admin'):
 
         # Élèves en retard de paiement ce mois
-        eleves_ids = get_eleves_actifs(etab).values_list('pk', flat=True)
+        eleves_ids = get_eleves_actifs(etab, user=request.user).values_list('pk', flat=True)
         payes_ids = Paiement.objects.filter(
             etablissement=etab, statut='valide',
             date_paiement__month=today.month,

@@ -29,7 +29,7 @@ def rapport_retards(request):
         date_paiement__month=mois, date_paiement__year=annee_val
     ).values_list('eleve_id', flat=True).distinct()
 
-    eleves_retard = get_eleves_actifs(etab).exclude(
+    eleves_retard = get_eleves_actifs(etab, user=request.user).exclude(
         pk__in=payes_ids
     ).select_related('tuteur').prefetch_related('inscriptions__classe').order_by('nom', 'prenom')
 
@@ -83,9 +83,9 @@ def rapport_bilan_annuel(request):
     ).order_by('-total')
 
     # Stats élèves
-    nb_eleves = get_eleves_actifs(etab).count()
+    nb_eleves = get_eleves_actifs(etab, user=request.user).count()
     nb_classes = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
-    eleves_jamais_payes = get_eleves_actifs(etab).exclude(
+    eleves_jamais_payes = get_eleves_actifs(etab, user=request.user).exclude(
         pk__in=Paiement.objects.filter(
             etablissement=etab, statut='valide',
             date_paiement__year=annee_val

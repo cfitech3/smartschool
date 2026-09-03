@@ -120,7 +120,7 @@ def _dashboard_super_admin(request, today):
 def _dashboard_admin(request, etab, annee, today):
     import json
     stats = {}
-    stats['total_eleves']     = get_eleves_actifs(etab, annee).count()  # Fix: filtre par année active
+    stats['total_eleves']     = get_eleves_actifs(etab, annee, user=request.user).count()  # Fix: filtre par année active
     stats['total_enseignants']= User.objects.filter(etablissement=etab, role='enseignant', is_active=True).count()
     stats['total_classes']    = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
     stats['total_staff']      = User.objects.filter(etablissement=etab, is_active=True).exclude(
@@ -133,7 +133,7 @@ def _dashboard_admin(request, etab, annee, today):
     stats['absents_today']  = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='absent').count()
 
     # Finances — Fix: utilise les élèves actifs de l'année au lieu de jointure fragile
-    eleves_actifs_ids = get_eleves_actifs(etab, annee).values_list('pk', flat=True)
+    eleves_actifs_ids = get_eleves_actifs(etab, annee, user=request.user).values_list('pk', flat=True)
 
     pay_today = Paiement.objects.filter(
         etablissement=etab, date_paiement__date=today,
@@ -202,7 +202,7 @@ def _dashboard_admin(request, etab, annee, today):
         ).order_by('niveau__ordre', 'nom')[:8]
 
     # Élèves récemment inscrits
-    inscrits_recents = get_inscriptions_actives(etab, annee).select_related('eleve','classe').order_by('-date_inscription')[:5] if annee else []
+    inscrits_recents = get_inscriptions_actives(etab, annee, user=request.user).select_related('eleve','classe').order_by('-date_inscription')[:5] if annee else []
 
     alertes = get_alertes_etablissement(etab, annee, request.user.role)
     return render(request, 'core/dashboard_admin.html', {
@@ -218,14 +218,14 @@ def _dashboard_secretariat(request, etab, annee, today):
     from core.cycle_filter import get_cycles_actifs_ids, get_eleves_actifs, get_classes_actives, get_inscriptions_actives
     cycles_ids = get_cycles_actifs_ids(etab)
     stats = {}
-    stats['total_eleves']  = get_eleves_actifs(etab, annee).count()  # Fix: filtre par année active
+    stats['total_eleves']  = get_eleves_actifs(etab, annee, user=request.user).count()  # Fix: filtre par année active
     stats['total_classes'] = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
     stats['presents_today'] = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='present').count()
     stats['absents_today']  = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='absent').count()
     stats['retards_today']  = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='retard').count()
 
     # Inscriptions récentes
-    inscrits_recents = get_inscriptions_actives(etab, annee).select_related('eleve','classe').order_by('-date_inscription')[:8] if annee else []
+    inscrits_recents = get_inscriptions_actives(etab, annee, user=request.user).select_related('eleve','classe').order_by('-date_inscription')[:8] if annee else []
 
     stats['nb_reclamations'] = 0
     stats['nb_messages'] = 0
@@ -267,7 +267,7 @@ def _dashboard_comptable(request, etab, today):
 
     # Fix: recupere l'annee active pour avoir une definition coherente des eleves
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    eleves_actifs_ids = list(get_eleves_actifs(etab, annee).values_list('pk', flat=True))
+    eleves_actifs_ids = list(get_eleves_actifs(etab, annee, user=request.user).values_list('pk', flat=True))
 
     # Fix: utilise eleve_id__in au lieu de la jointure fragile sur inscriptions
     base_pai = Paiement.objects.filter(
@@ -399,7 +399,7 @@ def _dashboard_surveillant(request, etab, annee, today):
         classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='retard'
     ).count()
     stats['total_classes']  = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
-    stats['total_eleves']   = get_eleves_actifs(etab, annee).count()  # Fix: filtre par année active
+    stats['total_eleves']   = get_eleves_actifs(etab, annee, user=request.user).count()  # Fix: filtre par année active
 
     # Taux de présence
     total_presence = stats['presents_today'] + stats['absents_today'] + stats['retards_today']

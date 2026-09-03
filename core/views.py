@@ -29,7 +29,7 @@ def dashboard(request):
         cached = cache.get(cache_key)
 
         if not cached:
-            stats['total_eleves'] = get_eleves_actifs(etab).count()
+            stats['total_eleves'] = get_eleves_actifs(etab, user=request.user).count()
             stats['total_enseignants'] = User.objects.filter(etablissement=etab, role='enseignant', is_active=True).count()
             stats['total_classes'] = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
             pay_today = Paiement.objects.filter(etablissement=etab, date_paiement__date=today, statut='valide')
@@ -45,7 +45,7 @@ def dashboard(request):
                 etablissement=etab, statut='valide',
                 date_paiement__month=today.month, date_paiement__year=today.year
             ).values_list('eleve_id', flat=True)
-            stats['eleves_retard'] = get_eleves_actifs(etab).exclude(pk__in=eleves_payes).count()
+            stats['eleves_retard'] = get_eleves_actifs(etab, user=request.user).exclude(pk__in=eleves_payes).count()
             for i in range(6, -1, -1):
                 d = today - datetime.timedelta(days=i)
                 total = float(Paiement.objects.filter(etablissement=etab, date_paiement__date=d, statut='valide').aggregate(t=Sum('montant'))['t'] or 0)
