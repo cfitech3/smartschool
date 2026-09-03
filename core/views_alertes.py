@@ -7,7 +7,7 @@ from django.db.models import Count, Sum, Q
 import datetime
 
 
-def get_alertes_etablissement(etab, annee, user_role):
+def get_alertes_etablissement(etab, annee, user):
     """
     Retourne une liste d'alertes contextuelles selon le rôle.
     Chaque alerte : {type, niveau, titre, detail, url, count}
@@ -25,7 +25,7 @@ def get_alertes_etablissement(etab, annee, user_role):
     cycles_ids = get_cycles_actifs_ids(etab)
 
     # ── ALERTES COMMUNES : directeur + secrétariat ────────────────────────────
-    if user_role in ('admin', 'secretariat', 'super_admin'):
+    if user.role in ('admin', 'secretariat', 'super_admin'):
 
         # Élèves absents 3+ jours consécutifs
         eleves_absences = {}
@@ -118,10 +118,10 @@ def get_alertes_etablissement(etab, annee, user_role):
                 })
 
     # ── ALERTES FINANCES : directeur + comptable ──────────────────────────────
-    if user_role in ('admin', 'comptable', 'super_admin'):
+    if user.role in ('admin', 'comptable', 'super_admin'):
 
         # Élèves en retard de paiement ce mois
-        eleves_ids = get_eleves_actifs(etab, user=request.user).values_list('pk', flat=True)
+        eleves_ids = get_eleves_actifs(etab, user=user).values_list('pk', flat=True)
         payes_ids = Paiement.objects.filter(
             etablissement=etab, statut='valide',
             date_paiement__month=today.month,
@@ -155,7 +155,7 @@ def get_alertes_etablissement(etab, annee, user_role):
             })
 
     # ── ALERTES NOTES : directeur + enseignants ───────────────────────────────
-    if user_role in ('admin', 'enseignant', 'super_admin'):
+    if user.role in ('admin', 'enseignant', 'super_admin'):
 
         periode_active = Periode.objects.filter(
             etablissement=etab, is_active=True

@@ -204,7 +204,7 @@ def _dashboard_admin(request, etab, annee, today):
     # Élèves récemment inscrits
     inscrits_recents = get_inscriptions_actives(etab, annee, user=request.user).select_related('eleve','classe').order_by('-date_inscription')[:5] if annee else []
 
-    alertes = get_alertes_etablissement(etab, annee, request.user.role)
+    alertes = get_alertes_etablissement(etab, annee, request.user)
     return render(request, 'core/dashboard_admin.html', {
         'stats': stats, 'paiements_recent': paiements_recent,
         'classes_data': classes_data, 'chart_paiements': json.dumps(chart),
@@ -251,7 +251,7 @@ def _dashboard_secretariat(request, etab, annee, today):
         ).values_list('classe_id', flat=True).distinct()
         classes_sans_appel = toutes_classes.exclude(pk__in=classes_avec_appel)[:5]
 
-    alertes = get_alertes_etablissement(etab, annee, request.user.role)
+    alertes = get_alertes_etablissement(etab, annee, request.user)
     return render(request, 'core/dashboard_secretariat.html', {
         'stats': stats, 'inscrits_recents': inscrits_recents,
         'classes_sans_appel': classes_sans_appel, 'today': today, 'annee': annee,
@@ -318,7 +318,7 @@ def _dashboard_comptable(request, etab, today):
         date_paiement__month=today.month, date_paiement__year=today.year
     ).values('type_frais__nom').annotate(total=Sum('montant')).order_by('-total')
 
-    alertes = get_alertes_etablissement(etab, None, request.user.role)
+    alertes = get_alertes_etablissement(etab, None, request.user)
     # Générer notifications impayés (lazy — une fois par jour max)
     try:
         from finances.views_impayes import creer_notifications_impayes
