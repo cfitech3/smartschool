@@ -391,7 +391,7 @@ def envoyer_message(request, eleve_pk):
         if role_val == 'administration':
             destinataires_disponibles.append({
                 'value': 'administration__',
-                'label': '📢 Administration (tous)',
+                'label': ' Administration (tous)',
                 'user_pk': None,
             })
         elif role_val == 'enseignant':
@@ -406,23 +406,23 @@ def envoyer_message(request, eleve_pk):
                 for aff in affs:
                     destinataires_disponibles.append({
                         'value': f'enseignant__{aff.enseignant.user.pk}',
-                        'label': f'👩‍🏫 {aff.enseignant.nom_complet} ({aff.matiere.nom})',
+                        'label': f'‍ {aff.enseignant.nom_complet} ({aff.matiere.nom})',
                         'user_pk': aff.enseignant.user.pk,
                     })
         else:
             # Directeur, Comptable, Surveillant — chercher le compte réel
             user = User.objects.filter(etablissement=etab, role=role_val, is_active=True).first()
             if user:
-                icons = {'directeur': '🏫', 'comptable': '💳', 'surveillant': '👮'}
+                icons = {'directeur': '', 'comptable': '', 'surveillant': ''}
                 destinataires_disponibles.append({
                     'value': f'{role_val}__{user.pk}',
-                    'label': f"{icons.get(role_val,'👤')} {role_label} — {user.get_full_name()}",
+                    'label': f"{icons.get(role_val,'')} {role_label} — {user.get_full_name()}",
                     'user_pk': user.pk,
                 })
             else:
                 destinataires_disponibles.append({
                     'value': f'{role_val}__',
-                    'label': f'👤 {role_label}',
+                    'label': f' {role_label}',
                     'user_pk': None,
                 })
 
@@ -545,10 +545,10 @@ def admin_repondre_message(request, pk):
                     telephone = msg.expediteur.profil_tuteur.telephone
                     if telephone:
                         texte_wa = (
-                            f"🏫 *{etab.nom}*\n\n"
+                            f" *{etab.nom}*\n\n"
                             f"Bonjour {msg.expediteur.first_name},\n"
                             f"La direction a répondu à votre message concernant : *{msg.sujet}*.\n\n"
-                            f"👉 Connectez-vous sur votre application SmartSchool pour lire la réponse."
+                            f" Connectez-vous sur votre application SmartSchool pour lire la réponse."
                         )
                         send_whatsapp_message(telephone, texte_wa)
 

@@ -4,11 +4,11 @@
 {% block nav_conduite %}active{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1>📊 Note de conduite</h1><div class="page-subtitle">Saisie reservee au Surveillant General</div></div>
-  <a href="{% url 'rapport_absences' %}" class="btn btn-outline btn-sm">⚠️ Rapport absences</a>
+  <div><h1><i class="bi bi-bar-chart-fill"></i> Note de conduite</h1><div class="page-subtitle">Saisie reservee au Surveillant General</div></div>
+  <a href="{% url 'rapport_absences' %}" class="btn btn-outline btn-sm"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Rapport absences</a>
 </div>
 {% if not matiere_conduite %}
-<div class="alert alert-danger">❌ Aucune matiere de conduite configuree. Allez dans <a href="{% url 'liste_matieres' %}" style="font-weight:700;">Matieres</a> et cochez "Matiere de conduite" sur la matiere concernee.</div>
+<div class="alert alert-danger"><i class="bi bi-x-circle-fill text-danger"></i> Aucune matiere de conduite configuree. Allez dans <a href="{% url 'liste_matieres' %}" style="font-weight:700;">Matieres</a> et cochez "Matiere de conduite" sur la matiere concernee.</div>
 {% endif %}
 <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:14px 18px;">
 <form method="get" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
@@ -18,12 +18,12 @@
 </form></div></div>
 
 {% if eleves_data %}
-<div class="alert alert-info">💡 La note de conduite est sur <strong>20</strong>. Elle apparaîtra sur le bulletin avec la mention 🔵. La suggestion est calculee automatiquement selon les absences.</div>
+<div class="alert alert-info"><i class="bi bi-lightbulb-fill"></i> La note de conduite est sur <strong>20</strong>. Elle apparaîtra sur le bulletin avec la mention <i class="bi bi-circle-fill text-primary"></i>. La suggestion est calculee automatiquement selon les absences.</div>
 <form method="post">{% csrf_token %}
 <div class="card">
   <div class="card-header">
     <span class="card-title">{{ classe.nom }} — {{ periode.libelle }}</span>
-    <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer</button>
   </div>
   <table class="table-modern">
   <thead>
@@ -69,14 +69,14 @@
   </tbody>
   </table>
   <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;">
-    <button type="submit" class="btn btn-primary">💾 Enregistrer les notes de conduite</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer les notes de conduite</button>
   </div>
 </div>
 </form>
 {% elif classe and periode %}
-<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;">📊</div><div>Aucun eleve dans cette classe</div></div></div>
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;"><i class="bi bi-bar-chart-fill"></i></div><div>Aucun eleve dans cette classe</div></div></div>
 {% else %}
-<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">📊</div><div style="font-size:16px;font-weight:700;">Selectionnez une classe et une periode</div></div></div>
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-bar-chart-fill"></i></div><div style="font-size:16px;font-weight:700;">Selectionnez une classe et une periode</div></div></div>
 {% endif %}
 {% endblock %}
 {% block extra_js %}

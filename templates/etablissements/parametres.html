@@ -3,7 +3,7 @@
 {% block topbar_title %}Parametres de l'etablissement{% endblock %}
 {% block nav_parametres %}active{% endblock %}
 {% block content %}
-<div class="page-header"><h1>⚙️ Parametres</h1></div>
+<div class="page-header"><h1><i class="bi bi-gear-fill"></i>️ Parametres</h1></div>
 
 <div class="grid-2" style="align-items:start;gap:16px;">
 
@@ -12,7 +12,7 @@
 
     <!-- LOGO + INFOS PRINCIPALES -->
     <div class="card">
-      <div class="card-header"><span class="card-title">🏫 Informations de l'etablissement</span></div>
+      <div class="card-header"><span class="card-title"><i class="bi bi-buildings-fill"></i> Informations de l'etablissement</span></div>
       <form method="post" enctype="multipart/form-data">{% csrf_token %}
       <input type="hidden" name="action" value="infos">
       <div class="card-body">
@@ -23,7 +23,7 @@
             {% if etab.logo %}
               <img src="{{ etab.logo.url }}" alt="Logo" style="width:100%;height:100%;object-fit:contain;">
             {% else %}
-              <span style="font-size:32px;">🎓</span>
+              <span style="font-size:32px;"><i class="bi bi-mortarboard-fill"></i></span>
             {% endif %}
           </div>
           <div style="flex:1;">
@@ -56,13 +56,13 @@
           <div class="form-group"><label class="form-label">Couleur secondaire</label><input type="color" name="couleur_secondaire" class="form-control" value="{{ etab.couleur_secondaire }}" style="height:40px;"></div>
         </div>
       </div>
-      <div class="card-body" style="border-top:1px solid var(--border);"><button type="submit" class="btn btn-primary">💾 Enregistrer</button></div>
+      <div class="card-body" style="border-top:1px solid var(--border);"><button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer</button></div>
       </form>
     </div>
 
     <!-- PARAMETRES PEDAGOGIQUES -->
     <div class="card">
-      <div class="card-header"><span class="card-title">📋 Parametres pedagogiques</span></div>
+      <div class="card-header"><span class="card-title"><i class="bi bi-clipboard"></i> Parametres pedagogiques</span></div>
       <form method="post">{% csrf_token %}<input type="hidden" name="action" value="params">
       <div class="card-body">
         <div class="grid-2">
@@ -75,7 +75,7 @@
         <div class="form-group"><label class="form-label">En-tete bulletin</label><textarea name="entete_bulletin" class="form-control" rows="2">{{ params.entete_bulletin }}</textarea></div>
         <div class="form-group"><label class="form-label">Pied de bulletin</label><textarea name="pied_bulletin" class="form-control" rows="2">{{ params.pied_bulletin }}</textarea></div>
       </div>
-      <div class="card-body" style="border-top:1px solid var(--border);"><button type="submit" class="btn btn-primary">💾 Enregistrer</button></div>
+      <div class="card-body" style="border-top:1px solid var(--border);"><button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer</button></div>
       </form>
     </div>
   </div>
@@ -85,7 +85,7 @@
 
     <!-- ANNEES SCOLAIRES -->
     <div class="card" id="dupliquer-annee">
-      <div class="card-header"><span class="card-title">📅 Annees scolaires</span></div>
+      <div class="card-header"><span class="card-title"><i class="bi bi-calendar3"></i> Annees scolaires</span></div>
       <form method="post">{% csrf_token %}<input type="hidden" name="action" value="annee">
       <div class="card-body">
         <div class="form-group"><label class="form-label">Libelle *</label><input type="text" name="libelle" class="form-control" placeholder="Ex: 2025-2026"></div>
@@ -103,14 +103,14 @@
         <td style="font-size:12px;color:var(--text-muted);">{{ a.date_debut|date:"d/m/Y" }} → {{ a.date_fin|date:"d/m/Y" }}</td>
         <td>{% if a.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge" style="background:var(--bg);color:var(--text-muted);">Inactive</span>{% endif %}</td>
         <td style="display:flex;gap:4px;">
-          {% if not a.is_active %}<form method="post" style="display:inline;">{% csrf_token %}<input type="hidden" name="action" value="activer_annee"><input type="hidden" name="annee_id" value="{{ a.pk }}"><button type="submit" class="btn btn-outline btn-sm" style="color:var(--success);" title="Activer">⚡</button></form>{% endif %}
-          <button type="button" class="btn btn-outline btn-sm" style="color:var(--primary);" title="Dupliquer" onclick="document.getElementById('modal-dup-{{ a.pk }}').style.display='block'">📑</button>
+          {% if not a.is_active %}<form method="post" style="display:inline;">{% csrf_token %}<input type="hidden" name="action" value="activer_annee"><input type="hidden" name="annee_id" value="{{ a.pk }}"><button type="submit" class="btn btn-outline btn-sm" style="color:var(--success);" title="Activer"><i class="bi bi-lightning-fill"></i></button></form>{% endif %}
+          <button type="button" class="btn btn-outline btn-sm" style="color:var(--primary);" title="Dupliquer" onclick="document.getElementById('modal-dup-{{ a.pk }}').style.display='block'"><i class="bi bi-bookmark-fill"></i></button>
         </td>
       </tr>
       <!-- Modal Duplication -->
       <div id="modal-dup-{{ a.pk }}" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
         <div class="card" style="width:400px;margin:10% auto;">
-          <div class="card-header"><span class="card-title">📑 Dupliquer l'année {{ a.libelle }}</span></div>
+          <div class="card-header"><span class="card-title"><i class="bi bi-bookmark-fill"></i> Dupliquer l'année {{ a.libelle }}</span></div>
           <form method="post">{% csrf_token %}
             <input type="hidden" name="action" value="dupliquer_annee">
             <input type="hidden" name="annee_id" value="{{ a.pk }}">
@@ -134,7 +134,7 @@
 
     <!-- NIVEAUX -->
     <div class="card">
-      <div class="card-header"><span class="card-title">🏗️ Niveaux scolaires</span></div>
+      <div class="card-header"><span class="card-title"><i class="bi bi-tools"></i>️ Niveaux scolaires</span></div>
       <form method="post">{% csrf_token %}<input type="hidden" name="action" value="niveau">
       <div class="card-body">
         <div class="grid-2">

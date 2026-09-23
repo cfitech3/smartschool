@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>📝 Saisie des notes</h1>
+    <h1><i class="bi bi-journal-text"></i> Saisie des notes</h1>
     <div class="page-subtitle">
       {% if cycle %}<span class="badge badge-info" style="margin-right:6px;">{{ cycle.nom }}</span>{% endif %}
       {% if is_conduite %}
@@ -19,7 +19,7 @@
       {% endif %}
     </div>
   </div>
-  <a href="{% url 'bulletins_classe_mali' %}" class="btn btn-outline btn-sm">📄 Bulletins</a>
+  <a href="{% url 'bulletins_classe_mali' %}" class="btn btn-outline btn-sm"><i class="bi bi-file-earmark-text"></i> Bulletins</a>
 </div>
 <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:14px 18px;">
 <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;" id="form-filtre-notes">
@@ -29,17 +29,17 @@
   {% else %}
   <div style="flex:1;min-width:150px;"><label class="form-label" style="margin-bottom:4px;">Periode</label><select name="periode" class="form-control"><option value="">-- Periode --</option>{% for p in periodes %}<option value="{{ p.pk }}"{% if periode_id == p.pk|stringformat:"s" %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}</select></div>
   {% endif %}
-  <div style="flex:1;min-width:150px;"><label class="form-label" style="margin-bottom:4px;">Matiere</label><select name="matiere" class="form-control"><option value="">-- Matiere --</option>{% for m in matieres %}<option value="{{ m.pk }}"{% if matiere_id == m.pk|stringformat:"s" %} selected{% endif %}>{{ m.nom }}{% if m.is_conduite %} 🔵{% endif %} (coef.{{ m.coefficient }})</option>{% endfor %}</select></div>
+  <div style="flex:1;min-width:150px;"><label class="form-label" style="margin-bottom:4px;">Matiere</label><select name="matiere" class="form-control"><option value="">-- Matiere --</option>{% for m in matieres %}<option value="{{ m.pk }}"{% if matiere_id == m.pk|stringformat:"s" %} selected{% endif %}>{{ m.nom }}{% if m.is_conduite %} <i class="bi bi-circle-fill text-primary"></i>{% endif %} (coef.{{ m.coefficient }})</option>{% endfor %}</select></div>
   <button type="submit" class="btn btn-primary">Afficher</button>
 </form></div></div>
 
 {% if matiere and is_conduite %}
-<div class="alert alert-info">🔵 <strong>Matiere de conduite</strong> — Une seule note sur 20 par eleve, saisie par le Surveillant General.</div>
+<div class="alert alert-info"><i class="bi bi-circle-fill text-primary"></i> <strong>Matiere de conduite</strong> — Une seule note sur 20 par eleve, saisie par le Surveillant General.</div>
 {% endif %}
 
 {% if periode and periode.saisie_cloturee %}
 <div class="alert alert-warning" style="margin-bottom:16px;">
-  🔒 <strong>Période clôturée</strong> — La saisie de notes est verrouillée pour cette période. Les modifications sont bloquées pour le corps enseignant.
+  <i class="bi bi-lock-fill"></i> <strong>Période clôturée</strong> — La saisie de notes est verrouillée pour cette période. Les modifications sont bloquées pour le corps enseignant.
 </div>
 {% endif %}
 
@@ -54,7 +54,7 @@
   <div class="card-header">
     <div><span class="card-title">{{ classe.nom }} &mdash; {% if is_premier_cycle %}Composition {{ numero }}{% else %}{{ periode.libelle }}{% endif %} &mdash; {{ matiere.nom }}</span>
     <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">coef.{{ matiere.coefficient }} {% if is_premier_cycle %}• /10 (1er cycle){% elif not is_conduite %}• /20 + /40{% else %}• /20 (conduite){% endif %}</div></div>
-    <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer</button>
   </div>
   <div style="overflow-x:auto;">
   <table class="table-modern" style="min-width:700px;">
@@ -93,7 +93,7 @@
       <input type="number" name="nc_{{ item.eleve.pk }}" class="form-control" style="width:100px;margin:0 auto;text-align:center;font-weight:700;font-size:15px;" min="0" max="20" step="0.5"
         value="{% if item.note and item.note.note_conduite is not None %}{{ item.note.note_conduite }}{% endif %}" placeholder="—">
       {% else %}
-      <span style="color:var(--text-muted);font-size:13px;" title="{{ item.raison }}">Bloqué 🔒</span>
+      <span style="color:var(--text-muted);font-size:13px;" title="{{ item.raison }}">Bloqué <i class="bi bi-lock-fill"></i></span>
       {% endif %}
     </td>
     <td style="text-align:center;font-size:13px;color:var(--text-muted);">{% if item.note and item.note.note_conduite is not None %}{{ item.note.appreciation }}{% else %}—{% endif %}</td>
@@ -102,7 +102,7 @@
       {% if item.peut_modifier %}
       <input type="number" name="nd_{{ item.eleve.pk }}" class="form-control" style="width:100px;margin:0 auto;text-align:center;font-weight:700;font-size:16px;border:2px solid rgba(21,101,192,0.3);" min="0" max="20" step="0.25"
         value="{% if item.note and item.note.moyenne_finale is not None %}{{ item.note.moyenne_finale }}{% endif %}" placeholder="—" oninput="calcDirect('{{ item.eleve.pk }}')">
-      {% else %}<span style="color:var(--text-muted);font-size:12px;" title="{{ item.raison }}">Bloqué 🔒</span>{% endif %}
+      {% else %}<span style="color:var(--text-muted);font-size:12px;" title="{{ item.raison }}">Bloqué <i class="bi bi-lock-fill"></i></span>{% endif %}
     </td>
     <td style="text-align:center;"><span id="mc_{{ item.eleve.pk }}" style="font-weight:700;font-size:13px;">{% if item.note and item.note.moy_coeffic is not None %}{{ item.note.moy_coeffic }}{% else %}—{% endif %}</span></td>
     {% elif compositions_multiples %}
@@ -110,7 +110,7 @@
       {% if item.peut_modifier %}
       <input type="number" name="mc_{{ item.eleve.pk }}" class="form-control" style="width:90px;margin:0 auto;text-align:center;font-weight:700;font-size:15px;border:2px solid rgba(21,101,192,0.3);" min="0" max="20" step="0.5"
         value="{% if item.note and item.note.moy_classe is not None %}{{ item.note.moy_classe }}{% endif %}" placeholder="—">
-      {% else %}<span style="color:var(--text-muted);font-size:12px;" title="{{ item.raison }}">Bloqué 🔒</span>{% endif %}
+      {% else %}<span style="color:var(--text-muted);font-size:12px;" title="{{ item.raison }}">Bloqué <i class="bi bi-lock-fill"></i></span>{% endif %}
     </td>
     {% for c in item.compos_list %}
     <td style="text-align:center;">
@@ -132,7 +132,7 @@
       {% if item.peut_modifier %}
       <input type="number" name="mc_{{ item.eleve.pk }}" class="form-control" style="width:90px;margin:0 auto;text-align:center;font-weight:700;font-size:15px;border:2px solid rgba(21,101,192,0.3);" min="0" max="20" step="0.5"
         value="{% if item.note and item.note.moy_classe is not None %}{{ item.note.moy_classe }}{% endif %}" placeholder="—" oninput="calcMoy('{{ item.eleve.pk }}')">
-      {% else %}<span style="color:var(--text-muted);font-size:12px;" title="{{ item.raison }}">Bloqué 🔒</span>{% endif %}
+      {% else %}<span style="color:var(--text-muted);font-size:12px;" title="{{ item.raison }}">Bloqué <i class="bi bi-lock-fill"></i></span>{% endif %}
     </td>
     <td style="text-align:center;">
       {% if item.peut_modifier %}
@@ -148,13 +148,13 @@
   </tbody>
   </table>
   </div>
-  <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;"><button type="submit" class="btn btn-primary">💾 Enregistrer les notes</button></div>
+  <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;"><button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer les notes</button></div>
 </div>
 </form>
 {% elif peut_afficher %}
-<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;">📝</div><div style="font-weight:600;">Aucun eleve dans cette classe</div></div></div>
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;"><i class="bi bi-journal-text"></i></div><div style="font-weight:600;">Aucun eleve dans cette classe</div></div></div>
 {% else %}
-<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">📝</div><div style="font-size:16px;font-weight:700;">Selectionnez classe, {% if is_premier_cycle %}composition{% else %}periode{% endif %} et matiere</div></div></div>
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-journal-text"></i></div><div style="font-size:16px;font-weight:700;">Selectionnez classe, {% if is_premier_cycle %}composition{% else %}periode{% endif %} et matiere</div></div></div>
 {% endif %}
 {% endblock %}
 {% block extra_js %}

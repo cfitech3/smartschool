@@ -36,13 +36,13 @@
 {% block content %}
 <div class="page-header">
   <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
-  <h1>📋 Absences</h1>
+  <h1><i class="bi bi-clipboard"></i> Absences</h1>
 </div>
 
 <!-- Statistiques en cards -->
 <div class="stats-grid" style="margin-bottom:16px;">
   <div class="stat-card">
-    <div class="stat-icon" style="background:rgba(198,40,40,0.1);">❌</div>
+    <div class="stat-icon" style="background:rgba(198,40,40,0.1);"><i class="bi bi-x-circle-fill text-danger"></i></div>
     <div class="stat-body"><div class="stat-value" style="color:{% if stats.absents > 0 %}var(--danger){% else %}var(--success){% endif %};">{{ stats.absents }}</div><div class="stat-label">Absences</div></div>
   </div>
   <div class="stat-card">
@@ -50,11 +50,11 @@
     <div class="stat-body"><div class="stat-value">{{ stats.retards }}</div><div class="stat-label">Retards</div></div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon blue">📝</div>
+    <div class="stat-icon blue"><i class="bi bi-journal-text"></i></div>
     <div class="stat-body"><div class="stat-value">{{ stats.justifies }}</div><div class="stat-label">Justifiés</div></div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon green">✅</div>
+    <div class="stat-icon green"><i class="bi bi-check-circle-fill text-success"></i></div>
     <div class="stat-body"><div class="stat-value" id="taux-val">—</div><div class="stat-label">Taux présence</div></div>
   </div>
 </div>
@@ -62,14 +62,14 @@
 <!-- Message d'encouragement -->
 {% if stats.absents == 0 and stats.retards == 0 %}
 <div class="encouragement">
-  <div style="font-size:36px;flex-shrink:0;">🏆</div>
+  <div style="font-size:36px;flex-shrink:0;"><i class="bi bi-trophy-fill text-warning"></i></div>
   <div>
     <div style="font-size:15px;font-weight:800;color:var(--success);">Félicitations !</div>
     <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">Aucune absence ni retard enregistré. Continuez ainsi !</div>
   </div>
 </div>
 {% elif stats.absents >= 3 %}
-<div class="alert alert-warning">⚠️ <strong>{{ stats.absents }} absences</strong> enregistrées — pensez à fournir des justificatifs à l'établissement si nécessaire.</div>
+<div class="alert alert-warning"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ <strong>{{ stats.absents }} absences</strong> enregistrées — pensez à fournir des justificatifs à l'établissement si nécessaire.</div>
 {% endif %}
 
 <!-- Barre de taux de présence -->
@@ -87,7 +87,7 @@
 <!-- Calendrier mensuel -->
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
-    <span class="card-title" id="cal-title">📅 Calendrier du mois</span>
+    <span class="card-title" id="cal-title"><i class="bi bi-calendar3"></i> Calendrier du mois</span>
     <div style="display:flex;gap:6px;">
       <button class="btn btn-outline btn-sm" onclick="changeMonth(-1)" id="btn-prev">◀</button>
       <button class="btn btn-outline btn-sm" onclick="changeMonth(1)" id="btn-next">▶</button>
@@ -110,17 +110,17 @@
 
 <!-- Historique détaillé -->
 <div class="card">
-  <div class="card-header"><span class="card-title">📜 Historique détaillé</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-file-earmark-text"></i> Historique détaillé</span></div>
   {% if presences %}
   <div style="display:flex;flex-direction:column;">
   {% for p in presences %}
   <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);">
     <div style="font-weight:700;font-size:13px;min-width:90px;">{{ p.date|date:"d/m/Y" }}</div>
     <div>
-      {% if p.statut == 'present' %}<span class="badge badge-success">✅ Présent</span>
-      {% elif p.statut == 'absent' %}<span class="badge badge-danger">❌ Absent</span>
+      {% if p.statut == 'present' %}<span class="badge badge-success"><i class="bi bi-check-circle-fill text-success"></i> Présent</span>
+      {% elif p.statut == 'absent' %}<span class="badge badge-danger"><i class="bi bi-x-circle-fill text-danger"></i> Absent</span>
       {% elif p.statut == 'retard' %}<span class="badge badge-warning">⏰ Retard</span>
-      {% else %}<span class="badge badge-info">📝 Justifié</span>{% endif %}
+      {% else %}<span class="badge badge-info"><i class="bi bi-journal-text"></i> Justifié</span>{% endif %}
     </div>
     {% if p.motif %}<div style="font-size:12px;color:var(--text-muted);flex:1;">{{ p.motif }}</div>{% endif %}
   </div>
@@ -186,7 +186,7 @@ function changeMonth(dir) {
 
 function renderCalendar() {
   const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  document.getElementById('cal-title').textContent = '📅 ' + MOIS[currentMonth] + ' ' + currentYear;
+  document.getElementById('cal-title').textContent = '<i class="bi bi-calendar3"></i> ' + MOIS[currentMonth] + ' ' + currentYear;
 
   const grid = document.getElementById('calendar-grid');
   grid.innerHTML = '';
@@ -214,7 +214,7 @@ function renderCalendar() {
     cell.className = 'cal-day' + (statut ? ' ' + statut : '') + (isToday ? ' today' : '');
     cell.textContent = d;
     if (statut) {
-      const labels = {present:'✅ Présent', absent:'❌ Absent', retard:'⏰ Retard', justifie:'📝 Justifié'};
+      const labels = {present:'<i class="bi bi-check-circle-fill text-success"></i> Présent', absent:'<i class="bi bi-x-circle-fill text-danger"></i> Absent', retard:'⏰ Retard', justifie:'<i class="bi bi-journal-text"></i> Justifié'};
       cell.title = labels[statut] || statut;
     }
     grid.appendChild(cell);
@@ -223,4 +223,4 @@ function renderCalendar() {
 
 initCalendar();
 </script>
-{% endblock %}
+{% endblock %}

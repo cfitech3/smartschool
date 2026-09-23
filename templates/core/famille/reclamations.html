@@ -4,8 +4,8 @@
 {% block nav_reclamations %}active{% endblock %}
 {% block content %}
 <div class="page-header"><a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
-<div><h1>✉️ Mes reclamations</h1><div class="page-subtitle">Pour reclamer sur une note, allez dans "Notes" et cliquez sur "Reclamer"</div></div>
-<a href="{% url 'espace_notes' eleve.pk %}" class="btn btn-primary btn-sm">📝 Voir les notes</a>
+<div><h1><i class="bi bi-envelope-fill"></i>️ Mes reclamations</h1><div class="page-subtitle">Pour reclamer sur une note, allez dans "Notes" et cliquez sur "Reclamer"</div></div>
+<a href="{% url 'espace_notes' eleve.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-journal-text"></i> Voir les notes</a>
 </div>
 {% if reclamations %}
 <div class="card">
@@ -30,6 +30,6 @@
 </tbody></table>
 </div>
 {% else %}
-<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;">✉️</div>Aucune reclamation envoyee</div></div>
+<div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;"><i class="bi bi-envelope-fill"></i>️</div>Aucune reclamation envoyee</div></div>
 {% endif %}
 {% endblock %}

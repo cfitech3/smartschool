@@ -59,13 +59,13 @@ class Command(BaseCommand):
             return
 
         if count == 0:
-            self.stdout.write(self.style.SUCCESS("✅ Aucune échéance à mettre à jour."))
+            self.stdout.write(self.style.SUCCESS(" Aucune échéance à mettre à jour."))
             return
 
         updated = qs.update(statut='retard')
         self.stdout.write(
             self.style.SUCCESS(
-                f"✅ {updated} échéance(s) marquée(s) en retard "
+                f" {updated} échéance(s) marquée(s) en retard "
                 f"(date_limite < {today})."
             )
         )

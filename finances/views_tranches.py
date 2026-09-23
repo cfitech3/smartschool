@@ -75,7 +75,7 @@ def generer_echeances(request, type_frais_pk):
                         if created:
                             nb_crees += 1
 
-            messages.success(request, f"✅ {nb_crees} échéance(s) générée(s) pour {eleves.count()} élève(s).")
+            messages.success(request, f" {nb_crees} échéance(s) générée(s) pour {eleves.count()} élève(s).")
             return redirect('tableau_tranches', type_frais_pk=type_frais.pk)
 
     # Prépopuler les montants équitables
@@ -195,7 +195,7 @@ def payer_tranche(request, echeance_pk):
             )
             echeance.marquer_payee(pai)
 
-        messages.success(request, f"✅ {echeance.libelle} de {echeance.eleve.nom_complet} encaissée — {montant:,} FCFA.")
+        messages.success(request, f" {echeance.libelle} de {echeance.eleve.nom_complet} encaissée — {montant:,} FCFA.")
         return redirect('tableau_tranches', type_frais_pk=echeance.type_frais.pk)
 
     return render(request, 'finances/payer_tranche.html', {

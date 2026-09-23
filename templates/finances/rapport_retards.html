@@ -1,10 +1,10 @@
 {% extends "base/base.html" %}
 {% block title %}Retards de paiement{% endblock %}
-{% block topbar_title %}💳 Retards de paiement{% endblock %}
+{% block topbar_title %}<i class="bi bi-credit-card"></i> Retards de paiement{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>💳 Retards de paiement</h1>
+    <h1><i class="bi bi-credit-card"></i> Retards de paiement</h1>
     <div class="page-subtitle">{{ mois_fr }} {{ annee_val }} — {{ nb_retard }} élève(s) en retard</div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -34,7 +34,7 @@
 
 {% if nb_retard > 0 %}
 <div style="background:var(--bg-danger);border:1px solid var(--border-danger);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
-  <span style="font-size:22px;">⚠️</span>
+  <span style="font-size:22px;"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️</span>
   <div>
     <div style="font-weight:700;color:var(--danger);">{{ nb_retard }} élève(s) n'ont pas effectué de paiement en {{ mois_fr }} {{ annee_val }}</div>
     <div style="font-size:12px;color:var(--text-muted);">Contactez les parents pour régulariser la situation.</div>
@@ -67,7 +67,7 @@
       </td>
       <td>
         {% if tuteur and tuteur.telephone %}
-        <a href="tel:{{ tuteur.telephone }}" style="color:var(--primary);font-weight:600;font-size:13px;">📞 {{ tuteur.telephone }}</a>
+        <a href="tel:{{ tuteur.telephone }}" style="color:var(--primary);font-weight:600;font-size:13px;"><i class="bi bi-telephone-fill"></i> {{ tuteur.telephone }}</a>
         {% else %}—{% endif %}
       </td>
       <td style="font-size:12px;color:var(--danger);">
@@ -82,7 +82,7 @@
     {% endwith %}
     {% empty %}
     <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--success);font-weight:700;">
-      ✅ Tous les élèves ont payé pour {{ mois_fr }} {{ annee_val }}
+      <i class="bi bi-check-circle-fill text-success"></i> Tous les élèves ont payé pour {{ mois_fr }} {{ annee_val }}
     </td></tr>
     {% endfor %}
     </tbody>

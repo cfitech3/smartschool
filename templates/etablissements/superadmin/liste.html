@@ -1,10 +1,10 @@
 {% extends "base/base.html" %}
 {% block title %}Gestion des Établissements{% endblock %}
-{% block topbar_title %}🏫 Établissements{% endblock %}
+{% block topbar_title %}<i class="bi bi-buildings-fill"></i> Établissements{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>🏫 Gestion des Établissements</h1>
+    <h1><i class="bi bi-buildings-fill"></i> Gestion des Établissements</h1>
     <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">Réseau SmartSchool — {{ etablissements|length }} établissement(s)</p>
   </div>
   <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">+ Nouvel établissement</a>
@@ -21,7 +21,7 @@
       {% if e.logo %}
         <img src="{{ e.logo.url }}" alt="Logo" style="width:52px;height:52px;border-radius:10px;object-fit:contain;background:#fff;padding:4px;">
       {% else %}
-        <div style="width:52px;height:52px;border-radius:10px;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:26px;">🏫</div>
+        <div style="width:52px;height:52px;border-radius:10px;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:26px;"><i class="bi bi-buildings-fill"></i></div>
       {% endif %}
       <div style="flex:1;min-width:0;">
         <div style="font-weight:800;font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.nom }}</div>
@@ -38,44 +38,45 @@
     <div class="card-body" style="padding:14px 18px;">
       {% if e.directeur %}
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;">
-        <span style="color:var(--text-muted);">👤</span>
+        <span style="color:var(--text-muted);"><i class="bi bi-person-fill"></i></span>
         <span>{{ e.directeur }}</span>
       </div>
       {% endif %}
       {% if e.telephone %}
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;">
-        <span style="color:var(--text-muted);">📞</span>
+        <span style="color:var(--text-muted);"><i class="bi bi-telephone-fill"></i></span>
         <span>{{ e.telephone }}</span>
       </div>
       {% endif %}
       {% if e.adresse %}
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:var(--text-muted);">
-        <span>📍</span>
+        <span><i class="bi bi-pin-map-fill"></i></span>
         <span>{{ e.adresse|truncatechars:50 }}</span>
       </div>
       {% endif %}
 
       <!-- Lien portail -->
       <div style="background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:9px 12px;margin-bottom:12px;">
-        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;font-weight:700;margin-bottom:4px;">🔗 Lien Portail de Connexion</div>
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;font-weight:700;margin-bottom:4px;"><i class="bi bi-link-45deg"></i> Lien Portail de Connexion</div>
         <div style="display:flex;align-items:center;gap:8px;">
           <code style="font-size:12px;flex:1;word-break:break-all;color:var(--primary);">/auth/portail/{{ e.code }}/</code>
-          <button onclick="copyPortail('{{ e.code }}')" class="btn btn-outline btn-sm" style="padding:3px 9px;font-size:11px;" title="Copier">📋</button>
+          <button onclick="copyPortail('{{ e.code }}')" class="btn btn-outline btn-sm" style="padding:3px 9px;font-size:11px;" title="Copier"><i class="bi bi-clipboard"></i></button>
         </div>
       </div>
 
       <!-- Actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a href="{% url 'modifier_etablissement' e.pk %}" class="btn btn-primary btn-sm" style="flex:1;text-align:center;">✏️ Gérer</a>
-        <a href="{% url 'voir_etablissement' e.pk %}" class="btn btn-outline btn-sm" title="Voir les données de cet établissement">👁️ Voir</a>
-        <a href="{% url 'gestion_comptes_etab' e.pk %}" class="btn btn-outline btn-sm" title="Gérer les comptes">👥</a>
+        <a href="{% url 'modifier_etablissement' e.pk %}" class="btn btn-primary btn-sm" style="flex:1;text-align:center;"><i class="bi bi-pencil-fill"></i> Gérer</a>
+        <a href="{% url 'voir_etablissement' e.pk %}" class="btn btn-outline btn-sm" title="Voir les données de cet établissement"><i class="bi bi-eye-fill"></i> Voir</a>
+        <a href="{% url 'changer_etablissement' e.pk %}" class="btn btn-outline btn-sm" title="Basculer sur cet établissement"><i class="bi bi-shuffle"></i></a>
+        <a href="{% url 'gestion_comptes_etab' e.pk %}" class="btn btn-outline btn-sm" title="Gérer les comptes"><i class="bi bi-people-fill"></i></a>
         <form method="post" action="{% url 'toggle_etablissement' e.pk %}" style="margin:0;"
               onsubmit="return confirm('{% if e.is_active %}Suspendre{% else %}Réactiver{% endif %} {{ e.nom }} ?')">
           {% csrf_token %}
           <button type="submit" class="btn btn-sm"
             style="background:{% if e.is_active %}var(--danger){% else %}var(--success){% endif %};color:#fff;"
             title="{% if e.is_active %}Suspendre{% else %}Réactiver{% endif %}">
-            {% if e.is_active %}🔒{% else %}✅{% endif %}
+            {% if e.is_active %}<i class="bi bi-lock-fill"></i>{% else %}<i class="bi bi-check-circle-fill"></i>{% endif %}
           </button>
         </form>
       </div>
@@ -86,7 +87,7 @@
 
 {% else %}
 <div class="card" style="text-align:center;padding:60px 24px;">
-  <div style="font-size:56px;margin-bottom:16px;">🏫</div>
+  <div style="font-size:56px;margin-bottom:16px;"><i class="bi bi-buildings-fill"></i></div>
   <h2 style="margin-bottom:8px;">Aucun établissement enregistré</h2>
   <p style="color:var(--text-muted);margin-bottom:24px;">Commencez par créer votre premier établissement.</p>
   <a href="{% url 'creer_etablissement' %}" class="btn btn-primary">+ Créer le premier établissement</a>
@@ -97,7 +98,7 @@
 function copyPortail(code) {
   const url = window.location.origin + '/auth/portail/' + code + '/';
   navigator.clipboard.writeText(url).then(() => {
-    Toastify({text:"✅ Lien copié : " + url, duration:3000, gravity:"top", position:"right",
+    Toastify({text:"<i class="bi bi-check-circle-fill text-success"></i> Lien copié : " + url, duration:3000, gravity:"top", position:"right",
       style:{background:"var(--success)",color:"#fff",borderRadius:"8px",fontSize:"13px",fontWeight:"600"}
     }).showToast();
   });

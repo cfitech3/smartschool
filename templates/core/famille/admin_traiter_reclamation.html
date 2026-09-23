@@ -13,7 +13,7 @@
 <div class="grid-2" style="align-items:start;">
   <!-- Contexte de la reclamation -->
   <div class="card">
-    <div class="card-header"><span class="card-title">📋 Details</span></div>
+    <div class="card-header"><span class="card-title"><i class="bi bi-clipboard"></i> Details</span></div>
     <div class="card-body">
       <table style="width:100%;font-size:13px;">
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);width:38%;">Eleve</td><td style="padding:10px 0;font-weight:700;">{{ reclamation.eleve.nom }} {{ reclamation.eleve.prenom }}</td></tr>
@@ -29,9 +29,9 @@
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Date depot</td><td style="padding:10px 0;">{{ reclamation.date_creation|date:"d/m/Y H:i" }}</td></tr>
         <tr><td style="padding:10px 0;color:var(--text-muted);">Statut actuel</td><td style="padding:10px 0;">
           {% if reclamation.statut == 'en_attente' %}<span class="badge badge-warning">⏳ En attente</span>
-          {% elif reclamation.statut == 'en_cours' %}<span class="badge badge-info">🔄 En cours</span>
-          {% elif reclamation.statut == 'acceptee' %}<span class="badge badge-success">✅ Acceptee</span>
-          {% else %}<span class="badge badge-danger">❌ Rejetee</span>{% endif %}
+          {% elif reclamation.statut == 'en_cours' %}<span class="badge badge-info"><i class="bi bi-arrow-repeat"></i> En cours</span>
+          {% elif reclamation.statut == 'acceptee' %}<span class="badge badge-success"><i class="bi bi-check-circle-fill text-success"></i> Acceptee</span>
+          {% else %}<span class="badge badge-danger"><i class="bi bi-x-circle-fill text-danger"></i> Rejetee</span>{% endif %}
         </td></tr>
       </table>
       <div style="margin-top:14px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);border-left:3px solid var(--primary);">
@@ -50,7 +50,7 @@
 
   <!-- Formulaire de traitement -->
   <div class="card">
-    <div class="card-header"><span class="card-title">✅ Traiter la reclamation</span></div>
+    <div class="card-header"><span class="card-title"><i class="bi bi-check-circle-fill text-success"></i> Traiter la reclamation</span></div>
     <form method="post">{% csrf_token %}
     <div class="card-body">
       <div class="form-group">
@@ -67,13 +67,13 @@
         <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Cette reponse sera visible par le parent et l'eleve dans leur espace.</div>
       </div>
       <div style="padding:12px;background:rgba(245,127,23,0.07);border-radius:var(--radius-sm);font-size:12.5px;color:var(--warning);border:1px solid rgba(245,127,23,0.2);">
-        ⚠️ <strong>Attention :</strong> Si vous acceptez la reclamation, pensez a corriger la note directement dans la saisie des notes.
+        <i class="bi bi-exclamation-triangle-fill text-warning"></i>️ <strong>Attention :</strong> Si vous acceptez la reclamation, pensez a corriger la note directement dans la saisie des notes.
       </div>
     </div>
     <div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;">
       <button type="submit" class="btn btn-primary">Envoyer la reponse</button>
       <a href="{% url 'liste_reclamations_admin' %}" class="btn btn-outline">Annuler</a>
-      <a href="{% url 'saisie_notes_mali' %}" class="btn btn-outline btn-sm" style="margin-left:auto;color:var(--info);">📝 Corriger la note</a>
+      <a href="{% url 'saisie_notes_mali' %}" class="btn btn-outline btn-sm" style="margin-left:auto;color:var(--info);"><i class="bi bi-journal-text"></i> Corriger la note</a>
     </div>
     </form>
   </div>

@@ -1,10 +1,10 @@
 {% extends "base/base.html" %}
 {% block title %}Frais impayés{% endblock %}
-{% block topbar_title %}⚠️ Frais impayés{% endblock %}
+{% block topbar_title %}<i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Frais impayés{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>⚠️ Frais impayés</h1>
+    <h1><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Frais impayés</h1>
     <div class="page-subtitle">
       {{ mois_fr }} {{ annee_val }}
       {% if classe_sel %}— {{ classe_sel.nom }}{% endif %}
@@ -83,7 +83,7 @@
 <div class="card" style="margin-bottom:14px;">
   <div class="card-header" style="background:rgba(198,40,40,0.05);border-bottom:1.5px solid rgba(198,40,40,0.15);">
     <span class="card-title" style="color:var(--danger);">
-      📚 {{ cl_nom }}
+      <i class="bi bi-book-half"></i> {{ cl_nom }}
       <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:8px;">
         {{ data.eleves|length }} élève(s) — {{ data.total_du|floatformat:0 }} FCFA dû
       </span>
@@ -121,7 +121,7 @@
         {% if t %}
           <div style="font-weight:600;">{{ t.nom }} {{ t.prenom }}</div>
           {% if t.telephone %}
-          <a href="tel:{{ t.telephone }}" style="color:var(--primary);font-size:11px;">📞 {{ t.telephone }}</a>
+          <a href="tel:{{ t.telephone }}" style="color:var(--primary);font-size:11px;"><i class="bi bi-telephone-fill"></i> {{ t.telephone }}</a>
           {% endif %}
         {% else %}—{% endif %}
         {% endwith %}
@@ -135,7 +135,7 @@
       </td>
       <td style="text-align:center;">
         <a href="{% url 'enregistrer_paiement' %}?eleve={{ imp.eleve.pk }}"
-           class="btn btn-primary btn-sm">💳 Encaisser</a>
+           class="btn btn-primary btn-sm"><i class="bi bi-credit-card"></i> Encaisser</a>
       </td>
     </tr>
     {% endfor %}
@@ -146,7 +146,7 @@
 
 {% else %}
 <div class="card" style="padding:50px;text-align:center;">
-  <div style="font-size:48px;margin-bottom:16px;">✅</div>
+  <div style="font-size:48px;margin-bottom:16px;"><i class="bi bi-check-circle-fill text-success"></i></div>
   <div style="font-size:18px;font-weight:700;color:var(--success);">
     Aucun impayé pour {{ mois_fr }} {{ annee_val }}
     {% if classe_sel %}dans la classe {{ classe_sel.nom }}{% endif %}

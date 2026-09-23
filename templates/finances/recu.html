@@ -22,9 +22,9 @@ body{font-family:{{ modele.police|default:"Arial" }},sans-serif;background:#f0f4
 @media print{body{background:#fff;padding:0;}.actions{display:none;}.recu{box-shadow:none;max-width:100%;border-radius:0;}}
 </style></head>
 <body>
-<div class="actions"><a href="javascript:history.back()" class="btn btn-outline">← Retour</a><button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button></div>
+<div class="actions"><a href="javascript:history.back()" class="btn btn-outline">← Retour</a><button onclick="window.print()" class="btn btn-primary"><i class="bi bi-printer-fill"></i>️ Imprimer</button></div>
 <div class="recu">
-  <div class="recu-header"><div class="logo">🎓</div><h2>{{ modele.nom_etablissement_custom|default:etablissement.nom }}</h2><p>{{ modele.titre_document|default:"RECU DE PAIEMENT" }}</p></div>
+  <div class="recu-header"><div class="logo"><i class="bi bi-mortarboard-fill"></i></div><h2>{{ modele.nom_etablissement_custom|default:etablissement.nom }}</h2><p>{{ modele.titre_document|default:"RECU DE PAIEMENT" }}</p></div>
   <div class="recu-ref">REF: {{ paiement.reference }}</div>
   <div class="recu-body">
     <div class="row"><span class="lbl">Eleve</span><span class="val">{{ paiement.eleve.nom }} {{ paiement.eleve.prenom }}</span></div>
@@ -36,6 +36,6 @@ body{font-family:{{ modele.police|default:"Arial" }},sans-serif;background:#f0f4
     <div class="montant-box"><div class="montant">{{ paiement.montant|floatformat:0 }} FCFA</div><div class="montant-lbl">Montant recu</div></div>
     {% if paiement.notes %}<div style="font-size:12px;color:#546E7A;font-style:italic;">Note : {{ paiement.notes }}</div>{% endif %}
   </div>
-  <div class="recu-footer">✅ Paiement valide{% if modele and modele.texte_pied_page %}<br>{{ modele.texte_pied_page }}{% endif %}<br>{{ paiement.date_paiement|date:"d/m/Y" }}</div>
+  <div class="recu-footer"><i class="bi bi-check-circle-fill text-success"></i> Paiement valide{% if modele and modele.texte_pied_page %}<br>{{ modele.texte_pied_page }}{% endif %}<br>{{ paiement.date_paiement|date:"d/m/Y" }}</div>
 </div>
 </body></html>

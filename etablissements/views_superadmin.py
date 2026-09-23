@@ -141,24 +141,24 @@ def gestion_comptes_etab(request, pk):
                 user_cible.save()
                 JournalAction.log(request, 'reset_mdp', cible=user_cible.username,
                                   etablissement=etab, detail='Reset mdp super admin')
-                messages.success(request, f"✅ Mot de passe réinitialisé pour {user_cible.get_full_name() or user_cible.username}.")
+                messages.success(request, f" Mot de passe réinitialisé pour {user_cible.get_full_name() or user_cible.username}.")
 
         elif action == 'bloquer':
             user_cible.is_active = False
             user_cible.save()
             JournalAction.log(request, 'bloquer_compte', cible=user_cible.username, etablissement=etab)
-            messages.warning(request, f"🔒 Compte de {user_cible.get_full_name() or user_cible.username} bloqué.")
+            messages.warning(request, f" Compte de {user_cible.get_full_name() or user_cible.username} bloqué.")
 
         elif action == 'debloquer':
             user_cible.is_active = True
             user_cible.save()
             JournalAction.log(request, 'debloquer_compte', cible=user_cible.username, etablissement=etab)
-            messages.success(request, f"✅ Compte de {user_cible.get_full_name() or user_cible.username} réactivé.")
+            messages.success(request, f" Compte de {user_cible.get_full_name() or user_cible.username} réactivé.")
 
         elif action == 'supprimer':
             nom = user_cible.get_full_name() or user_cible.username
             user_cible.delete()
-            messages.success(request, f"🗑️ Compte de {nom} supprimé.")
+            messages.success(request, f"️ Compte de {nom} supprimé.")
 
         return redirect('gestion_comptes_etab', pk=pk)
 
@@ -178,7 +178,7 @@ def toggle_etablissement(request, pk):
     etab = get_object_or_404(Etablissement, pk=pk)
     etab.is_active = not etab.is_active
     etab.save()
-    statut = "réactivé ✅" if etab.is_active else "suspendu 🔒"
+    statut = "réactivé " if etab.is_active else "suspendu "
     type_log = 'reactiver_etab' if etab.is_active else 'suspendre_etab'
     JournalAction.log(request, type_log, cible=etab.nom, etablissement=etab,
                       detail=f"Établissement {statut}")

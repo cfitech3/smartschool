@@ -207,7 +207,7 @@ def assistant_fin_annee(request):
 
             messages.success(
                 request,
-                f"✅ Passages traités : {nb_admis} admis, {nb_redouble} redoublant(s), {nb_exclus} exclu(s) — Année {annee_suivante.libelle}."
+                f" Passages traités : {nb_admis} admis, {nb_redouble} redoublant(s), {nb_exclus} exclu(s) — Année {annee_suivante.libelle}."
             )
             return redirect('assistant_fin_annee')
 
@@ -227,7 +227,7 @@ def assistant_fin_annee(request):
         if not annee_a_cloturer_id or not annee_a_activer_id:
             messages.error(
                 request,
-                "❌ Vous devez sélectionner à la fois l'année à clôturer ET "
+                " Vous devez sélectionner à la fois l'année à clôturer ET "
                 "la nouvelle année à activer. Aucune des deux actions n'a été appliquée."
             )
             return redirect('assistant_fin_annee')
@@ -235,7 +235,7 @@ def assistant_fin_annee(request):
         if annee_a_cloturer_id == annee_a_activer_id:
             messages.error(
                 request,
-                "❌ L'année à clôturer et la nouvelle année active ne peuvent pas être identiques."
+                " L'année à clôturer et la nouvelle année active ne peuvent pas être identiques."
             )
             return redirect('assistant_fin_annee')
 
@@ -253,7 +253,7 @@ def assistant_fin_annee(request):
                         f"après l'opération (1 attendue). Opération annulée."
                     )
 
-            messages.success(request, "✅ Année clôturée et nouvelle année activée.")
+            messages.success(request, " Année clôturée et nouvelle année activée.")
         except Exception as ex:
             messages.error(request, f"Erreur clôture : {str(ex)}")
         return redirect('assistant_fin_annee')

@@ -25,7 +25,7 @@
     </div>
   </div>
   {% if mode == "modifier" %}
-  <a href="{% url 'apercu_modele' modele.pk %}" target="_blank" class="btn btn-outline btn-sm">👁 Apercu plein ecran</a>
+  <a href="{% url 'apercu_modele' modele.pk %}" target="_blank" class="btn btn-outline btn-sm"><i class="bi bi-eye-fill"></i> Apercu plein ecran</a>
   {% endif %}
 </div>
 
@@ -37,13 +37,13 @@
 
 {% if mode == "creer" %}
 <!-- Type de document -->
-<div class="card section-card"><div class="card-header"><span class="card-title">📄 Type de document</span></div>
+<div class="card section-card"><div class="card-header"><span class="card-title"><i class="bi bi-file-earmark-text"></i> Type de document</span></div>
 <div class="card-body">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
     {% for v,l in types %}
     <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;" id="type_label_{{ v }}" onclick="selectType('{{ v }}')">
       <input type="radio" name="type_document" value="{{ v }}" {% if v == type_doc_initial %}checked{% endif %} style="display:none;">
-      <span style="font-size:18px;">{% if v == "bulletin" %}📝{% elif v == "recu" %}🧾{% elif v == "certificat" %}📜{% elif v == "attestation" %}📋{% elif v == "carte_scolaire" %}🪪{% elif v == "releve_notes" %}📊{% endif %}</span>
+      <span style="font-size:18px;">{% if v == "bulletin" %}<i class="bi bi-journal-text"></i>{% elif v == "recu" %}<i class="bi bi-receipt"></i>{% elif v == "certificat" %}<i class="bi bi-file-earmark-text"></i>{% elif v == "attestation" %}<i class="bi bi-clipboard"></i>{% elif v == "carte_scolaire" %}<i class="bi bi-person-badge"></i>{% elif v == "releve_notes" %}<i class="bi bi-bar-chart-fill"></i>{% endif %}</span>
       {{ l }}
     </label>
     {% endfor %}
@@ -52,13 +52,13 @@
 {% endif %}
 
 <!-- Informations générales -->
-<div class="card section-card"><div class="card-header"><span class="card-title">📌 Nom</span></div>
+<div class="card section-card"><div class="card-header"><span class="card-title"><i class="bi bi-pin-angle-fill"></i> Nom</span></div>
 <div class="card-body">
   <div class="champ-group"><label class="form-label">Nom du modele *</label><input type="text" name="nom" class="form-control liveinput" value="{% if modele %}{{ modele.nom }}{% endif %}" placeholder="Ex: Bulletin Officiel 2025" required></div>
 </div></div>
 
 <!-- EN-TETE -->
-<div class="card section-card"><div class="card-header"><span class="card-title">📋 En-tete du document</span></div>
+<div class="card section-card"><div class="card-header"><span class="card-title"><i class="bi bi-clipboard"></i> En-tete du document</span></div>
 <div class="card-body">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
     <div><label class="form-label" style="font-size:11.5px;">Ligne 1 gauche</label><input type="text" name="ligne1_gauche" class="form-control liveinput" value="{% if modele %}{{ modele.ligne1_gauche }}{% else %}{{ etab.nom }}{% endif %}"></div>
@@ -77,7 +77,7 @@
 </div></div>
 
 <!-- STYLE -->
-<div class="card section-card"><div class="card-header"><span class="card-title">🎨 Style</span></div>
+<div class="card section-card"><div class="card-header"><span class="card-title"><i class="bi bi-palette-fill"></i> Style</span></div>
 <div class="card-body">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
     <div><label class="form-label" style="font-size:11.5px;">Police</label>
@@ -98,7 +98,7 @@
 
 <!-- COLONNES BULLETIN (seulement pour bulletin / releve_notes) -->
 <div class="card section-card section-bulletin section-releve_notes" style="{% if modele and modele.type_document not in 'bulletin,releve_notes' %}display:none;{% endif %}">
-  <div class="card-header"><span class="card-title">📊 Colonnes affichees</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-bar-chart-fill"></i> Colonnes affichees</span></div>
   <div class="card-body">
     <label class="check-item"><input type="checkbox" name="col_moy_classe" {% if not modele or modele.col_moy_classe %}checked{% endif %}> Moy. Classe /20</label>
     <label class="check-item"><input type="checkbox" name="col_moy_compo" {% if not modele or modele.col_moy_compo %}checked{% endif %}> Moy. Compo /40</label>
@@ -116,7 +116,7 @@
 
 <!-- EDITEURS AVANCES (Seulement pour bulletin / releve_notes) -->
 <div class="card section-card section-advanced-bulletin" style="{% if modele and modele.type_document not in 'bulletin,releve_notes' %}display:none;{% endif %}">
-  <div class="card-header"><span class="card-title">📝 En-tête et Pied de page (Avancé)</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-journal-text"></i> En-tête et Pied de page (Avancé)</span></div>
   <div class="card-body">
     <div style="background: rgba(21,101,192,0.05); padding:10px; border-radius:6px; margin-bottom:10px; font-size:12px; color:var(--text-muted); border:1px solid rgba(21,101,192,0.2);">
       <strong>Mots-clés magiques :</strong> <code>[NOM_ELEVE]</code>, <code>[CLASSE]</code>, <code>[MATRICULE]</code>, <code>[ANNEE_SCOLAIRE]</code>, <code>[NOM_ECOLE]</code>.
@@ -135,7 +135,7 @@
 
 <!-- RECU : style spécifique -->
 <div class="card section-card section-recu" style="{% if not modele or modele.type_document != 'recu' %}display:none;{% endif %}">
-  <div class="card-header"><span class="card-title">🧾 Style du recu</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-receipt"></i> Style du recu</span></div>
   <div class="card-body">
     <div class="grid-color">
       <div><label class="form-label" style="font-size:11.5px;">Couleur principale</label><input type="color" name="couleur_accent_recu" class="form-control liveinput" value="{% if modele %}{{ modele.couleur_accent_recu }}{% else %}#FF6F00{% endif %}" style="height:38px;"></div>
@@ -151,7 +151,7 @@
 
 <!-- EDITEUR AVANCE (Pour certificats, attestations, etc.) -->
 <div class="card section-card section-personnalise" style="{% if modele and modele.type_document in 'bulletin,releve_notes' %}display:none;{% endif %}">
-  <div class="card-header"><span class="card-title">📝 Contenu Personnalisé (Avancé)</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-journal-text"></i> Contenu Personnalisé (Avancé)</span></div>
   <div class="card-body">
     <div style="background: rgba(21,101,192,0.05); padding:10px; border-radius:6px; margin-bottom:10px; font-size:12px; color:var(--text-muted); border:1px solid rgba(21,101,192,0.2);">
       <strong>Mots-clés magiques utilisables :</strong><br>
@@ -168,7 +168,7 @@
 </div>
 
 <!-- SIGNATURES + PIED DE PAGE -->
-<div class="card section-card"><div class="card-header"><span class="card-title">✍️ Signatures & Pied de page</span></div>
+<div class="card section-card"><div class="card-header"><span class="card-title"><i class="bi bi-pen"></i>️ Signatures & Pied de page</span></div>
 <div class="card-body">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
     <div><label class="form-label" style="font-size:11.5px;">Signature gauche</label><input type="text" name="label_signature_gauche" class="form-control" value="{% if modele %}{{ modele.label_signature_gauche }}{% else %}Le Directeur{% endif %}"></div>
@@ -179,7 +179,7 @@
 
 <!-- BOUTONS -->
 <div class="card"><div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap;">
-  <button type="submit" class="btn btn-primary">💾 {% if mode == "creer" %}Creer le modele{% else %}Enregistrer{% endif %}</button>
+  <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> {% if mode == "creer" %}Creer le modele{% else %}Enregistrer{% endif %}</button>
   <a href="{% url 'liste_modeles' %}" class="btn btn-outline">Annuler</a>
   {% if mode == "modifier" and not modele.is_actif %}
   <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-left:auto;cursor:pointer;">
@@ -187,7 +187,7 @@
   </label>
   {% endif %}
   {% if mode == "modifier" %}
-  <button type="submit" name="action" value="supprimer" class="btn btn-outline" style="color:var(--danger);border-color:var(--danger);" onclick="return confirm('Supprimer ?')">🗑 Supprimer</button>
+  <button type="submit" name="action" value="supprimer" class="btn btn-outline" style="color:var(--danger);border-color:var(--danger);" onclick="return confirm('Supprimer ?')"><i class="bi bi-trash-fill"></i> Supprimer</button>
   {% endif %}
 </div></div>
 
@@ -198,7 +198,7 @@
 <div style="position:sticky;top:70px;">
   <div class="card">
     <div class="card-header">
-      <span class="card-title">👁 Apercu en direct</span>
+      <span class="card-title"><i class="bi bi-eye-fill"></i> Apercu en direct</span>
       {% if mode == "modifier" %}
       <a href="{% url 'apercu_modele' modele.pk %}" target="_blank" class="btn btn-outline btn-sm">Plein ecran</a>
       {% endif %}
@@ -321,7 +321,7 @@ function buildPreview(){
       ['Conduite',1,true,'','','16.00','16.00','Bien'],
     ].map(([nom,coef,isc,mc,mn,moy,mcoef,app])=>`
       <tr style="${isc?'background:rgba(1,87,155,0.05);':''}">
-        <td style="font-weight:600;">${nom}${isc?' 🔵':''}</td>
+        <td style="font-weight:600;">${nom}${isc?' <i class="bi bi-circle-fill text-primary"></i>':''}</td>
         ${gc('col_moy_classe')?`<td>${isc?'':mc}</td>`:''}
         ${gc('col_moy_compo')?`<td>${isc?'':mn}</td>`:''}
         ${gc('col_moyenne_finale')?`<td style="font-weight:800;color:${parseFloat(moy)>=10?'#2E7D32':'#C62828'};">${moy}</td>`:''}
@@ -383,7 +383,7 @@ function buildPreview(){
         <div style="width:240px;height:152px;border-radius:8px;background:linear-gradient(135deg,${bg},${accent||'#1565C0'});color:#fff;padding:12px;position:relative;">
           <div style="font-size:9px;font-weight:800;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.3);padding-bottom:6px;margin-bottom:8px;">${nomEtab}</div>
           <div style="display:flex;gap:8px;align-items:center;">
-            <div style="width:46px;height:46px;border-radius:6px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;">👦</div>
+            <div style="width:46px;height:46px;border-radius:6px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;"><i class="bi bi-person"></i></div>
             <div><div style="font-size:12px;font-weight:800;">DAGNON</div><div style="font-size:10px;">Harouna</div><div style="font-size:9px;margin-top:4px;background:rgba(255,255,255,0.2);padding:2px 6px;border-radius:10px;display:inline-block;">9eme Annee</div></div>
           </div>
           <div style="position:absolute;bottom:8px;left:12px;right:12px;display:flex;justify-content:space-between;font-size:8px;opacity:0.8;border-top:1px solid rgba(255,255,255,0.2);padding-top:6px;">

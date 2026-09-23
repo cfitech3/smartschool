@@ -5,7 +5,7 @@
 <div class="page-header">
   <div style="display:flex;align-items:center;gap:12px;">
     <a href="{% url 'liste_etablissements' %}" class="btn btn-outline btn-sm">← Retour</a>
-    <h1>{% if mode == 'creer' %}🏫 Nouvel Établissement{% else %}✏️ {{ etab.nom }}{% endif %}</h1>
+    <h1>{% if mode == 'creer' %}<i class="bi bi-buildings-fill"></i> Nouvel Établissement{% else %}<i class="bi bi-pencil-fill"></i>️ {{ etab.nom }}{% endif %}</h1>
   </div>
 </div>
 
@@ -14,7 +14,7 @@
 
 <!-- Identité -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title">🏷️ Identité</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-tag-fill"></i>️ Identité</span></div>
   <div class="card-body">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
       <div class="form-group" style="margin:0;">
@@ -64,7 +64,7 @@
 
 <!-- Apparence -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title">🎨 Apparence & Branding</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-palette-fill"></i> Apparence & Branding</span></div>
   <div class="card-body">
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px;">
       <div class="form-group" style="margin:0;">
@@ -85,7 +85,7 @@
     <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;">
       <div style="font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:10px;">Aperçu du portail de connexion</div>
       <div id="portail-preview" style="border-radius:8px;padding:14px 18px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,{% if etab %}{{ etab.couleur_principale }}{% else %}#1565C0{% endif %},{% if etab %}{{ etab.couleur_secondaire }}{% else %}#0D47A1{% endif %});">
-        <div style="font-size:28px;">🏫</div>
+        <div style="font-size:28px;"><i class="bi bi-buildings-fill"></i></div>
         <div>
           <div id="prev-nom" style="color:#fff;font-weight:800;font-size:14px;">{% if etab %}{{ etab.nom }}{% else %}Nom de l'école{% endif %}</div>
           <div id="prev-lien" style="color:rgba(255,255,255,0.8);font-size:11px;margin-top:2px;">/auth/portail/{% if etab %}{{ etab.code }}{% else %}CODE{% endif %}/</div>
@@ -98,7 +98,7 @@
 <!-- Configuration pédagogique — uniquement à la création -->
 {% if mode == 'creer' %}
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title">🎓 Configuration pédagogique</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-mortarboard-fill"></i> Configuration pédagogique</span></div>
   <div class="card-body">
     <label class="form-label" style="display:block;margin-bottom:10px;">
       Type d'établissement (cycle principal) *
@@ -143,10 +143,10 @@
 <!-- Actions -->
 <div class="card">
   <div class="card-body" style="display:flex;gap:10px;">
-    <button type="submit" class="btn btn-primary">{% if mode == 'creer' %}✅ Créer{% else %}💾 Enregistrer{% endif %}</button>
+    <button type="submit" class="btn btn-primary">{% if mode == 'creer' %}<i class="bi bi-check-circle-fill text-success"></i> Créer{% else %}<i class="bi bi-save-fill"></i> Enregistrer{% endif %}</button>
     <a href="{% url 'liste_etablissements' %}" class="btn btn-outline">Annuler</a>
     {% if mode == 'modifier' %}
-    <button type="submit" name="action" value="supprimer" class="btn btn-outline" style="margin-left:auto;color:var(--danger);border-color:var(--danger);" onclick="return confirm('Supprimer définitivement {{ etab.nom }} ? Cette action est irréversible.')">🗑 Supprimer</button>
+    <button type="submit" name="action" value="supprimer" class="btn btn-outline" style="margin-left:auto;color:var(--danger);border-color:var(--danger);" onclick="return confirm('Supprimer définitivement {{ etab.nom }} ? Cette action est irréversible.')"><i class="bi bi-trash-fill"></i> Supprimer</button>
     {% endif %}
   </div>
 </div>

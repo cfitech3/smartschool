@@ -18,7 +18,7 @@
 {% block content %}
 <div class="page-header">
   <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
-  <div><h1>🗓️ Emploi du temps</h1>
+  <div><h1><i class="bi bi-calendar-event"></i>️ Emploi du temps</h1>
     <div class="page-subtitle">{% if inscription %}{{ inscription.classe.nom }}{% endif %} — Semaine type</div>
   </div>
 </div>
@@ -38,7 +38,7 @@
 <div class="edt-day-panel" id="day-{{ jour|slugify }}" data-jour="{{ jour }}">
   <div class="edt-card">
     <div class="edt-jour">
-      <span>📅</span>{{ jour }}
+      <span><i class="bi bi-calendar3"></i></span>{{ jour }}
       <span style="font-size:11.5px;font-weight:400;opacity:0.8;margin-left:auto;">{{ creneaux_jour|length }} cours</span>
     </div>
     {% for c in creneaux_jour %}
@@ -48,7 +48,7 @@
         <div class="mat-nom">{{ c.matiere.nom }}</div>
         <div class="mat-info">
           {% if c.enseignant %}Prof : {{ c.enseignant.get_full_name }}{% endif %}
-          {% if c.salle %} · 📍 {{ c.salle }}{% endif %}
+          {% if c.salle %} · <i class="bi bi-pin-map-fill"></i> {{ c.salle }}{% endif %}
         </div>
       </div>
       <span class="coef-badge">Coef {{ c.matiere.coefficient }}</span>
@@ -60,7 +60,7 @@
 
 <!-- Résumé hebdomadaire -->
 <div class="card" style="margin-top:16px;">
-  <div class="card-header"><span class="card-title">📊 Résumé hebdomadaire</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-bar-chart-fill"></i> Résumé hebdomadaire</span></div>
   <div style="padding:16px 18px;">
     <div style="display:flex;gap:20px;flex-wrap:wrap;">
       <div style="text-align:center;"><div style="font-size:22px;font-weight:900;color:var(--primary);">{{ creneaux|length }}</div><div style="font-size:12px;color:var(--text-muted);">Cours/semaine</div></div>
@@ -71,7 +71,7 @@
 
 {% else %}
 <div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
-  <div style="font-size:40px;margin-bottom:12px;">🗓️</div>
+  <div style="font-size:40px;margin-bottom:12px;"><i class="bi bi-calendar-event"></i>️</div>
   <div style="font-weight:600;">Emploi du temps non encore publié</div>
   <div style="font-size:13px;margin-top:6px;">Contactez l'établissement pour plus d'informations.</div>
 </div></div>
@@ -108,4 +108,4 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
-{% endblock %}
+{% endblock %}

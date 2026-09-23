@@ -21,11 +21,11 @@ body{font-family:Arial,sans-serif;background:#e8eef4;padding:20px;}
 </style></head><body>
 <div class="actions">
   <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
-  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer / PDF</button>
+  <button onclick="window.print()" class="btn btn-primary"><i class="bi bi-printer-fill"></i>️ Imprimer / PDF</button>
 </div>
 <div class="page">
   <div class="page-header">
-    <h1>🔐 Fiche d'accès SmartSchool</h1>
+    <h1><i class="bi bi-lock-fill"></i> Fiche d'accès SmartSchool</h1>
     <div class="sub">{{ etab.nom }} — Confidentiel, à remettre en main propre</div>
   </div>
 
@@ -41,7 +41,7 @@ body{font-family:Arial,sans-serif;background:#e8eef4;padding:20px;}
   <!-- Compte élève -->
   {% if compte_eleve %}
   <div class="section">
-    <div class="section-title">🎒 Compte de l'élève</div>
+    <div class="section-title"><i class="bi bi-backpack-fill"></i> Compte de l'élève</div>
     <div class="compte-box">
       <div class="label">Connexion : espace.smartschool.ml/connexion</div>
       <div class="info-row"><span class="info-lbl">Identifiant</span><span class="info-val" style="font-size:16px;letter-spacing:1px;">{{ compte_eleve.username }}</span></div>
@@ -54,7 +54,7 @@ body{font-family:Arial,sans-serif;background:#e8eef4;padding:20px;}
   <!-- Compte parent -->
   {% if compte_parent %}
   <div class="section">
-    <div class="section-title">👨‍👩‍👦 Compte parent / tuteur</div>
+    <div class="section-title"><i class="bi bi-person"></i>‍<i class="bi bi-person"></i>‍<i class="bi bi-person"></i> Compte parent / tuteur</div>
     <div class="compte-box">
       <div class="label">Connexion : espace.smartschool.ml/connexion</div>
       <div class="info-row"><span class="info-lbl">Identifiant</span><span class="info-val" style="font-size:16px;letter-spacing:1px;">{{ compte_parent.username }}</span></div>
@@ -65,7 +65,7 @@ body{font-family:Arial,sans-serif;background:#e8eef4;padding:20px;}
   {% endif %}
 
   <div class="section">
-    <div class="warning-box">⚠️ <strong>Confidentiel</strong> — Changez votre mot de passe à la première connexion. Ne communiquez pas ces identifiants à d'autres personnes.</div>
+    <div class="warning-box"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ <strong>Confidentiel</strong> — Changez votre mot de passe à la première connexion. Ne communiquez pas ces identifiants à d'autres personnes.</div>
   </div>
   <div class="etab-footer">{{ etab.nom }} — {{ etab.adresse }} — {{ etab.telephone }} — Imprimé le {{ today|date:"d/m/Y" }}</div>
 </div>

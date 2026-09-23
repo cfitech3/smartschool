@@ -1,10 +1,10 @@
 {% extends "base/base.html" %}
 {% block title %}Stats commerciales{% endblock %}
-{% block topbar_title %}📊 Statistiques commerciales{% endblock %}
+{% block topbar_title %}<i class="bi bi-bar-chart-fill"></i> Statistiques commerciales{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>📊 Statistiques commerciales</h1>
+    <h1><i class="bi bi-bar-chart-fill"></i> Statistiques commerciales</h1>
     <div class="page-subtitle">Recettes réseau {{ annee }} — {{ grand_total|floatformat:0 }} FCFA</div>
   </div>
   <div style="display:flex;gap:8px;">
@@ -40,19 +40,19 @@
 
 <!-- Graphique évolution réseau -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title">📈 Évolution recettes réseau {{ annee }}</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-graph-up"></i> Évolution recettes réseau {{ annee }}</span></div>
   <div style="padding:16px 18px;"><canvas id="chartReseau" height="70"></canvas></div>
 </div>
 
 <!-- Graphique comparatif par établissement -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title">🏫 Comparatif par établissement</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-buildings-fill"></i> Comparatif par établissement</span></div>
   <div style="padding:16px 18px;"><canvas id="chartEtabs" height="90"></canvas></div>
 </div>
 
 <!-- Tableau croisé -->
 <div class="card">
-  <div class="card-header"><span class="card-title">📋 Tableau détaillé — Recettes (FCFA)</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-clipboard"></i> Tableau détaillé — Recettes (FCFA)</span></div>
   <div style="overflow-x:auto;">
     <table class="table-modern" style="min-width:900px;">
       <thead>
@@ -67,7 +67,7 @@
       <tr>
         <td style="font-weight:700;font-size:13px;">
           {{ ligne.etab.nom|truncatechars:24 }}
-          {% if not ligne.etab.is_active %}<span style="color:var(--danger);font-size:10px;">🔒</span>{% endif %}
+          {% if not ligne.etab.is_active %}<span style="color:var(--danger);font-size:10px;"><i class="bi bi-lock-fill"></i></span>{% endif %}
         </td>
         {% for val in ligne.mois %}
         <td style="text-align:right;font-size:12px;color:{% if val > 0 %}var(--success){% else %}var(--text-muted){% endif %};">

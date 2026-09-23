@@ -34,10 +34,10 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>📋 Appel des présences</h1>
+    <h1><i class="bi bi-clipboard"></i> Appel des présences</h1>
     {% if annee %}<div style="font-size:13px;color:var(--text-muted);margin-top:3px;">{{ annee.libelle }}</div>{% endif %}
   </div>
-  <a href="{% url 'historique_presences' %}" class="btn btn-outline btn-sm">📊 Historique</a>
+  <a href="{% url 'historique_presences' %}" class="btn btn-outline btn-sm"><i class="bi bi-bar-chart-fill"></i> Historique</a>
 </div>
 
 <!-- Filtre classe + date -->
@@ -55,7 +55,7 @@
           {% endfor %}
         </select>
         {% if not classes %}
-        <div style="color:var(--danger);font-size:12px;margin-top:4px;">⚠️ Aucune classe disponible</div>
+        <div style="color:var(--danger);font-size:12px;margin-top:4px;"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Aucune classe disponible</div>
         {% endif %}
       </div>
       <div style="flex:1;min-width:160px;">
@@ -65,7 +65,7 @@
       </div>
       <div style="align-self:flex-end;">
         {% if date_appel == today %}
-        <span class="stat-pill presents">📅 Aujourd'hui</span>
+        <span class="stat-pill presents"><i class="bi bi-calendar3"></i> Aujourd'hui</span>
         {% else %}
         <span class="stat-pill" style="background:var(--bg-secondary);color:var(--text-muted);">
           {{ date_appel|date:"d/m/Y" }}
@@ -78,13 +78,13 @@
 
 {% if classe %}
   {% if appel_fait %}
-  <div class="alert alert-info">✅ Appel déjà enregistré pour cette date — vous pouvez le modifier.</div>
+  <div class="alert alert-info"><i class="bi bi-check-circle-fill text-success"></i> Appel déjà enregistré pour cette date — vous pouvez le modifier.</div>
   {% endif %}
 
   <!-- Compteurs temps réel -->
   <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;" id="stats-bar">
-    <span class="stat-pill presents">✅ Présents : <strong id="count-present">0</strong></span>
-    <span class="stat-pill absents">❌ Absents : <strong id="count-absent">0</strong></span>
+    <span class="stat-pill presents"><i class="bi bi-check-circle-fill text-success"></i> Présents : <strong id="count-present">0</strong></span>
+    <span class="stat-pill absents"><i class="bi bi-x-circle-fill text-danger"></i> Absents : <strong id="count-absent">0</strong></span>
     <span class="stat-pill retards">⏰ Retards : <strong id="count-retard">0</strong></span>
   </div>
   <!-- Barre de progression -->
@@ -102,11 +102,11 @@
         <span class="card-title">{{ classe.nom }} — {{ date_appel|date:"d F Y" }}</span>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button type="button" onclick="toggleNonTraites()" class="btn btn-outline btn-sm" id="btn-filtre">
-            🔍 Non traités
+            <i class="bi bi-search"></i> Non traités
           </button>
           <button type="button" onclick="setAll('present')" class="btn btn-outline btn-sm"
-                  style="color:var(--success);border-color:var(--success);">✅ Tous présents</button>
-          <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+                  style="color:var(--success);border-color:var(--success);"><i class="bi bi-check-circle-fill text-success"></i> Tous présents</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer</button>
         </div>
       </div>
 
@@ -135,7 +135,7 @@
                      onclick="selectStatut({{ item.eleve.pk }}, 'present')">
                 <input type="radio" name="statut_{{ item.eleve.pk }}" value="present"
                        {% if item.statut == 'present' %}checked{% endif %}>
-                ✅ Présent
+                <i class="bi bi-check-circle-fill text-success"></i> Présent
               </label>
               <!-- Absent -->
               <label class="presence-btn {% if item.statut == 'absent' %}active-absent{% endif %}"
@@ -143,7 +143,7 @@
                      onclick="selectStatut({{ item.eleve.pk }}, 'absent')">
                 <input type="radio" name="statut_{{ item.eleve.pk }}" value="absent"
                        {% if item.statut == 'absent' %}checked{% endif %}>
-                ❌ Absent
+                <i class="bi bi-x-circle-fill text-danger"></i> Absent
               </label>
               <!-- Retard -->
               <label class="presence-btn {% if item.statut == 'retard' %}active-retard{% endif %}"
@@ -159,7 +159,7 @@
                      onclick="selectStatut({{ item.eleve.pk }}, 'justifie')">
                 <input type="radio" name="statut_{{ item.eleve.pk }}" value="justifie"
                        {% if item.statut == 'justifie' %}checked{% endif %}>
-                📝 Justifié
+                <i class="bi bi-journal-text"></i> Justifié
               </label>
             </div>
           </td>
@@ -181,8 +181,8 @@
       {% if eleves_data %}
       <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;">
         <button type="button" onclick="setAll('present')" class="btn btn-outline"
-                style="color:var(--success);border-color:var(--success);">✅ Tous présents</button>
-        <button type="submit" class="btn btn-primary">💾 Enregistrer l'appel</button>
+                style="color:var(--success);border-color:var(--success);"><i class="bi bi-check-circle-fill text-success"></i> Tous présents</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer l'appel</button>
       </div>
       {% endif %}
     </div>
@@ -191,12 +191,12 @@
 {% else %}
 <div class="card">
   <div style="text-align:center;padding:60px;color:var(--text-muted);">
-    <div style="font-size:48px;margin-bottom:14px;">📋</div>
+    <div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-clipboard"></i></div>
     <div style="font-size:16px;font-weight:700;margin-bottom:8px;">Sélectionnez une classe</div>
     <div style="font-size:13px;">Choisissez une classe dans le menu ci-dessus pour commencer l'appel</div>
     {% if not classes %}
     <div style="margin-top:16px;padding:12px 20px;background:rgba(198,40,40,0.08);border-radius:8px;color:var(--danger);font-size:13px;font-weight:600;">
-      ⚠️ Aucune classe disponible — vérifiez que des cycles sont activés dans les paramètres.
+      <i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Aucune classe disponible — vérifiez que des cycles sont activés dans les paramètres.
     </div>
     {% endif %}
   </div>
@@ -299,7 +299,7 @@ function toggleNonTraites() {
     btn.style.background = filtreActif ? 'var(--primary)' : '';
     btn.style.color = filtreActif ? '#fff' : '';
     btn.style.borderColor = filtreActif ? 'var(--primary)' : '';
-    btn.textContent = filtreActif ? '👁️ Tous' : '🔍 Non traités';
+    btn.textContent = filtreActif ? '<i class="bi bi-eye-fill"></i>️ Tous' : '<i class="bi bi-search"></i> Non traités';
   }
 }
 
@@ -318,4 +318,4 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
-{% endblock %}
+{% endblock %}

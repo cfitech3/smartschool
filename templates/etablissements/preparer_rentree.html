@@ -1,0 +1,98 @@
+{% extends "base/base.html" %}
+{% block title %}Assistant de Rentrée — {{ etablissement.nom }}{% endblock %}
+{% block topbar_title %}Préparer la Rentrée — {{ etablissement.nom }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1> Assistant de Rentrée Scolaire</h1>
+    <div class="page-subtitle">Gestion des années scolaires pour {{ etablissement.nom }}</div>
+  </div>
+  <a href="{% url 'dashboard_saas' %}" class="btn btn-outline">Retour</a>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header">
+    <span class="card-title">Année Actuelle</span>
+  </div>
+  <div style="padding:20px;">
+    {% if annee_active %}
+      <div style="font-size:18px; font-weight:700; color:var(--primary);">{{ annee_active.libelle }}</div>
+      <div style="font-size:13px; color:var(--text-muted); margin-top:5px;">Du {{ annee_active.date_debut|date:"d/m/Y" }} au {{ annee_active.date_fin|date:"d/m/Y" }}</div>
+    {% else %}
+      <div style="color:var(--danger); font-weight:600;">Aucune année scolaire active. L'établissement ne peut pas fonctionner.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Préparer une nouvelle année</span>
+  </div>
+  <div style="padding:20px;">
+    <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
+      Créer une nouvelle année scolaire désactivera automatiquement l'année précédente (les anciennes données deviendront en lecture seule).
+    </p>
+    
+    <form method="post" action="">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="creer_nouvelle">
+      
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; align-items:end;">
+        <div>
+          <label style="font-weight:600; font-size:13px; margin-bottom:5px; display:block;">Libellé de l'année (ex: 2026-2027)</label>
+          <input type="text" name="libelle" class="form-control" required placeholder="2026-2027">
+        </div>
+        <div>
+          <label style="font-weight:600; font-size:13px; margin-bottom:5px; display:block;">Date de début</label>
+          <input type="date" name="date_debut" class="form-control" required>
+        </div>
+        <div>
+          <label style="font-weight:600; font-size:13px; margin-bottom:5px; display:block;">Date de fin</label>
+          <input type="date" name="date_fin" class="form-control" required>
+        </div>
+      </div>
+      
+      <div style="margin-top:20px;">
+        <button type="submit" class="btn btn-primary" onclick="return confirm('Confirmez-vous la création de cette nouvelle année ? L\'année précédente sera clôturée.');">
+           Créer la nouvelle année
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+  <div class="card-header">
+    <span class="card-title">Historique des années</span>
+  </div>
+  <table class="table-modern">
+    <thead>
+      <tr>
+        <th>Libellé</th>
+        <th>Début</th>
+        <th>Fin</th>
+        <th>Statut</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in annees %}
+      <tr>
+        <td style="font-weight:600;">{{ a.libelle }}</td>
+        <td>{{ a.date_debut|date:"d/m/Y" }}</td>
+        <td>{{ a.date_fin|date:"d/m/Y" }}</td>
+        <td>
+          {% if a.is_active %}
+            <span class="badge" style="background:var(--success); color:#fff;">Active</span>
+          {% else %}
+            <span class="badge" style="background:var(--text-muted); color:#fff;">Clôturée</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" style="text-align:center;">Aucune année enregistrée</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

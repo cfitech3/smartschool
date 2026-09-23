@@ -4,13 +4,13 @@
 {% block nav_paiements %}active{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1>💳 Paiements</h1></div>
-  <div style="display:flex;gap:8px;"><a href="{% url 'export_paiements' %}" class="btn btn-outline btn-sm">📥 Excel</a><a href="{% url 'enregistrer_paiement' %}" class="btn btn-primary">+ Encaisser</a></div>
+  <div><h1><i class="bi bi-credit-card"></i> Paiements</h1></div>
+  <div style="display:flex;gap:8px;"><a href="{% url 'export_paiements' %}" class="btn btn-outline btn-sm"><i class="bi bi-box-arrow-in-down"></i> Excel</a><a href="{% url 'enregistrer_paiement' %}" class="btn btn-primary">+ Encaisser</a></div>
 </div>
 <div class="stats-grid" style="margin-bottom:16px;">
-  <div class="stat-card"><div class="stat-icon green">💰</div><div class="stat-body"><div class="stat-value">{{ stats.total_jour|floatformat:0 }}</div><div class="stat-label">FCFA aujourd'hui</div><div class="stat-change up">{{ stats.nb_jour }} paiement(s)</div></div></div>
-  <div class="stat-card"><div class="stat-icon blue">📈</div><div class="stat-body"><div class="stat-value">{{ stats.total_mois|floatformat:0 }}</div><div class="stat-label">FCFA ce mois</div></div></div>
-  <div class="stat-card"><div class="stat-icon orange">✅</div><div class="stat-body"><div class="stat-value">{{ stats.total_valide|floatformat:0 }}</div><div class="stat-label">FCFA total valide</div></div></div>
+  <div class="stat-card"><div class="stat-icon green"><i class="bi bi-cash-stack"></i></div><div class="stat-body"><div class="stat-value">{{ stats.total_jour|floatformat:0 }}</div><div class="stat-label">FCFA aujourd'hui</div><div class="stat-change up">{{ stats.nb_jour }} paiement(s)</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-graph-up"></i></div><div class="stat-body"><div class="stat-value">{{ stats.total_mois|floatformat:0 }}</div><div class="stat-label">FCFA ce mois</div></div></div>
+  <div class="stat-card"><div class="stat-icon orange"><i class="bi bi-check-circle-fill text-success"></i></div><div class="stat-body"><div class="stat-value">{{ stats.total_valide|floatformat:0 }}</div><div class="stat-label">FCFA total valide</div></div></div>
 </div>
 <div class="card" style="margin-bottom:14px;"><div class="card-body" style="padding:12px 16px;">
 <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
@@ -19,7 +19,7 @@
   <div style="flex:1;min-width:120px;"><select name="mode" class="form-control"><option value="">Tous modes</option>{% for v,l in modes %}<option value="{{ v }}"{% if mode == v %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
   <div style="flex:1;min-width:110px;"><input type="date" name="date_debut" value="{{ date_debut }}" class="form-control" placeholder="Du"></div>
   <div style="flex:1;min-width:110px;"><input type="date" name="date_fin" value="{{ date_fin }}" class="form-control" placeholder="Au"></div>
-  <div style="display:flex;gap:6px;"><button type="submit" class="btn btn-primary btn-sm">Filtrer</button>{% if q or statut or mode or date_debut or date_fin %}<a href="{% url 'liste_paiements' %}" class="btn btn-outline btn-sm">✕</a>{% endif %}</div>
+  <div style="display:flex;gap:6px;"><button type="submit" class="btn btn-primary btn-sm">Filtrer</button>{% if q or statut or mode or date_debut or date_fin %}<a href="{% url 'liste_paiements' %}" class="btn btn-outline btn-sm"><i class="bi bi-x"></i></a>{% endif %}</div>
 </form></div></div>
 <div class="card">
 {% if paiements %}
@@ -33,13 +33,13 @@
   <td style="font-size:12.5px;">{{ p.type_frais.nom }}{% if p.periode_payee %} <br><small style="color:var(--text-muted);">{{ p.periode_payee }}</small>{% endif %}</td>
   <td><strong style="font-size:14px;">{{ p.montant|floatformat:0 }}</strong> <span style="font-size:11px;color:var(--text-muted);">FCFA</span></td>
   <td style="font-size:12px;">{{ p.get_mode_paiement_display }}</td>
-  <td>{% if p.statut == 'valide' %}<span class="badge badge-success">✅ Valide</span>{% elif p.statut == 'annule' %}<span class="badge badge-danger">Annule</span>{% else %}<span class="badge badge-warning">Attente</span>{% endif %}</td>
+  <td>{% if p.statut == 'valide' %}<span class="badge badge-success"><i class="bi bi-check-circle-fill text-success"></i> Valide</span>{% elif p.statut == 'annule' %}<span class="badge badge-danger">Annule</span>{% else %}<span class="badge badge-warning">Attente</span>{% endif %}</td>
   <td style="font-size:12px;color:var(--text-muted);">{{ p.date_paiement|date:"d/m/Y H:i" }}</td>
   <td>
     <div style="display:flex;gap:4px;">
-      <a href="{% url 'recu_paiement' p.pk %}" class="btn btn-outline btn-sm" target="_blank" title="Reçu">🧾</a>
+      <a href="{% url 'recu_paiement' p.pk %}" class="btn btn-outline btn-sm" target="_blank" title="Reçu"><i class="bi bi-receipt"></i></a>
       {% if p.statut == 'valide' %}
-      <button type="button" class="btn btn-outline btn-sm" style="color:var(--danger);" title="Annuler" onclick="document.getElementById('modal-annuler-{{ p.pk }}').style.display='flex'">✕</button>
+      <button type="button" class="btn btn-outline btn-sm" style="color:var(--danger);" title="Annuler" onclick="document.getElementById('modal-annuler-{{ p.pk }}').style.display='flex'"><i class="bi bi-x"></i></button>
       {% endif %}
     </div>
   </td>
@@ -49,7 +49,7 @@
 {% if p.statut == 'valide' %}
 <div id="modal-annuler-{{ p.pk }}" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
   <div class="card" style="width:400px;margin:10% auto;">
-    <div class="card-header"><span class="card-title">❌ Annuler le paiement</span></div>
+    <div class="card-header"><span class="card-title"><i class="bi bi-x-circle-fill text-danger"></i> Annuler le paiement</span></div>
     <form method="post" action="{% url 'annuler_paiement' p.pk %}">{% csrf_token %}
       <div class="card-body">
         <p style="font-size:13px;">Confirmez-vous l'annulation du paiement de <strong>{{ p.montant|floatformat:0 }} F</strong> pour {{ p.eleve.nom_complet }} ?</p>
@@ -70,7 +70,7 @@
 </tbody></table>
 {% include "base/pagination.html" with page_obj=paiements %}
 {% else %}
-<div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;">💳</div><div style="font-weight:600;">Aucun paiement</div><a href="{% url 'enregistrer_paiement' %}" class="btn btn-primary btn-sm" style="margin-top:14px;">+ Premier paiement</a></div>
+<div style="text-align:center;padding:50px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:12px;"><i class="bi bi-credit-card"></i></div><div style="font-weight:600;">Aucun paiement</div><a href="{% url 'enregistrer_paiement' %}" class="btn btn-primary btn-sm" style="margin-top:14px;">+ Premier paiement</a></div>
 {% endif %}
 </div>
 {% endblock %}

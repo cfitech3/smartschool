@@ -1,14 +1,14 @@
 {% extends "base/base.html" %}
 {% block title %}Relevé de notes classe{% endblock %}
-{% block topbar_title %}📋 Relevé de notes par classe{% endblock %}
+{% block topbar_title %}<i class="bi bi-clipboard"></i> Relevé de notes par classe{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>📋 Relevé de notes</h1>
+    <h1><i class="bi bi-clipboard"></i> Relevé de notes</h1>
     <div class="page-subtitle">{% if classe %}{{ classe.nom }}{% if periode %} — {{ periode.nom }}{% endif %}{% else %}Sélectionner une classe{% endif %}</div>
   </div>
   {% if classe and periode %}
-  <button onclick="window.print()" class="btn btn-outline">🖨️ Imprimer</button>
+  <button onclick="window.print()" class="btn btn-outline"><i class="bi bi-printer-fill"></i>️ Imprimer</button>
   {% endif %}
 </div>
 

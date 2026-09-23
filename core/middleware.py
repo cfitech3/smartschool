@@ -30,8 +30,8 @@ class EtablissementMiddleware:
 
                 request.etablissement = etab
 
-            elif request.user.role == 'super_admin':
-                # Super admin : session d'abord
+            elif request.user.role == 'super_admin' or request.session.get('_impersonate_original_pk'):
+                # Super admin (ou mode espionnage) : session d'abord
                 etab_id = request.session.get('etablissement_id')
                 if etab_id:
                     try:

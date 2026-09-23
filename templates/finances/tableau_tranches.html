@@ -1,10 +1,10 @@
 {% extends "base/base.html" %}
 {% block title %}Tableau des tranches{% endblock %}
-{% block topbar_title %}💳 Tableau des tranches{% endblock %}
+{% block topbar_title %}<i class="bi bi-credit-card"></i> Tableau des tranches{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>💳 {{ type_frais.nom }}</h1>
+    <h1><i class="bi bi-credit-card"></i> {{ type_frais.nom }}</h1>
     <div class="page-subtitle">{{ type_frais.nombre_tranches }} tranche(s) · {{ type_frais.montant_defaut|floatformat:0 }} FCFA · {{ annee.libelle }}</div>
   </div>
   <div style="display:flex;gap:8px;">
@@ -62,17 +62,17 @@
       {% for t in data.tranches %}
       <td style="text-align:center;">
         {% if t.statut == 'payee' %}
-          <span style="color:var(--success);font-size:18px;" title="Payée le {{ t.date_paiement|date:'d/m/Y' }}">✅</span>
+          <span style="color:var(--success);font-size:18px;" title="Payée le {{ t.date_paiement|date:'d/m/Y' }}"><i class="bi bi-check-circle-fill text-success"></i></span>
         {% elif t.statut == 'retard' %}
           <a href="{% url 'payer_tranche' t.pk %}" style="text-decoration:none;">
             <span style="background:var(--bg-danger);color:var(--danger);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">
-              ⚠️ Retard<br>{{ t.montant|floatformat:0 }}
+              <i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Retard<br>{{ t.montant|floatformat:0 }}
             </span>
           </a>
         {% else %}
           <a href="{% url 'payer_tranche' t.pk %}" style="text-decoration:none;">
             <span style="background:var(--bg);color:var(--text-muted);padding:2px 8px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);">
-              💳 {{ t.montant|floatformat:0 }}
+              <i class="bi bi-credit-card"></i> {{ t.montant|floatformat:0 }}
               {% if t.date_limite %}<br><span style="font-size:10px;">{{ t.date_limite|date:"d/m" }}</span>{% endif %}
             </span>
           </a>
@@ -84,7 +84,7 @@
         {% if data.nb_retard > 0 %}
           <span style="color:var(--danger);font-size:12px;font-weight:700;">{{ data.nb_retard }} retard(s)</span>
         {% elif data.total_paye >= type_frais.montant_defaut|floatformat:0|add:"0" %}
-          <span style="color:var(--success);font-size:12px;font-weight:700;">✅ Tout payé</span>
+          <span style="color:var(--success);font-size:12px;font-weight:700;"><i class="bi bi-check-circle-fill text-success"></i> Tout payé</span>
         {% else %}
           <span style="color:var(--text-muted);font-size:12px;">En cours</span>
         {% endif %}

@@ -1,10 +1,10 @@
 {% extends "base/base.html" %}
 {% block title %}Import élèves{% endblock %}
-{% block topbar_title %}📥 Import élèves via Excel{% endblock %}
+{% block topbar_title %}<i class="bi bi-box-arrow-in-down"></i> Import élèves via Excel{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>📥 Import élèves via Excel</h1>
+    <h1><i class="bi bi-box-arrow-in-down"></i> Import élèves via Excel</h1>
     <div class="page-subtitle">Année active : {{ annee.libelle }}</div>
   </div>
   <div style="display:flex;gap:8px;">
@@ -28,7 +28,7 @@
 
   <!-- Formulaire upload -->
   <div class="card">
-    <div class="card-header"><span class="card-title">📂 Importer un fichier</span></div>
+    <div class="card-header"><span class="card-title"><i class="bi bi-folder-fill"></i> Importer un fichier</span></div>
     <form method="post" enctype="multipart/form-data" style="padding:20px 24px;">
       {% csrf_token %}
       <div style="margin-bottom:16px;">
@@ -40,7 +40,7 @@
              ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
              ondragleave="this.style.borderColor='var(--border)'"
              ondrop="handleDrop(event)">
-          <div style="font-size:36px;margin-bottom:8px;">📊</div>
+          <div style="font-size:36px;margin-bottom:8px;"><i class="bi bi-bar-chart-fill"></i></div>
           <div style="font-size:13px;font-weight:600;color:var(--primary);">Cliquer ou glisser-déposer</div>
           <div id="file-name" style="font-size:12px;color:var(--text-muted);margin-top:6px;">Aucun fichier sélectionné</div>
         </div>
@@ -48,14 +48,14 @@
                style="display:none;" onchange="showFileName(this)">
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%;">
-        ✅ Lancer l'import
+        <i class="bi bi-check-circle-fill text-success"></i> Lancer l'import
       </button>
     </form>
   </div>
 
   <!-- Instructions -->
   <div class="card">
-    <div class="card-header"><span class="card-title">📋 Instructions</span></div>
+    <div class="card-header"><span class="card-title"><i class="bi bi-clipboard"></i> Instructions</span></div>
     <div style="padding:16px 18px;font-size:13px;line-height:1.8;">
       <div style="margin-bottom:12px;">
         <strong>1.</strong> Téléchargez le modèle Excel ci-dessus
@@ -73,7 +73,7 @@
       </div>
       <div style="margin-bottom:12px;"><strong>3.</strong> Importez le fichier complété</div>
       <div style="background:var(--bg-warning);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text-warning);">
-        ⚠️ La classe doit correspondre exactement à un nom existant dans l'année active.
+        <i class="bi bi-exclamation-triangle-fill text-warning"></i>️ La classe doit correspondre exactement à un nom existant dans l'année active.
       </div>
       <div style="margin-top:10px;font-size:12px;color:var(--text-muted);">
         Classes disponibles :

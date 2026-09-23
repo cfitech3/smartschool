@@ -1,16 +1,16 @@
 {% extends "base/base.html" %}
 {% block title %}Comptes — {{ etab.nom }}{% endblock %}
-{% block topbar_title %}👥 Comptes — {{ etab.nom }}{% endblock %}
+{% block topbar_title %}<i class="bi bi-people-fill"></i> Comptes — {{ etab.nom }}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>👥 Gestion des comptes</h1>
+    <h1><i class="bi bi-people-fill"></i> Gestion des comptes</h1>
     <div class="page-subtitle">{{ etab.nom }} — {{ users.count }} compte(s)</div>
   </div>
   <div style="display:flex;gap:8px;">
-    <a href="{% url 'creer_directeur' etab_pk=etab.pk %}" class="btn btn-outline">👤 + Directeur</a>
+    <a href="{% url 'creer_directeur' etab_pk=etab.pk %}" class="btn btn-outline"><i class="bi bi-person-fill"></i> + Directeur</a>
     <a href="{% url 'voir_etablissement' etab.pk %}" class="btn btn-outline">← Retour</a>
-    <a href="{% url 'liste_etablissements' %}" class="btn btn-primary">🏫 Tous les établissements</a>
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-primary"><i class="bi bi-buildings-fill"></i> Tous les établissements</a>
   </div>
 </div>
 
@@ -42,9 +42,9 @@
       <td><span class="badge badge-primary" style="font-size:11px;">{{ u.get_role_display }}</span></td>
       <td>
         {% if u.is_active %}
-          <span style="color:var(--success);font-size:12px;font-weight:600;">✅ Actif</span>
+          <span style="color:var(--success);font-size:12px;font-weight:600;"><i class="bi bi-check-circle-fill text-success"></i> Actif</span>
         {% else %}
-          <span style="color:var(--danger);font-size:12px;font-weight:600;">🔒 Bloqué</span>
+          <span style="color:var(--danger);font-size:12px;font-weight:600;"><i class="bi bi-lock-fill"></i> Bloqué</span>
         {% endif %}
       </td>
       <td>
@@ -52,7 +52,7 @@
 
           <!-- Reset mot de passe -->
           <button onclick="openReset({{ u.pk }}, '{{ u.get_full_name|default:u.username }}')"
-                  class="btn btn-outline btn-sm" title="Réinitialiser le mot de passe">🔑 Reset mdp</button>
+                  class="btn btn-outline btn-sm" title="Réinitialiser le mot de passe"><i class="bi bi-key-fill"></i> Reset mdp</button>
 
           <!-- Bloquer / Débloquer -->
           {% if u.is_active %}
@@ -60,14 +60,14 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="bloquer">
             <input type="hidden" name="user_pk" value="{{ u.pk }}">
-            <button type="submit" class="btn btn-sm" style="background:var(--warning);color:#fff;">🔒 Bloquer</button>
+            <button type="submit" class="btn btn-sm" style="background:var(--warning);color:#fff;"><i class="bi bi-lock-fill"></i> Bloquer</button>
           </form>
           {% else %}
           <form method="post" style="margin:0;">
             {% csrf_token %}
             <input type="hidden" name="action" value="debloquer">
             <input type="hidden" name="user_pk" value="{{ u.pk }}">
-            <button type="submit" class="btn btn-sm" style="background:var(--success);color:#fff;">✅ Débloquer</button>
+            <button type="submit" class="btn btn-sm" style="background:var(--success);color:#fff;"><i class="bi bi-check-circle-fill text-success"></i> Débloquer</button>
           </form>
           {% endif %}
 
@@ -76,7 +76,7 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="supprimer">
             <input type="hidden" name="user_pk" value="{{ u.pk }}">
-            <button type="submit" class="btn btn-sm" style="background:var(--danger);color:#fff;">🗑️</button>
+            <button type="submit" class="btn btn-sm" style="background:var(--danger);color:#fff;"><i class="bi bi-trash-fill"></i>️</button>
           </form>
 
         </div>
@@ -92,7 +92,7 @@
 <!-- Modal reset mdp -->
 <div id="modal-reset" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
   <div style="background:var(--surface-1);border-radius:16px;padding:32px;width:100%;max-width:420px;margin:0 16px;">
-    <h3 style="margin-bottom:8px;">🔑 Réinitialiser le mot de passe</h3>
+    <h3 style="margin-bottom:8px;"><i class="bi bi-key-fill"></i> Réinitialiser le mot de passe</h3>
     <p id="modal-nom" style="color:var(--text-muted);font-size:13px;margin-bottom:20px;"></p>
     <form method="post" id="form-reset">
       {% csrf_token %}
@@ -106,7 +106,7 @@
       </div>
       <div style="display:flex;gap:10px;margin-top:20px;">
         <button type="button" onclick="closeReset()" class="btn btn-outline" style="flex:1;">Annuler</button>
-        <button type="submit" class="btn btn-primary" style="flex:1;">✅ Confirmer</button>
+        <button type="submit" class="btn btn-primary" style="flex:1;"><i class="bi bi-check-circle-fill text-success"></i> Confirmer</button>
       </div>
     </form>
   </div>

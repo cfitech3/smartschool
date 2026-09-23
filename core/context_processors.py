@@ -120,6 +120,9 @@ def global_context(request):
             cache.set(cache_key_etabs, etabs, 3600)
         context['tous_etablissements'] = etabs
 
+    # ── Mode espionnage : bannière globale ───────────────────────────────────
+    context['is_espionnage'] = bool(request.session.get('_impersonate_original_pk'))
+
     # ── Menu sidebar sérialisé en JSON (source unique de vérité) ─────────────
     # Famille/élève : pas de sidebar standard
     if not (request.user.is_parent or request.user.is_eleve_user):

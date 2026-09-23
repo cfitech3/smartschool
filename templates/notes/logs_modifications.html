@@ -4,7 +4,7 @@
 {% block nav_logs %}active{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1>🔔 Journal des modifications</h1><div class="page-subtitle">Modifications effectuees par les enseignants et surveillants</div></div>
+  <div><h1><i class="bi bi-bell-fill"></i> Journal des modifications</h1><div class="page-subtitle">Modifications effectuees par les enseignants et surveillants</div></div>
   {% if non_lus %}<span class="badge badge-danger" style="font-size:14px;padding:6px 14px;">{{ non_lus }} nouvelle(s)</span>{% endif %}
 </div>
 <div class="card">
@@ -28,7 +28,7 @@
   </tbody>
 </table>
 {% else %}
-<div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">🔔</div><div style="font-size:16px;font-weight:700;color:var(--text);">Aucune modification enregistree</div></div>
+<div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-bell-fill"></i></div><div style="font-size:16px;font-weight:700;color:var(--text);">Aucune modification enregistree</div></div>
 {% endif %}
 </div>
 {% endblock %}

@@ -4,7 +4,7 @@
 {% block nav_emplois %}active{% endblock %}
 {% block extra_css %}<style>.edt-table{width:100%;border-collapse:collapse;min-width:700px;}.edt-table th{background:var(--primary);color:#fff;padding:9px 8px;font-size:12px;text-align:center;}.edt-table td{border:1px solid var(--border);padding:3px;vertical-align:top;min-height:54px;}.edt-table td:first-child{background:var(--bg);font-size:11.5px;font-weight:700;color:var(--text-muted);text-align:center;padding:8px 6px;width:70px;}.creneau{background:rgba(21,101,192,0.08);border-left:3px solid var(--primary);border-radius:4px;padding:5px 7px;margin:2px;font-size:11px;position:relative;}.creneau .mat{font-weight:700;color:var(--primary);}.creneau .ens,.creneau .salle{color:var(--text-muted);font-size:10px;}.creneau .del{position:absolute;top:3px;right:4px;background:none;border:none;cursor:pointer;color:var(--danger);opacity:0;font-size:12px;}.creneau:hover .del{opacity:1;}</style>{% endblock %}
 {% block content %}
-<div class="page-header"><h1>🗓️ Emplois du temps</h1>{% if classe %}<button class="btn btn-primary" onclick="document.getElementById('modal').style.display='flex'">+ Creneau</button>{% endif %}</div>
+<div class="page-header"><h1><i class="bi bi-calendar-event"></i>️ Emplois du temps</h1>{% if classe %}<button class="btn btn-primary" onclick="document.getElementById('modal').style.display='flex'">+ Creneau</button>{% endif %}</div>
 <div class="card" style="margin-bottom:14px;"><div class="card-body" style="padding:12px 16px;">
 <form method="get" style="display:flex;gap:10px;align-items:flex-end;">
   <div style="flex:1;max-width:280px;"><label class="form-label" style="margin-bottom:4px;">Classe</label>
@@ -27,10 +27,10 @@
         <div class="creneau">
           <div class="mat">{{ c.matiere.nom }}</div>
           {% if c.enseignant %}<div class="ens">{{ c.enseignant.get_full_name }}</div>{% endif %}
-          {% if c.salle %}<div class="salle">📍{{ c.salle }}</div>{% endif %}
+          {% if c.salle %}<div class="salle"><i class="bi bi-pin-map-fill"></i>{{ c.salle }}</div>{% endif %}
           <div style="font-size:10px;color:var(--text-muted);">→ {{ c.heure_fin }}</div>
           <form method="post" action="{% url 'supprimer_creneau' c.pk %}" style="display:inline;">{% csrf_token %}
-            <button type="submit" class="del" onclick="return confirm('Supprimer ?')">✕</button>
+            <button type="submit" class="del" onclick="return confirm('Supprimer ?')"><i class="bi bi-x"></i></button>
           </form>
         </div>
       {% endif %}{% endfor %}</td>
@@ -43,7 +43,7 @@
 <!-- Modal -->
 <div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
   <div style="background:var(--card-bg);border-radius:var(--radius);padding:28px;width:100%;max-width:460px;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;"><h3 style="font-size:16px;font-weight:800;">Ajouter un creneau</h3><button onclick="document.getElementById('modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);">✕</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;"><h3 style="font-size:16px;font-weight:800;">Ajouter un creneau</h3><button onclick="document.getElementById('modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);"><i class="bi bi-x"></i></button></div>
     <form method="post">{% csrf_token %}
       <div class="form-group"><label class="form-label">Jour *</label><select name="jour" class="form-control" required>{% for v,l in jours %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
       <div class="form-group"><label class="form-label">Matiere *</label><select name="matiere" class="form-control" required><option value="">-- Choisir --</option>{% for m in matieres %}<option value="{{ m.pk }}">{{ m.nom }} (coef.{{ m.coefficient }})</option>{% endfor %}</select></div>
@@ -55,6 +55,6 @@
   </div>
 </div>
 {% else %}
-<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;">🗓️</div><div style="font-size:16px;font-weight:700;">Selectionnez une classe</div></div></div>
+<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-calendar-event"></i>️</div><div style="font-size:16px;font-weight:700;">Selectionnez une classe</div></div></div>
 {% endif %}
 {% endblock %}

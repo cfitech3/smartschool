@@ -69,6 +69,9 @@ def ajouter_enseignant(request):
             messages.error(request,f"Identifiant {username} deja utilise.")
         else:
             u=User.objects.create_user(username,"",password,first_name=prenom,last_name=nom,role="enseignant",etablissement=etab)
+            if request.FILES.get('photo'):
+                u.photo = request.FILES['photo']
+                u.save()
             ens=Enseignant.objects.create(user=u,etablissement=etab,specialite=spec,diplome=diplome,date_embauche=de,salaire=sal)
             messages.success(request,f"Enseignant {ens.nom_complet} cree.")
             return redirect("detail_enseignant",pk=ens.pk)
@@ -85,6 +88,8 @@ def modifier_enseignant(request,pk):
         u.telephone=request.POST.get("telephone","")
         pw=request.POST.get("password","").strip()
         if pw: u.set_password(pw)
+        if request.FILES.get('photo'):
+            u.photo = request.FILES['photo']
         u.save()
         ens.specialite=request.POST.get("specialite",""); ens.diplome=request.POST.get("diplome","")
         ens.statut=request.POST.get("statut","actif"); ens.salaire=request.POST.get("salaire") or None

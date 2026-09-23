@@ -4,7 +4,7 @@
 {% block nav_messages %}active{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1>💬 Mes messages</h1><div class="page-subtitle">Echanges avec l'administration</div></div>
+  <div><h1><i class="bi bi-chat-dots-fill"></i> Mes messages</h1><div class="page-subtitle">Echanges avec l'administration</div></div>
   <a href="{% url 'envoyer_message' eleve.pk %}" class="btn btn-primary">+ Nouveau message</a>
 </div>
 {% if messages_list %}
@@ -20,8 +20,8 @@
           · {{ m.date_envoi|date:"d/m/Y H:i" }}
         </div>
       </div>
-      {% if m.statut == 'repondu' %}<span class="badge badge-success">✅ Repondu</span>
-      {% elif m.statut == 'lu' %}<span class="badge badge-info">👁 Lu</span>
+      {% if m.statut == 'repondu' %}<span class="badge badge-success"><i class="bi bi-check-circle-fill text-success"></i> Repondu</span>
+      {% elif m.statut == 'lu' %}<span class="badge badge-info"><i class="bi bi-eye-fill"></i> Lu</span>
       {% else %}<span class="badge badge-warning">⏳ En attente</span>{% endif %}
     </div>
     <div style="margin-top:10px;font-size:13px;color:var(--text-muted);background:var(--bg);padding:10px 12px;border-radius:var(--radius-sm);">
@@ -41,7 +41,7 @@
 </div>
 {% else %}
 <div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
-  <div style="font-size:40px;margin-bottom:12px;">💬</div>
+  <div style="font-size:40px;margin-bottom:12px;"><i class="bi bi-chat-dots-fill"></i></div>
   <div style="font-weight:600;">Aucun message envoye</div>
   <a href="{% url 'envoyer_message' eleve.pk %}" class="btn btn-primary" style="margin-top:14px;">+ Envoyer un message</a>
 </div></div>

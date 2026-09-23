@@ -1,0 +1,56 @@
+{% extends "base/base.html" %}
+{% block title %}Journal d'Audit Global{% endblock %}
+{% block topbar_title %}Journal d'Audit Global{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="bi bi-shield-lock-fill"></i> Journal d'Audit Global</h1>
+    <div class="page-subtitle"><i class="bi bi-clock-history"></i> Historique des actions critiques de tout le réseau</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title"><i class="bi bi-list-ul"></i> Dernières actions</span>
+  </div>
+  <table class="table-modern">
+    <thead>
+      <tr>
+        <th><i class="bi bi-calendar-event"></i> Date</th>
+        <th><i class="bi bi-building"></i> Établissement</th>
+        <th><i class="bi bi-person-fill"></i> Utilisateur</th>
+        <th><i class="bi bi-lightning-fill"></i> Action</th>
+        <th><i class="bi bi-info-circle-fill"></i> Détails</th>
+        <th><i class="bi bi-hdd-network-fill"></i> IP</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td style="white-space:nowrap;"><i class="bi bi-clock" style="color:var(--text-muted);font-size:11px;"></i> {{ log.timestamp|date:"d/m/Y H:i:s" }}</td>
+        <td><i class="bi bi-building" style="color:var(--text-muted);font-size:12px;"></i> {{ log.etablissement.nom|default:"—" }}</td>
+        <td>
+          {% if log.user %}
+            <i class="bi bi-person-circle" style="color:var(--text-muted);font-size:12px;"></i>
+            {{ log.user.get_full_name|default:log.user.username }}
+            <br><span style="font-size:11px;color:var(--text-muted);">{{ log.user.get_role_display }}</span>
+          {% else %}
+            <i class="bi bi-gear-fill" style="color:var(--text-muted);font-size:12px;"></i> Système
+          {% endif %}
+        </td>
+        <td style="font-weight:600;color:var(--primary);"><i class="bi bi-activity"></i> {{ log.action }}</td>
+        <td style="font-size:12px;color:var(--text-muted);">{{ log.details|truncatechars:100 }}</td>
+        <td style="font-size:11px;font-family:monospace;"><i class="bi bi-wifi" style="font-size:10px;"></i> {{ log.ip_address|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">
+          <i class="bi bi-inbox" style="font-size:24px;display:block;margin-bottom:6px;"></i>
+          Aucune action enregistrée
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -110,7 +110,7 @@ if created:
     dir_univ.set_password('passer123')
     dir_univ.save()
 
-print("\nOpération terminée avec succès ! ✅")
+print("\nOpération terminée avec succès ! ")
 print("-" * 40)
 print("COMPTES CRÉÉS :")
 print("- Directeur Lycée      : dir_lycee / passer123")

@@ -9,6 +9,7 @@
 .login-btn { background: {{ portail_etab.couleur_principale|default:"#1565C0" }}; }
 </style>
 {% endif %}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body>
 <div class="login-page">
@@ -17,7 +18,7 @@
       {% if portail_etab and portail_etab.logo %}
       <img src="{{ portail_etab.logo.url }}" alt="Logo" style="max-height:80px; margin-bottom:16px; border-radius:8px; object-fit:contain;">
       {% else %}
-      <div style="font-size:48px;margin-bottom:16px;">🎓</div>
+      <div style="font-size:48px;margin-bottom:16px;"><i class="bi bi-mortarboard-fill"></i></div>
       {% endif %}
       
       {% if portail_etab %}
@@ -27,20 +28,20 @@
       <h1>Gérez votre école en toute simplicité.</h1>
       <p>SmartSchool ERP centralise la gestion administrative, pédagogique et financière dans une seule plateforme.</p>
       <div class="feature-pills">
-        <span class="feature-pill">👨‍🎓 Élèves</span><span class="feature-pill">📝 Notes & Bulletins</span>
-        <span class="feature-pill">💳 Paiements</span><span class="feature-pill">📊 Surveillant</span>
-        <span class="feature-pill">🏫 Multi-établissements</span>
+        <span class="feature-pill"><i class="bi bi-person"></i>‍<i class="bi bi-mortarboard-fill"></i> Élèves</span><span class="feature-pill"><i class="bi bi-journal-text"></i> Notes & Bulletins</span>
+        <span class="feature-pill"><i class="bi bi-credit-card"></i> Paiements</span><span class="feature-pill"><i class="bi bi-bar-chart-fill"></i> Surveillant</span>
+        <span class="feature-pill"><i class="bi bi-buildings-fill"></i> Multi-établissements</span>
       </div>
       {% endif %}
     </div>
   </div>
   <div class="login-right">
     <div class="login-box">
-      <div class="login-logo">{% if portail_etab %}🏫{% else %}🎓{% endif %}</div>
+      <div class="login-logo">{% if portail_etab %}<i class="bi bi-buildings-fill"></i>{% else %}<i class="bi bi-mortarboard-fill"></i>{% endif %}</div>
       <div class="login-title">{% if portail_etab %}Bienvenue !{% else %}Bon retour !{% endif %}</div>
       <div class="login-sub">Connectez-vous à votre espace</div>
       {% for message in messages %}
-      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}" style="margin-bottom:14px;">❌ {{ message }}</div>
+      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}" style="margin-bottom:14px;"><i class="bi bi-x-circle-fill text-danger"></i> {{ message }}</div>
       {% endfor %}
       <form method="post">{% csrf_token %}
         <div class="form-group"><label class="form-label">Identifiant</label><input type="text" name="username" class="form-control" placeholder="Votre identifiant" autofocus required></div>

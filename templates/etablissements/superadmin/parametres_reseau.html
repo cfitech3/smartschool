@@ -1,10 +1,10 @@
 {% extends "base/base.html" %}
 {% block title %}Paramètres réseau{% endblock %}
-{% block topbar_title %}⚙️ Paramètres réseau{% endblock %}
+{% block topbar_title %}<i class="bi bi-gear-fill"></i>️ Paramètres réseau{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>⚙️ Paramètres de la plateforme</h1>
+    <h1><i class="bi bi-gear-fill"></i>️ Paramètres de la plateforme</h1>
     <div class="page-subtitle">Configuration globale de SmartSchool</div>
   </div>
   <a href="{% url 'dashboard_saas' %}" class="btn btn-outline">← Dashboard</a>
@@ -22,7 +22,7 @@
 
   <!-- Identité plateforme -->
   <div class="card">
-    <div class="card-header"><span class="card-title">🎓 Identité de la plateforme</span></div>
+    <div class="card-header"><span class="card-title"><i class="bi bi-mortarboard-fill"></i> Identité de la plateforme</span></div>
     <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
       <div>
         <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Nom de la plateforme</label>
@@ -55,7 +55,7 @@
 
   <!-- Contact support -->
   <div class="card">
-    <div class="card-header"><span class="card-title">📞 Contact & support</span></div>
+    <div class="card-header"><span class="card-title"><i class="bi bi-telephone-fill"></i> Contact & support</span></div>
     <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
       <div>
         <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Email support</label>
@@ -84,7 +84,7 @@
 
   <!-- Couleurs -->
   <div class="card">
-    <div class="card-header"><span class="card-title">🎨 Couleurs de la plateforme</span></div>
+    <div class="card-header"><span class="card-title"><i class="bi bi-palette-fill"></i> Couleurs de la plateforme</span></div>
     <div style="padding:20px 24px;display:flex;gap:24px;align-items:center;">
       <div>
         <label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px;">Couleur primaire</label>
@@ -131,7 +131,7 @@
 
 <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
   <a href="{% url 'dashboard_saas' %}" class="btn btn-outline">Annuler</a>
-  <button type="submit" class="btn btn-primary" style="min-width:200px;">💾 Enregistrer les paramètres</button>
+  <button type="submit" class="btn btn-primary" style="min-width:200px;"><i class="bi bi-save-fill"></i> Enregistrer les paramètres</button>
 </div>
 </form>
 

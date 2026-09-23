@@ -4,12 +4,12 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>🏠 Bonjour, {{ request.user.first_name|default:request.user.username }}</h1>
+    <h1><i class="bi bi-house-door-fill"></i> Bonjour, {{ request.user.first_name|default:request.user.username }}</h1>
     <div class="page-subtitle">{% if annee %}{{ annee.libelle }}{% endif %} — {{ today|date:"l d F Y" }}</div>
   </div>
   <div style="display:flex;gap:8px;">
     <a href="{% url 'ajouter_eleve' %}" class="btn btn-primary">+ Élève</a>
-    <a href="{% url 'enregistrer_paiement' %}" class="btn btn-outline">💵 Encaisser</a>
+    <a href="{% url 'enregistrer_paiement' %}" class="btn btn-outline"><i class="bi bi-cash"></i> Encaisser</a>
   </div>
 </div>
 
@@ -52,17 +52,17 @@
 <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
   {% if stats.notifs_non_lues %}
   <a href="{% url 'logs_modifications' %}" class="alert alert-warning" style="text-decoration:none;flex:1;min-width:200px;">
-    🔔 {{ stats.notifs_non_lues }} modification(s) de notes non lue(s)
+    <i class="bi bi-bell-fill"></i> {{ stats.notifs_non_lues }} modification(s) de notes non lue(s)
   </a>
   {% endif %}
   {% if stats.nb_reclamations %}
   <a href="{% url 'liste_reclamations_admin' %}" class="alert alert-danger" style="text-decoration:none;flex:1;min-width:200px;">
-    ✉️ {{ stats.nb_reclamations }} réclamation(s) en attente
+    <i class="bi bi-envelope-fill"></i>️ {{ stats.nb_reclamations }} réclamation(s) en attente
   </a>
   {% endif %}
   {% if stats.nb_messages %}
   <a href="{% url 'admin_messages' %}" class="alert alert-info" style="text-decoration:none;flex:1;min-width:200px;">
-    💬 {{ stats.nb_messages }} message(s) non lu(s)
+    <i class="bi bi-chat-dots-fill"></i> {{ stats.nb_messages }} message(s) non lu(s)
   </a>
   {% endif %}
 </div>
@@ -70,7 +70,7 @@
 
 <!-- Graphique -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title">📊 Recettes — 30 derniers jours</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-bar-chart-fill"></i> Recettes — 30 derniers jours</span></div>
   <div style="padding:16px; height:250px;">
     <canvas id="recettesChart"></canvas>
   </div>
@@ -79,7 +79,7 @@
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
 <!-- Classes -->
 <div class="card">
-  <div class="card-header"><span class="card-title">🏫 Classes</span><a href="{% url 'liste_classes' %}" style="font-size:12px;color:var(--primary);">Toutes →</a></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-buildings-fill"></i> Classes</span><a href="{% url 'liste_classes' %}" style="font-size:12px;color:var(--primary);">Toutes →</a></div>
   <table class="table-modern">
     <thead><tr><th>Classe</th><th>Niveau</th><th style="text-align:center;">Élèves</th></tr></thead>
     <tbody>
@@ -98,7 +98,7 @@
 
 <!-- Derniers paiements -->
 <div class="card">
-  <div class="card-header"><span class="card-title">💳 Derniers paiements</span><a href="{% url 'liste_paiements' %}" style="font-size:12px;color:var(--primary);">Tous →</a></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-credit-card"></i> Derniers paiements</span><a href="{% url 'liste_paiements' %}" style="font-size:12px;color:var(--primary);">Tous →</a></div>
   <table class="table-modern">
     <thead><tr><th>Élève</th><th>Type</th><th style="text-align:right;">Montant</th></tr></thead>
     <tbody>
@@ -118,16 +118,16 @@
 
 <!-- Actions rapides -->
 <div class="card" style="margin-top:16px;">
-  <div class="card-header"><span class="card-title">⚡ Actions rapides</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-lightning-fill"></i> Actions rapides</span></div>
   <div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 18px;">
-    <a href="{% url 'ajouter_eleve' %}" class="btn btn-outline">👨‍🎓 Inscrire un élève</a>
-    <a href="{% url 'enregistrer_paiement' %}" class="btn btn-outline">💵 Enregistrer paiement</a>
-    <a href="{% url 'appel_presences' %}" class="btn btn-outline">📋 Faire l'appel</a>
-    <a href="{% url 'saisie_notes_mali' %}" class="btn btn-outline">📝 Saisir des notes</a>
-    <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">👥 Gérer utilisateurs</a>
-    <a href="{% url 'liste_modeles' %}" class="btn btn-outline">🖨️ Modèles documents</a>
-    <a href="{% url 'rapport_financier' %}" class="btn btn-outline">📈 Rapport financier</a>
-    <a href="{% url 'parametres' %}" class="btn btn-outline">⚙️ Paramètres</a>
+    <a href="{% url 'ajouter_eleve' %}" class="btn btn-outline"><i class="bi bi-person"></i>‍<i class="bi bi-mortarboard-fill"></i> Inscrire un élève</a>
+    <a href="{% url 'enregistrer_paiement' %}" class="btn btn-outline"><i class="bi bi-cash"></i> Enregistrer paiement</a>
+    <a href="{% url 'appel_presences' %}" class="btn btn-outline"><i class="bi bi-clipboard"></i> Faire l'appel</a>
+    <a href="{% url 'saisie_notes_mali' %}" class="btn btn-outline"><i class="bi bi-journal-text"></i> Saisir des notes</a>
+    <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline"><i class="bi bi-people-fill"></i> Gérer utilisateurs</a>
+    <a href="{% url 'liste_modeles' %}" class="btn btn-outline"><i class="bi bi-printer-fill"></i>️ Modèles documents</a>
+    <a href="{% url 'rapport_financier' %}" class="btn btn-outline"><i class="bi bi-graph-up"></i> Rapport financier</a>
+    <a href="{% url 'parametres' %}" class="btn btn-outline"><i class="bi bi-gear-fill"></i>️ Paramètres</a>
   </div>
 </div>
 {% endblock %}

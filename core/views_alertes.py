@@ -63,7 +63,7 @@ def get_alertes_etablissement(etab, annee, user):
                 'detail': 'Ces élèves nécessitent un suivi immédiat',
                 'url': '/eleves/presences/',
                 'count': len(eleves_3plus),
-                'icone': '🚨',
+                'icone': '',
             })
 
         # Réclamations en attente
@@ -78,7 +78,7 @@ def get_alertes_etablissement(etab, annee, user):
                 'detail': 'Des parents attendent une réponse',
                 'url': '/reclamations/',
                 'count': nb_reclam,
-                'icone': '📋',
+                'icone': '',
             })
 
         # Messages non lus
@@ -93,7 +93,7 @@ def get_alertes_etablissement(etab, annee, user):
                 'detail': 'Messages reçus de parents ou élèves',
                 'url': '/messages/',
                 'count': nb_msg,
-                'icone': '💬',
+                'icone': '',
             })
 
         # Classes sans appel aujourd'hui (après 8h)
@@ -114,7 +114,7 @@ def get_alertes_etablissement(etab, annee, user):
                     'detail': f'Appel non marqué au {today.strftime("%d/%m/%Y")}',
                     'url': '/eleves/presences/',
                     'count': sans_appel,
-                    'icone': '📝',
+                    'icone': '',
                 })
 
     # ── ALERTES FINANCES : directeur + comptable ──────────────────────────────
@@ -136,7 +136,7 @@ def get_alertes_etablissement(etab, annee, user):
                 'detail': 'Frais de scolarité non réglés pour ce mois',
                 'url': '/finances/impayes/',
                 'count': nb_retard,
-                'icone': '💳',
+                'icone': '',
             })
 
         # Paiements en attente de validation
@@ -151,7 +151,7 @@ def get_alertes_etablissement(etab, annee, user):
                 'detail': 'Paiements reçus mais non encore validés',
                 'url': '/finances/',
                 'count': nb_attente,
-                'icone': '⏳',
+                'icone': '',
             })
 
     # ── ALERTES NOTES : directeur + enseignants ───────────────────────────────
@@ -180,11 +180,11 @@ def get_alertes_etablissement(etab, annee, user):
                         'detail': f'{en_retard} enseignant(s) n\'ont pas encore saisi leurs notes',
                         'url': '/notes/logs/',
                         'count': en_retard,
-                        'icone': '📚',
+                        'icone': '',
                     })
 
     # ── ALERTES SURVEILLANT ───────────────────────────────────────────────────
-    if user_role in ('surveillant', 'admin', 'super_admin'):
+    if user.role in ('surveillant', 'admin', 'super_admin'):
 
         # Élèves avec 5+ absences ce mois
         debut_mois = today.replace(day=1)
@@ -202,11 +202,11 @@ def get_alertes_etablissement(etab, annee, user):
                 'detail': 'Absentéisme fréquent à surveiller',
                 'url': '/notes/absences/',
                 'count': frequents.count(),
-                'icone': '📊',
+                'icone': '',
             })
 
     # ── ALERTE TRANCHES EN RETARD ─────────────────────────────────────────────
-    if user_role in ('admin', 'comptable', 'super_admin'):
+    if user.role in ('admin', 'comptable', 'super_admin'):
         from finances.models import Echeance
         from django.db.models import Q as Qf
         # Fix PERF-002 : on ne modifie PLUS la base depuis une fonction d'affichage.
@@ -232,7 +232,7 @@ def get_alertes_etablissement(etab, annee, user):
                 'detail': 'Tranches de paiement dépassées la date limite',
                 'url': '/finances/rapport/',
                 'count': nb_tranches_retard,
-                'icone': '⏰',
+                'icone': '',
             })
 
     # Trier : danger en premier, puis warning, puis info

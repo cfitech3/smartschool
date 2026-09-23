@@ -1,11 +1,11 @@
 {% extends "base/base.html" %}
 {% block title %}Encaisser{% endblock %}
-{% block topbar_title %}💵 Enregistrer un paiement{% endblock %}
+{% block topbar_title %}<i class="bi bi-cash"></i> Enregistrer un paiement{% endblock %}
 {% block content %}
 <div class="page-header">
   <div style="display:flex;align-items:center;gap:12px;">
     <a href="{% url 'liste_paiements' %}" class="btn btn-outline btn-sm">← Retour</a>
-    <h1>💵 Enregistrer un paiement</h1>
+    <h1><i class="bi bi-cash"></i> Enregistrer un paiement</h1>
   </div>
 </div>
 
@@ -113,8 +113,8 @@
 
 <div class="card">
   <div style="padding:16px 18px;display:flex;gap:10px;flex-wrap:wrap;">
-    <button type="submit" class="btn btn-primary">✅ Enregistrer</button>
-    <button type="submit" name="imprimer_recu" value="1" class="btn btn-outline">🧾 Enregistrer + reçu</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle-fill text-success"></i> Enregistrer</button>
+    <button type="submit" name="imprimer_recu" value="1" class="btn btn-outline"><i class="bi bi-receipt"></i> Enregistrer + reçu</button>
     <a href="{% url 'liste_paiements' %}" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
   </div>
 </div>

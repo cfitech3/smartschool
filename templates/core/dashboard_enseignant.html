@@ -4,28 +4,28 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>👩‍🏫 Bonjour, {{ request.user.first_name|default:request.user.username }}</h1>
+    <h1><i class="bi bi-person"></i>‍<i class="bi bi-buildings-fill"></i> Bonjour, {{ request.user.first_name|default:request.user.username }}</h1>
     <div class="page-subtitle">{{ today|date:"l d F Y" }}{% if jour_auj %} — {{ jour_auj|capfirst }}{% endif %}</div>
   </div>
-  <a href="{% url 'saisie_notes_mali' %}" class="btn btn-primary">📝 Saisir des notes</a>
+  <a href="{% url 'saisie_notes_mali' %}" class="btn btn-primary"><i class="bi bi-journal-text"></i> Saisir des notes</a>
 </div>
 
 <!-- KPIs enseignant -->
 <div class="stats-grid" style="margin-bottom:20px;">
   <div class="stat-card">
-    <div class="stat-icon blue">🏫</div>
+    <div class="stat-icon blue"><i class="bi bi-buildings-fill"></i></div>
     <div class="stat-body"><div class="stat-value">{{ stats.nb_classes }}</div><div class="stat-label">Classes assignées</div></div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon orange">📚</div>
+    <div class="stat-icon orange"><i class="bi bi-book-half"></i></div>
     <div class="stat-body"><div class="stat-value">{{ stats.nb_matieres }}</div><div class="stat-label">Matière(s)</div></div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon purple">👨‍🎓</div>
+    <div class="stat-icon purple"><i class="bi bi-person"></i>‍<i class="bi bi-mortarboard-fill"></i></div>
     <div class="stat-body"><div class="stat-value">{{ stats.nb_eleves }}</div><div class="stat-label">Élèves au total</div></div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon green">✅</div>
+    <div class="stat-icon green"><i class="bi bi-check-circle-fill text-success"></i></div>
     <div class="stat-body"><div class="stat-value">{{ stats.notes_saisies }}</div><div class="stat-label">Notes saisies{% if periode %} ({{ periode.libelle }}){% endif %}</div></div>
   </div>
 </div>
@@ -33,7 +33,7 @@
 <div class="grid-2" style="align-items:start;">
 <!-- Cours d'aujourd'hui — TIMELINE -->
 <div class="card">
-  <div class="card-header"><span class="card-title">📅 Mes cours aujourd'hui</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-calendar3"></i> Mes cours aujourd'hui</span></div>
   {% if cours_auj %}
   <div style="padding:16px 18px;">
     <div class="cours-timeline" id="cours-timeline">
@@ -42,14 +42,14 @@
          data-debut="{{ cr.heure_debut }}" data-fin="{{ cr.heure_fin }}">
       <div class="cours-time">{{ cr.heure_debut }} → {{ cr.heure_fin }}</div>
       <div class="cours-mat">{{ cr.matiere.nom }}</div>
-      <div class="cours-info">{{ cr.classe.nom }}{% if cr.salle %} · 📍 {{ cr.salle }}{% endif %}</div>
+      <div class="cours-info">{{ cr.classe.nom }}{% if cr.salle %} · <i class="bi bi-pin-map-fill"></i> {{ cr.salle }}{% endif %}</div>
     </div>
     {% endfor %}
     </div>
   </div>
   {% else %}
   <div style="text-align:center;padding:30px;color:var(--text-muted);">
-    <div style="font-size:32px;margin-bottom:8px;">🗓️</div>
+    <div style="font-size:32px;margin-bottom:8px;"><i class="bi bi-calendar-event"></i>️</div>
     Pas de cours aujourd'hui
   </div>
   {% endif %}
@@ -57,7 +57,7 @@
 
 <!-- Mes classes et matières -->
 <div class="card">
-  <div class="card-header"><span class="card-title">📚 Mes classes</span><a href="{% url 'saisie_notes_mali' %}" style="font-size:12px;color:var(--primary);">Saisir notes →</a></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-book-half"></i> Mes classes</span><a href="{% url 'saisie_notes_mali' %}" style="font-size:12px;color:var(--primary);">Saisir notes →</a></div>
   <table class="table-modern">
     <thead><tr><th>Classe</th><th>Matière</th><th style="text-align:center;">Coef.</th></tr></thead>
     <tbody>
@@ -77,11 +77,11 @@
 
 <!-- Actions rapides enseignant -->
 <div class="card" style="margin-top:16px;">
-  <div class="card-header"><span class="card-title">⚡ Actions rapides</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-lightning-fill"></i> Actions rapides</span></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;padding:16px 18px;">
-    <a href="{% url 'saisie_notes_mali' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;">📝</span>Saisir notes</a>
-    <a href="{% url 'bulletins_classe_mali' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;">📄</span>Bulletins</a>
-    <a href="{% url 'emploi_du_temps' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;">🗓️</span>Mon EDT</a>
+    <a href="{% url 'saisie_notes_mali' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;"><i class="bi bi-journal-text"></i></span>Saisir notes</a>
+    <a href="{% url 'bulletins_classe_mali' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;"><i class="bi bi-file-earmark-text"></i></span>Bulletins</a>
+    <a href="{% url 'emploi_du_temps' %}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);text-decoration:none;color:var(--text);font-size:12.5px;font-weight:600;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:22px;"><i class="bi bi-calendar-event"></i>️</span>Mon EDT</a>
   </div>
 </div>
 {% endblock %}
@@ -107,4 +107,4 @@
   });
 })();
 </script>
-{% endblock %}
+{% endblock %}

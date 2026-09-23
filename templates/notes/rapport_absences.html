@@ -22,8 +22,8 @@
 {% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1>⚠️ Rapport des absences</h1><div class="page-subtitle">Surveillance generale — {{ today|date:"d F Y" }}</div></div>
-  <a href="{% url 'saisie_conduite' %}" class="btn btn-outline btn-sm">📊 Saisir conduite</a>
+  <div><h1><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Rapport des absences</h1><div class="page-subtitle">Surveillance generale — {{ today|date:"d F Y" }}</div></div>
+  <a href="{% url 'saisie_conduite' %}" class="btn btn-outline btn-sm"><i class="bi bi-bar-chart-fill"></i> Saisir conduite</a>
 </div>
 
 <!-- Filtres -->
@@ -41,9 +41,9 @@
 
 <!-- Alertes élèves 3+ absences -->
 {% if alertes %}
-<div class="alert alert-danger">🚨 <strong>{{ alertes|length }} eleve(s)</strong> depassent le seuil de 3 absences ce mois.</div>
+<div class="alert alert-danger"><i class="bi bi-cone-striped text-danger"></i> <strong>{{ alertes|length }} eleve(s)</strong> depassent le seuil de 3 absences ce mois.</div>
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title" style="color:var(--danger);">🚨 Alertes — Eleves avec 3+ absences</span></div>
+  <div class="card-header"><span class="card-title" style="color:var(--danger);"><i class="bi bi-cone-striped text-danger"></i> Alertes — Eleves avec 3+ absences</span></div>
   <table class="table-modern">
   <thead><tr><th>Eleve</th><th>Classe</th><th style="text-align:center;">Nb absences</th><th>Contact tuteur</th></tr></thead>
   <tbody>
@@ -52,7 +52,7 @@
     <td><a href="{% url 'detail_eleve' a.eleve.pk %}" style="font-weight:700;text-decoration:none;color:var(--primary);">{{ a.eleve.nom }} {{ a.eleve.prenom }}</a></td>
     <td>{% if a.inscription %}<span class="badge badge-primary">{{ a.inscription.classe.nom }}</span>{% else %}—{% endif %}</td>
     <td style="text-align:center;"><span class="badge badge-danger" style="font-size:14px;padding:4px 12px;">{{ a.nb_absences }}</span></td>
-    <td style="font-size:12.5px;">{% if a.eleve.tuteur %}📞 {{ a.eleve.tuteur.telephone }}{% else %}<span style="color:var(--text-muted);">Aucun tuteur</span>{% endif %}</td>
+    <td style="font-size:12.5px;">{% if a.eleve.tuteur %}<i class="bi bi-telephone-fill"></i> {{ a.eleve.tuteur.telephone }}{% else %}<span style="color:var(--text-muted);">Aucun tuteur</span>{% endif %}</td>
   </tr>
   {% endfor %}
   </tbody>
@@ -62,7 +62,7 @@
 
 <!-- Absences du jour -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title">📅 Absences du jour — {{ today|date:"d F Y" }}</span><span class="badge badge-danger" style="font-size:13px;">{{ absences_jour|length }}</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-calendar3"></i> Absences du jour — {{ today|date:"d F Y" }}</span><span class="badge badge-danger" style="font-size:13px;">{{ absences_jour|length }}</span></div>
   {% if absences_jour %}
   <!-- Absences du jour en TABLE (desktop) -->
   <table class="table-modern abs-table">
@@ -72,7 +72,7 @@
   <tr>
     <td><span class="badge badge-primary">{{ p.classe.nom }}</span></td>
     <td><a href="{% url 'detail_eleve' p.eleve.pk %}" style="font-weight:700;text-decoration:none;color:var(--primary);">{{ p.eleve.nom }} {{ p.eleve.prenom }}</a></td>
-    <td>{% if p.statut == 'absent' %}<span class="badge badge-danger">❌ Absent</span>{% else %}<span class="badge badge-warning">⏰ Retard</span>{% endif %}</td>
+    <td>{% if p.statut == 'absent' %}<span class="badge badge-danger"><i class="bi bi-x-circle-fill text-danger"></i> Absent</span>{% else %}<span class="badge badge-warning">⏰ Retard</span>{% endif %}</td>
     <td style="font-size:12.5px;color:var(--text-muted);">{{ p.motif|default:"—" }}</td>
     <td style="font-size:12.5px;">{% if p.eleve.tuteur %}{{ p.eleve.tuteur.telephone }}{% else %}—{% endif %}</td>
   </tr>
@@ -89,26 +89,26 @@
     <div class="abs-card-info">
       <a href="{% url 'detail_eleve' p.eleve.pk %}" class="abs-card-name" style="text-decoration:none;color:var(--text);">{{ p.eleve.nom }} {{ p.eleve.prenom }}</a>
       <div class="abs-card-meta">
-        {% if p.eleve.tuteur %}📞 {{ p.eleve.tuteur.telephone }}{% endif %}
+        {% if p.eleve.tuteur %}<i class="bi bi-telephone-fill"></i> {{ p.eleve.tuteur.telephone }}{% endif %}
         {% if p.motif %}· {{ p.motif }}{% endif %}
       </div>
     </div>
     <div>
-      {% if p.statut == 'absent' %}<span class="badge badge-danger">❌</span>
+      {% if p.statut == 'absent' %}<span class="badge badge-danger"><i class="bi bi-x-circle-fill text-danger"></i></span>
       {% else %}<span class="badge badge-warning">⏰</span>{% endif %}
     </div>
   </div>
   {% endfor %}
   </div>
   {% else %}
-  <div style="text-align:center;padding:28px;color:var(--success);font-weight:600;">✅ Aucune absence enregistree aujourd'hui</div>
+  <div style="text-align:center;padding:28px;color:var(--success);font-weight:600;"><i class="bi bi-check-circle-fill text-success"></i> Aucune absence enregistree aujourd'hui</div>
   {% endif %}
 </div>
 
 <!-- Statistiques par élève (mois) -->
 {% if classe and stats_eleves %}
 <div class="card">
-  <div class="card-header"><span class="card-title">📊 Statistiques — {{ classe.nom }} — {{ mois }}</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-bar-chart-fill"></i> Statistiques — {{ classe.nom }} — {{ mois }}</span></div>
   <table class="table-modern">
   <thead><tr><th>Eleve</th><th style="text-align:center;">Absences</th><th style="text-align:center;">Retards</th><th style="text-align:center;">Justifies</th><th style="text-align:center;">Non justifies</th><th>Alerte</th><th></th></tr></thead>
   <tbody>
@@ -119,8 +119,8 @@
     <td style="text-align:center;"><span class="badge badge-info">{{ s.retards }}</span></td>
     <td style="text-align:center;font-weight:600;color:var(--success);">{{ s.justifies }}</td>
     <td style="text-align:center;font-weight:600;color:var(--danger);">{{ s.non_justifies }}</td>
-    <td>{% if s.alerte %}<span class="badge badge-danger">🚨 Alerte</span>{% else %}<span class="badge badge-success">OK</span>{% endif %}</td>
-    <td><a href="{% url 'fiche_absences_eleve' s.eleve.pk %}" class="btn btn-outline btn-sm">📋</a></td>
+    <td>{% if s.alerte %}<span class="badge badge-danger"><i class="bi bi-cone-striped text-danger"></i> Alerte</span>{% else %}<span class="badge badge-success">OK</span>{% endif %}</td>
+    <td><a href="{% url 'fiche_absences_eleve' s.eleve.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-clipboard"></i></a></td>
   </tr>
   {% endfor %}
   </tbody>

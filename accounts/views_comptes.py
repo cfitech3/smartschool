@@ -3,11 +3,13 @@ Gestion des comptes élève et parent :
 - Création automatique à l'inscription
 - Fiche d'accès imprimable individuelle
 - Génération en masse par classe
+- Impersonation (mode espionnage) : super_admin peut se connecter comme n'importe quel utilisateur
 """
 import secrets
 import string
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
@@ -249,6 +251,30 @@ def liste_utilisateurs(request):
                 u.set_password(nouveau_mdp)
                 u.save()
                 messages.success(request, f"Mot de passe modifié pour {u.get_full_name()}.")
+        elif action == 'modifier_user':
+            import re
+            u_pk      = request.POST.get('user_pk')
+            prenom    = request.POST.get('prenom', '').strip()
+            nom       = request.POST.get('nom', '').strip()
+            username  = request.POST.get('username', '').strip()
+            role      = request.POST.get('role', '').strip()
+            roles_autorises = ['admin', 'secretariat', 'comptable', 'enseignant', 'surveillant']
+            if not (u_pk and prenom and nom and username and role in roles_autorises):
+                messages.error(request, "Tous les champs sont obligatoires et le rôle doit être valide.")
+            elif not re.match(r'^[\w.@+-]+$', username):
+                messages.error(request, "Identifiant invalide. Utilisez uniquement lettres, chiffres et @/./+/-/_")
+            else:
+                u = get_object_or_404(User, pk=u_pk, etablissement=etab)
+                # Vérifier unicité username si changé
+                if username != u.username and User.objects.filter(username=username).exists():
+                    messages.error(request, f"L'identifiant '{username}' est déjà utilisé.")
+                else:
+                    u.first_name = prenom
+                    u.last_name  = nom
+                    u.username   = username
+                    u.role       = role
+                    u.save()
+                    messages.success(request, f"Utilisateur '{u.get_full_name()}' modifié avec succès.")
         elif action == 'toggle_actif':
             u_pk = request.POST.get('user_pk')
             u = get_object_or_404(User, pk=u_pk, etablissement=etab)
@@ -263,4 +289,56 @@ def liste_utilisateurs(request):
         'roles': User.ROLES,
         'role_filtre': role_filtre,
         'roles_staff': ['admin', 'secretariat', 'comptable', 'enseignant', 'surveillant'],
+        'is_espionnage': bool(request.session.get('_impersonate_original_pk')),
     })
+
+
+@login_required
+def se_connecter_comme(request, user_pk):
+    """
+    Mode espionnage : permet au super_admin de se connecter en tant qu'un autre utilisateur.
+    L'identifiant original est sauvegardé en session pour permettre le retour.
+    """
+    if request.user.role != 'super_admin':
+        messages.error(request, "Accès réservé au Super Administrateur.")
+        return redirect('liste_utilisateurs')
+
+    cible = get_object_or_404(User, pk=user_pk)
+
+    # Empêcher de s'impersoner soi-même ou un autre super_admin
+    if cible == request.user:
+        messages.warning(request, "Vous êtes déjà connecté avec ce compte.")
+        return redirect('liste_utilisateurs')
+    if cible.role == 'super_admin':
+        messages.error(request, "Impossible de se connecter comme un autre Super Administrateur.")
+        return redirect('liste_utilisateurs')
+
+    # Sauvegarder l'identifiant du super_admin réel
+    request.session['_impersonate_original_pk'] = request.user.pk
+
+    # Connecter comme la cible
+    cible.backend = 'django.contrib.auth.backends.ModelBackend'
+    auth_login(request, cible)
+
+    messages.info(request, f"Mode espionnage actif — connecté comme {cible.get_full_name() or cible.username}. Cliquez sur l'icône pour revenir.")
+    return redirect('dashboard')
+
+
+@login_required
+def quitter_espionnage(request):
+    """
+    Quitte le mode espionnage et reconnecte le super_admin original.
+    """
+    original_pk = request.session.get('_impersonate_original_pk')
+    if not original_pk:
+        messages.warning(request, "Vous n'êtes pas en mode espionnage.")
+        return redirect('dashboard')
+
+    original = get_object_or_404(User, pk=original_pk)
+    del request.session['_impersonate_original_pk']
+
+    original.backend = 'django.contrib.auth.backends.ModelBackend'
+    auth_login(request, original)
+
+    messages.success(request, f"Mode espionnage terminé. Bienvenue à nouveau, {original.get_full_name() or original.username}.")
+    return redirect('liste_utilisateurs')

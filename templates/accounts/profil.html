@@ -2,11 +2,23 @@
 {% block title %}Mon Profil{% endblock %}
 {% block topbar_title %}Mon Profil{% endblock %}
 {% block content %}
-<div class="page-header"><h1>👤 Mon Profil</h1></div>
+<div class="page-header"><h1><i class="bi bi-person-fill"></i> Mon Profil</h1></div>
 <div class="grid-2" style="align-items:start;">
   <div class="card">
     <div class="card-body" style="text-align:center;padding:36px;">
-      <div class="user-avatar" style="width:72px;height:72px;font-size:28px;margin:0 auto 14px;">{{ user.first_name|first|upper }}{{ user.last_name|first|upper }}</div>
+      <div style="position:relative;width:90px;height:90px;margin:0 auto 14px;">
+        <div class="user-avatar" onclick="document.getElementById('id_photo_profil').click()" style="width:100%;height:100%;font-size:32px;cursor:pointer;overflow:hidden;border:3px solid var(--border);position:relative;" title="Cliquer pour changer de photo">
+          {% if user.photo %}
+            <img src="{{ user.photo.url }}" style="width:100%;height:100%;object-fit:cover;">
+          {% else %}
+            {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+          {% endif %}
+          <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;padding:3px 0;text-align:center;"><i class="bi bi-camera-fill"></i></div>
+        </div>
+      </div>
+      <form method="post" enctype="multipart/form-data" id="form-photo-profil">{% csrf_token %}
+        <input type="file" name="photo" id="id_photo_profil" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="if(this.files[0] && this.files[0].size <= 2*1024*1024){ document.getElementById('form-photo-profil').submit(); } else { alert('La photo ne doit pas dépasser 2 Mo.'); this.value=''; }">
+      </form>
       <div style="font-size:18px;font-weight:800;">{{ user.get_full_name|default:user.username }}</div>
       <div style="color:var(--text-muted);margin-top:4px;">{{ user.get_role_display }}</div>
       {% if current_etablissement %}<div style="margin-top:8px;"><span class="badge badge-primary">{{ current_etablissement.nom }}</span></div>{% endif %}
@@ -21,7 +33,7 @@
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Telephone</td><td style="padding:10px 0;">{{ user.telephone|default:"—" }}</td></tr>
         <tr><td style="padding:10px 0;color:var(--text-muted);">Inscrit le</td><td style="padding:10px 0;">{{ user.date_joined|date:"d F Y" }}</td></tr>
       </table>
-      <a href="{% url 'logout' %}" class="btn btn-outline btn-sm" style="margin-top:16px;">🚪 Deconnexion</a>
+      <a href="{% url 'logout' %}" class="btn btn-outline btn-sm" style="margin-top:16px;"><i class="bi bi-box-arrow-right"></i> Deconnexion</a>
     </div>
   </div>
 </div>

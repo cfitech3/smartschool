@@ -63,7 +63,7 @@ Cycle.objects.filter(etablissement__isnull=False).delete()
 Etablissement.objects.all().delete()
 User.objects.filter(is_superuser=False).delete()
 User.objects.filter(username='admin').delete()
-print("   ✅ Nettoyage terminé")
+print("    Nettoyage terminé")
 
 # ══════════════════════════════════════════════════════════════
 # [2] ETABLISSEMENT
@@ -76,7 +76,7 @@ etab = Etablissement.objects.create(
     slogan="L'excellence au service de la jeunesse malienne",
     couleur_principale='#1565C0', couleur_secondaire='#0D47A1',
 )
-print(f"   ✅ {etab.nom}")
+print(f"    {etab.nom}")
 
 # ══════════════════════════════════════════════════════════════
 # [3] ANNÉE SCOLAIRE
@@ -88,7 +88,7 @@ annee = AnneeScolaire.objects.create(
     date_fin=datetime.date(2025, 6, 30),
     is_active=True
 )
-print(f"   ✅ {annee.libelle}")
+print(f"    {annee.libelle}")
 
 # ══════════════════════════════════════════════════════════════
 # [4] CYCLES — 1er cycle avec compositions /10, coef=1
@@ -146,9 +146,9 @@ for code, nom, ordre in [('A','Lettres et Sciences Humaines',1),('B','Sciences �
                           ('C','Mathématiques et Physique',3),('D','Sciences de la Nature et de la Vie',4),('T','Technique',5)]:
     SerieLycee.objects.create(cycle=cycle_lycee, code=code, nom=nom, ordre=ordre)
 
-print(f"   ✅ 1er cycle : {cycle_1er.nb_compositions_trimestre} compositions/trimestre, "
+print(f"    1er cycle : {cycle_1er.nb_compositions_trimestre} compositions/trimestre, "
       f"note_max={cycle_1er.note_max}, passage={cycle_1er.note_passage}")
-print(f"   ✅ 2ème cycle, Lycée, Université créés")
+print(f"    2ème cycle, Lycée, Université créés")
 
 # ══════════════════════════════════════════════════════════════
 # [5] PÉRIODES
@@ -161,7 +161,7 @@ p2 = Periode.objects.create(etablissement=etab, annee=annee, type='trimestre', n
 p3 = Periode.objects.create(etablissement=etab, annee=annee, type='trimestre', numero=3,
     libelle='3ème Trimestre', date_debut=datetime.date(2025,4,7), date_fin=datetime.date(2025,6,30))
 periodes = [p1, p2, p3]
-print(f"   ✅ 3 trimestres créés")
+print(f"    3 trimestres créés")
 
 # ══════════════════════════════════════════════════════════════
 # [6] COMPTES UTILISATEURS
@@ -186,7 +186,7 @@ secretaire = User.objects.create_user('secretaire', 'secretaire@efbt.ml', 'admin
 secretaire.role = 'secretariat'; secretaire.first_name = 'Aminata'; secretaire.last_name = 'Kone'
 secretaire.etablissement = etab; secretaire.save()
 
-print("   ✅ admin / directeur / comptable / surveillant / secretaire (mdp: admin123)")
+print("    admin / directeur / comptable / surveillant / secretaire (mdp: admin123)")
 
 # ══════════════════════════════════════════════════════════════
 # [7] MATIÈRES
@@ -218,7 +218,7 @@ for nom, code, coef, is_c in matieres_data:
     matieres[nom] = Matiere.objects.create(
         etablissement=etab, nom=nom, code=code, coefficient=coef, is_conduite=is_c
     )
-print(f"   ✅ {len(matieres)} matières (coef=1 pour 1er cycle)")
+print(f"    {len(matieres)} matières (coef=1 pour 1er cycle)")
 
 # ══════════════════════════════════════════════════════════════
 # [7b] MATIÈRES PAR CYCLE
@@ -252,8 +252,8 @@ for ordre, (nom, coef) in enumerate(mats_2nd, 1):
             coefficient=coef, est_obligatoire=True, ordre=ordre
         )
 
-print(f"   ✅ 1er cycle : {len(mats_1er)} matières (toutes coef=1)")
-print(f"   ✅ 2ème cycle : {len(mats_2nd)} matières (coefs officiels)")
+print(f"    1er cycle : {len(mats_1er)} matières (toutes coef=1)")
+print(f"    2ème cycle : {len(mats_2nd)} matières (coefs officiels)")
 
 # ══════════════════════════════════════════════════════════════
 # [7c] CYCLES ACTIFS + DIVISIONS
@@ -277,7 +277,7 @@ div_2nd = Division.objects.create(
     entete_ligne2="2ème Cycle — Bamako, Mali", couleur_principale="#0D47A1", ordre=2
 )
 div_2nd.cycles.set([cycle_2nd])
-print(f"   ✅ 2 cycles actifs (1er + 2ème) | 2 divisions")
+print(f"    2 cycles actifs (1er + 2ème) | 2 divisions")
 
 # ══════════════════════════════════════════════════════════════
 # [8] NIVEAUX ET CLASSES
@@ -309,7 +309,7 @@ for nom, niv_nom, cap in classes_data:
         etablissement=etab, annee=annee,
         niveau=niveaux[niv_nom], nom=nom, capacite_max=cap
     )
-print(f"   ✅ {len(niveaux)} niveaux, {len(classes)} classes")
+print(f"    {len(niveaux)} niveaux, {len(classes)} classes")
 
 # ══════════════════════════════════════════════════════════════
 # [9] ENSEIGNANTS
@@ -333,7 +333,7 @@ for nom, prenom, username, spec, diplome, salaire in enseignants_data:
         date_embauche=datetime.date(2020, 9, 1), salaire=salaire, statut='actif'
     )
     ens_objects.append(ens)
-print(f"   ✅ {len(ens_objects)} enseignants")
+print(f"    {len(ens_objects)} enseignants")
 
 # ══════════════════════════════════════════════════════════════
 # [10] AFFECTATIONS MATIÈRE/CLASSE
@@ -361,7 +361,7 @@ for ens, mats_list in affectations_map:
                     nb_aff += 1
                 except Exception:
                     pass
-print(f"   ✅ {nb_aff} affectations")
+print(f"    {nb_aff} affectations")
 
 # ══════════════════════════════════════════════════════════════
 # [11] ÉLÈVES + TUTEURS + INSCRIPTIONS
@@ -434,9 +434,9 @@ eleve_user.role = 'eleve'; eleve_user.first_name = eleve_harouna.prenom
 eleve_user.last_name = eleve_harouna.nom; eleve_user.etablissement = etab; eleve_user.save()
 eleve_harouna.user_compte = eleve_user; eleve_harouna.save()
 
-print(f"   ✅ {len(eleve_objects)} élèves inscrits")
-print(f"   ✅ Compte parent : parent1 / parent123 → {premier_eleve.nom_complet}")
-print(f"   ✅ Compte élève  : eleve1  / eleve123  → {eleve_harouna.nom_complet}")
+print(f"    {len(eleve_objects)} élèves inscrits")
+print(f"    Compte parent : parent1 / parent123 → {premier_eleve.nom_complet}")
+print(f"    Compte élève  : eleve1  / eleve123  → {eleve_harouna.nom_complet}")
 
 # ══════════════════════════════════════════════════════════════
 # [12] FINANCES
@@ -475,7 +475,7 @@ for eleve in eleve_objects:
                 encaisse_par=comptable
             )
             nb_paiements += 1
-print(f"   ✅ {nb_paiements} paiements")
+print(f"    {nb_paiements} paiements")
 
 # ══════════════════════════════════════════════════════════════
 # [13] NOTES
@@ -527,7 +527,7 @@ for classe_obj in classes_1er:
                 )
                 nb_compositions_crees += 1
 
-print(f"   ✅ 1er cycle — {nb_compositions_crees} compositions /10 créées")
+print(f"    1er cycle — {nb_compositions_crees} compositions /10 créées")
 print(f"      ({len(classes_1er)} classes × ~{nb_compos} compos × {len(matieres_1er)} matières)")
 
 # ─── 2ÈME CYCLE : NotePeriode classique (Moy.Classe /20 + Moy.Compo /40) ─
@@ -563,7 +563,7 @@ for classe_obj in classes_2nd:
             )
             nb_notes_2nd += 1
 
-print(f"   ✅ 2ème cycle — {nb_notes_2nd} NotePeriode /20 créées")
+print(f"    2ème cycle — {nb_notes_2nd} NotePeriode /20 créées")
 
 # ─── PRÉSENCES ────────────────────────────────────────────────
 nb_presences = 0
@@ -582,7 +582,7 @@ for delta in range(10):
                               'enregistre_par': directeur if statut != 'absent' else surveillant}
                 )
                 nb_presences += 1
-print(f"   ✅ {nb_presences} présences (10 derniers jours)")
+print(f"    {nb_presences} présences (10 derniers jours)")
 
 # ══════════════════════════════════════════════════════════════
 # [14] PARAMÈTRES ET MODÈLES DE DOCUMENTS
@@ -631,13 +631,13 @@ ModeleDocument.objects.create(
     texte_pied_page='Delivre pour servir et valoir ce que de droit.'
 )
 
-print(f"   ✅ Paramètres + 5 modèles de documents créés")
+print(f"    Paramètres + 5 modèles de documents créés")
 
 # ══════════════════════════════════════════════════════════════
 # RÉSUMÉ FINAL
 # ══════════════════════════════════════════════════════════════
 print("\n" + "=" * 60)
-print("  ✅  INSTALLATION TERMINÉE AVEC SUCCÈS")
+print("    INSTALLATION TERMINÉE AVEC SUCCÈS")
 print("=" * 60)
 print(f"\n  Établissement : {etab.nom}")
 print(f"  Année active  : {annee.libelle}")
@@ -656,7 +656,7 @@ insc_1er = Inscription.objects.filter(
     classe__niveau__cycle__type_cycle='premier_cycle', is_active=True
 ).select_related('eleve').first()
 if insc_1er:
-    print(f"\n  🔗 TESTER LE BULLETIN DE COMPOSITION :")
+    print(f"\n   TESTER LE BULLETIN DE COMPOSITION :")
     print(f"     /notes/bulletin-composition/{insc_1er.eleve.pk}/{annee.pk}/1/")
     print(f"     Élève : {insc_1er.eleve.nom_complet} — Classe : {insc_1er.classe.nom}")
 

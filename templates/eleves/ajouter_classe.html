@@ -11,7 +11,7 @@
 </div>
 
 {% if not annee %}
-<div class="alert alert-warning">⚠️ Aucune année scolaire active. Créez-en une dans <a href="{% url 'parametres' %}">Paramètres</a>.</div>
+<div class="alert alert-warning"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Aucune année scolaire active. Créez-en une dans <a href="{% url 'parametres' %}">Paramètres</a>.</div>
 {% endif %}
 
 <div style="max-width:560px;">
@@ -42,7 +42,7 @@
           <button type="button" onclick="toggleCycle('{{ cycle.pk }}')"
             style="width:100%;padding:10px 14px;background:var(--bg);border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:700;">
             <span>
-              {% if cycle.type_cycle == 'premier_cycle' %}📚{% elif cycle.type_cycle == 'second_cycle' %}📖{% elif cycle.type_cycle == 'lycee' %}🎓{% else %}🏛️{% endif %}
+              {% if cycle.type_cycle == 'premier_cycle' %}<i class="bi bi-book-half"></i>{% elif cycle.type_cycle == 'second_cycle' %}<i class="bi bi-book"></i>{% elif cycle.type_cycle == 'lycee' %}<i class="bi bi-mortarboard-fill"></i>{% else %}<i class="bi bi-bank"></i>️{% endif %}
               {{ cycle.nom }}
             </span>
             <span id="arrow-{{ cycle.pk }}" style="transition:transform 0.2s;">▼</span>
@@ -62,7 +62,7 @@
             <label style="display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:13px;">
               <input type="radio" name="niveau" value="libre_{{ cycle.pk }}" style="width:15px;height:15px;"
                 onclick="document.getElementById('inp-niveau-libre').style.display='block';document.getElementById('inp-niveau-libre').focus();">
-              <span style="color:var(--primary);font-weight:600;">✏️ Saisir un autre niveau...</span>
+              <span style="color:var(--primary);font-weight:600;"><i class="bi bi-pencil-fill"></i>️ Saisir un autre niveau...</span>
             </label>
           </div>
         </div>
@@ -105,7 +105,7 @@
 
   </div>
   <div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;">
-    <button type="submit" class="btn btn-primary" {% if not annee %}disabled{% endif %}>✅ Créer la classe</button>
+    <button type="submit" class="btn btn-primary" {% if not annee %}disabled{% endif %}><i class="bi bi-check-circle-fill text-success"></i> Créer la classe</button>
     <button type="submit" name="ajouter_autre" value="1" class="btn btn-outline" {% if not annee %}disabled{% endif %}>+ En créer une autre</button>
     <a href="{% url 'liste_classes' %}" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
   </div>

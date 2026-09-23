@@ -213,9 +213,9 @@ def import_eleves_excel(request):
             erreurs.append(f"Ligne {row_idx} : {ex}")
 
     if nb_crees:
-        messages.success(request, f"✅ {nb_crees} élève(s) importé(s) avec succès.")
+        messages.success(request, f" {nb_crees} élève(s) importé(s) avec succès.")
     if nb_ignore:
-        messages.warning(request, f"⚠️ {nb_ignore} ligne(s) ignorée(s).")
+        messages.warning(request, f"️ {nb_ignore} ligne(s) ignorée(s).")
         for err in erreurs[:10]:
             messages.error(request, err)
 

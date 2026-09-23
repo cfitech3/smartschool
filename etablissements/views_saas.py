@@ -189,7 +189,7 @@ def creer_directeur(request, etab_pk):
                 etablissement=etab,
             )
 
-            messages.success(request, f"✅ Compte directeur '{username}' créé pour {etab.nom}.")
+            messages.success(request, f" Compte directeur '{username}' créé pour {etab.nom}.")
             return redirect('gestion_comptes_etab', pk=etab_pk)
 
     return render(request, 'etablissements/superadmin/creer_directeur.html', {
@@ -290,7 +290,7 @@ def parametres_reseau(request):
             detail='Modification des paramètres globaux de la plateforme',
         )
 
-        messages.success(request, "✅ Paramètres sauvegardés.")
+        messages.success(request, " Paramètres sauvegardés.")
         return redirect('parametres_reseau')
 
     from django.conf import settings

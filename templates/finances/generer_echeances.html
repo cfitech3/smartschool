@@ -1,10 +1,10 @@
 {% extends "base/base.html" %}
 {% block title %}Générer les échéances{% endblock %}
-{% block topbar_title %}💳 Générer les tranches{% endblock %}
+{% block topbar_title %}<i class="bi bi-credit-card"></i> Générer les tranches{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>💳 Générer les échéances</h1>
+    <h1><i class="bi bi-credit-card"></i> Générer les échéances</h1>
     <div class="page-subtitle">{{ type_frais.nom }} — {{ type_frais.nombre_tranches }} tranche(s) — {{ type_frais.montant_defaut|floatformat:0 }} FCFA total</div>
   </div>
   <a href="{% url 'liste_types_frais' %}" class="btn btn-outline">← Retour</a>
@@ -19,7 +19,7 @@
   <form method="post" style="padding:20px 24px;">
     {% csrf_token %}
     <div style="background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;">
-      📋 Ces échéances seront générées pour <strong>{{ nb_eleves }}</strong> élève(s) actif(s).
+      <i class="bi bi-clipboard"></i> Ces échéances seront générées pour <strong>{{ nb_eleves }}</strong> élève(s) actif(s).
       La somme des tranches doit être égale à <strong>{{ type_frais.montant_defaut|floatformat:0 }} FCFA</strong>.
     </div>
 
@@ -45,7 +45,7 @@
       <a href="{% url 'liste_types_frais' %}" class="btn btn-outline" style="flex:1;text-align:center;">Annuler</a>
       <button type="submit" class="btn btn-primary" style="flex:2;"
               onclick="return confirm('Générer les échéances pour {{ nb_eleves }} élève(s) ?')">
-        ✅ Générer les échéances
+        <i class="bi bi-check-circle-fill text-success"></i> Générer les échéances
       </button>
     </div>
   </form>

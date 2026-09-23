@@ -15,7 +15,7 @@
 <div style="max-width:520px;">
 <form method="post">{% csrf_token %}
 <div class="card" style="margin-bottom:14px;">
-  <div class="card-header"><span class="card-title">✏️ Renommer la classe</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-pencil-fill"></i>️ Renommer la classe</span></div>
   <div class="card-body">
     <div class="form-group">
       <label class="form-label">Nom de la classe *</label>
@@ -29,7 +29,7 @@
 </div>
 
 <div class="card" style="margin-bottom:14px;">
-  <div class="card-header"><span class="card-title">🏗️ Niveau & Capacité</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-tools"></i>️ Niveau & Capacité</span></div>
   <div class="card-body">
     <div class="form-group">
       <label class="form-label">Changer de niveau</label>
@@ -57,12 +57,12 @@
 
 <div class="card">
   <div class="card-body" style="display:flex;gap:10px;align-items:center;">
-    <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer</button>
     <a href="{% url 'detail_classe' classe.pk %}" class="btn btn-outline">Annuler</a>
     <button type="submit" name="action" value="supprimer"
       class="btn btn-outline" style="margin-left:auto;color:var(--danger);border-color:var(--danger);"
       onclick="return confirm('Supprimer la classe {{ classe.nom }} ? Cette action est irréversible.')">
-      🗑 Supprimer
+      <i class="bi bi-trash-fill"></i> Supprimer
     </button>
   </div>
 </div>

@@ -1,15 +1,15 @@
 {% extends "base/base.html" %}
 {% block title %}{{ etab.nom }} — Vue Super Admin{% endblock %}
-{% block topbar_title %}👁️ {{ etab.nom }}{% endblock %}
+{% block topbar_title %}<i class="bi bi-eye-fill"></i>️ {{ etab.nom }}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>👁️ {{ etab.nom }}</h1>
+    <h1><i class="bi bi-eye-fill"></i>️ {{ etab.nom }}</h1>
     <div class="page-subtitle">Vue super admin — données isolées de cet établissement</div>
   </div>
   <div style="display:flex;gap:8px;">
-    <a href="{% url 'gestion_comptes_etab' etab.pk %}" class="btn btn-outline">👥 Gérer les comptes</a>
-    <a href="{% url 'changer_etablissement' etab.pk %}" class="btn btn-outline">🔀 Basculer dessus</a>
+    <a href="{% url 'gestion_comptes_etab' etab.pk %}" class="btn btn-outline"><i class="bi bi-people-fill"></i> Gérer les comptes</a>
+    <a href="{% url 'changer_etablissement' etab.pk %}" class="btn btn-outline"><i class="bi bi-shuffle"></i> Basculer dessus</a>
     <a href="{% url 'liste_etablissements' %}" class="btn btn-primary">← Retour</a>
   </div>
 </div>
@@ -17,20 +17,20 @@
 <!-- Badge statut -->
 <div style="margin-bottom:16px;display:flex;align-items:center;gap:10px;">
   {% if etab.is_active %}
-    <span style="background:var(--bg-success);color:var(--text-success);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">✅ ACTIF</span>
+    <span style="background:var(--bg-success);color:var(--text-success);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;"><i class="bi bi-check-circle-fill text-success"></i> ACTIF</span>
   {% else %}
-    <span style="background:var(--bg-danger);color:var(--text-danger);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">🔒 SUSPENDU</span>
+    <span style="background:var(--bg-danger);color:var(--text-danger);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;"><i class="bi bi-lock-fill"></i> SUSPENDU</span>
   {% endif %}
   <span style="font-size:13px;color:var(--text-muted);">Portail : <code>/auth/portail/{{ etab.code }}/</code></span>
   {% if not etab.is_active %}
   <form method="post" action="{% url 'toggle_etablissement' etab.pk %}" style="margin:0;">
     {% csrf_token %}
-    <button type="submit" class="btn btn-primary btn-sm">✅ Réactiver</button>
+    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-circle-fill text-success"></i> Réactiver</button>
   </form>
   {% else %}
   <form method="post" action="{% url 'toggle_etablissement' etab.pk %}" style="margin:0;">
     {% csrf_token %}
-    <button type="submit" class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="return confirm('Suspendre cet établissement ?')">🔒 Suspendre</button>
+    <button type="submit" class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="return confirm('Suspendre cet établissement ?')"><i class="bi bi-lock-fill"></i> Suspendre</button>
   </form>
   {% endif %}
 </div>
@@ -57,14 +57,14 @@
 
 <!-- Graphique 7 jours -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title">📊 Recettes — 7 derniers jours</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-bar-chart-fill"></i> Recettes — 7 derniers jours</span></div>
   <div style="padding:16px 18px;"><canvas id="chartEtab" height="80"></canvas></div>
 </div>
 
 <!-- Comptes staff -->
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
-    <span class="card-title">👥 Comptes staff</span>
+    <span class="card-title"><i class="bi bi-people-fill"></i> Comptes staff</span>
     <a href="{% url 'gestion_comptes_etab' etab.pk %}" style="font-size:12px;color:var(--primary);">Gérer →</a>
   </div>
   <table class="table-modern">
@@ -77,9 +77,9 @@
       <td><span class="badge badge-primary" style="font-size:11px;">{{ u.get_role_display }}</span></td>
       <td>
         {% if u.is_active %}
-          <span style="color:var(--success);font-size:12px;font-weight:600;">✅ Actif</span>
+          <span style="color:var(--success);font-size:12px;font-weight:600;"><i class="bi bi-check-circle-fill text-success"></i> Actif</span>
         {% else %}
-          <span style="color:var(--danger);font-size:12px;font-weight:600;">🔒 Bloqué</span>
+          <span style="color:var(--danger);font-size:12px;font-weight:600;"><i class="bi bi-lock-fill"></i> Bloqué</span>
         {% endif %}
       </td>
     </tr>
@@ -92,7 +92,7 @@
 
 <!-- Derniers paiements -->
 <div class="card">
-  <div class="card-header"><span class="card-title">💳 Derniers paiements</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-credit-card"></i> Derniers paiements</span></div>
   <table class="table-modern">
     <thead><tr><th>Élève</th><th>Type</th><th>Montant</th><th>Date</th><th>Mode</th></tr></thead>
     <tbody>

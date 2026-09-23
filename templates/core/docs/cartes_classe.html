@@ -216,17 +216,17 @@
 <!-- Barre d'actions -->
 <div class="actions">
   <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
-  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer la classe</button>
+  <button onclick="window.print()" class="btn btn-primary"><i class="bi bi-printer-fill"></i>️ Imprimer la classe</button>
   <span class="hint">{{ eleves_data|length }} cartes · Format CR80 (85.6 × 54 mm) · Une seule face</span>
 </div>
 
 <div class="page-wrapper">
-  <div class="page-title">🪪 Cartes Scolaires — {{ classe.nom }}</div>
+  <div class="page-title"><i class="bi bi-person-badge"></i> Cartes Scolaires — {{ classe.nom }}</div>
   <div class="page-sub">{{ annee.libelle|default:"—" }} — {{ etab.nom }}</div>
 
   {% if not etab.logo %}
   <div class="alert-logo">
-    ⚠️ Logo manquant — Ajoutez le logo de l'établissement dans <a href="/etablissements/parametres/" style="color:#E65100; font-weight:700;">Paramètres</a> pour qu'il apparaisse sur les cartes.
+    <i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Logo manquant — Ajoutez le logo de l'établissement dans <a href="/etablissements/parametres/" style="color:#E65100; font-weight:700;">Paramètres</a> pour qu'il apparaisse sur les cartes.
   </div>
   {% endif %}
 
@@ -248,7 +248,7 @@
           {% if etab.logo %}
             <img src="{{ etab.logo.url }}" alt="{{ etab.nom }}">
           {% else %}
-            🎓
+            <i class="bi bi-mortarboard-fill"></i>
           {% endif %}
         </div>
         <div class="etab-bloc">
@@ -269,9 +269,9 @@
             {% if eleve.photo %}
               <img src="{{ eleve.photo.url }}" alt="{{ eleve.nom }}">
             {% elif eleve.sexe == 'M' %}
-              👦
+              <i class="bi bi-person"></i>
             {% else %}
-              👧
+              <i class="bi bi-person"></i>
             {% endif %}
           </div>
           {% if not eleve.photo %}
@@ -286,7 +286,7 @@
 
           {% if inscription %}
           <div class="classe-pill">
-            📚 {{ inscription.classe.nom }}{% if inscription.classe.niveau %} — {{ inscription.classe.niveau.nom }}{% endif %}
+            <i class="bi bi-book-half"></i> {{ inscription.classe.nom }}{% if inscription.classe.niveau %} — {{ inscription.classe.niveau.nom }}{% endif %}
           </div>
           {% endif %}
 
@@ -304,7 +304,7 @@
             {% if eleve.tuteur %}
             <div class="info-row">
               <span class="info-lbl">Tuteur</span>
-              <span class="info-val">📞 {{ eleve.tuteur.telephone }}</span>
+              <span class="info-val"><i class="bi bi-telephone-fill"></i> {{ eleve.tuteur.telephone }}</span>
             </div>
             {% endif %}
             {% if etab.telephone %}
@@ -325,11 +325,11 @@
           <div class="sign-line"></div>
           <span class="sign-label">{{ modele.label_signature_gauche|default:"Le Directeur" }}</span>
         </div>
-        <div class="validite">✅ Valide {{ annee.libelle|default:"—" }}</div>
+        <div class="validite"><i class="bi bi-check-circle-fill text-success"></i> Valide {{ annee.libelle|default:"—" }}</div>
       </div>
 
     </div><!-- /carte -->
-    <div class="carte-legend">✂️ Découper</div>
+    <div class="carte-legend"><i class="bi bi-scissors"></i>️ Découper</div>
   </div><!-- /carte-outer -->
   {% endwith %}
   {% empty %}

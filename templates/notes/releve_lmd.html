@@ -49,7 +49,7 @@ tbody td{border:1px solid #d0dce8;padding:5px 8px;}
 <body>
 <div class="actions">
   <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
-  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button>
+  <button onclick="window.print()" class="btn btn-primary"><i class="bi bi-printer-fill"></i>️ Imprimer</button>
 </div>
 <div class="doc">
   <div class="entete" style="display:flex; justify-content:space-between; align-items:center;">
@@ -87,7 +87,7 @@ tbody td{border:1px solid #d0dce8;padding:5px 8px;}
       <td style="text-align:center;color:{% if n.note_rattrapage %}#FF6F00{% else %}#ccc{% endif %};">{% if n.note_rattrapage %}{{ n.note_rattrapage|floatformat:2 }}{% else %}—{% endif %}</td>
       <td class="note-{% if n.note_retenue is not None %}{% if n.note_retenue >= 10 %}ok{% else %}ko{% endif %}{% endif %}" style="text-align:center;font-size:13px;">{% if n.note_retenue is not None %}{{ n.note_retenue|floatformat:2 }}{% else %}—{% endif %}</td>
       <td style="text-align:center;font-size:10.5px;">{{ n.mention|default:"—" }}</td>
-      <td style="text-align:center;"><span class="credits-{% if n.credits_valides %}ok{% else %}ko{% endif %}">{% if n.credits_valides %}{{ n.ue.credits }} ✅{% else %}0 ❌{% endif %}</span></td>
+      <td style="text-align:center;"><span class="credits-{% if n.credits_valides %}ok{% else %}ko{% endif %}">{% if n.credits_valides %}{{ n.ue.credits }} <i class="bi bi-check-circle-fill text-success"></i>{% else %}0 <i class="bi bi-x-circle-fill text-danger"></i>{% endif %}</span></td>
     </tr>
     {% endfor %}
     <tr style="background:#f0f4f8;font-weight:700;">

@@ -5,8 +5,8 @@
 {% block nav_notes %}active{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1>🏛️ Saisie notes UE</h1><div class="page-subtitle">Système LMD — Crédits ECTS</div></div>
-  <a href="{% url 'saisie_notes_mali' %}" class="btn btn-outline btn-sm">📝 Notes fondamental/lycée</a>
+  <div><h1><i class="bi bi-bank"></i>️ Saisie notes UE</h1><div class="page-subtitle">Système LMD — Crédits ECTS</div></div>
+  <a href="{% url 'saisie_notes_mali' %}" class="btn btn-outline btn-sm"><i class="bi bi-journal-text"></i> Notes fondamental/lycée</a>
 </div>
 
 <!-- Filtres -->
@@ -35,13 +35,13 @@
 </div></div>
 
 {% if ues_data %}
-<div class="alert alert-info">🏛️ Saisir <strong>note /20</strong> et éventuellement la <strong>note de rattrapage</strong>. La validation (≥10) et la mention sont calculées automatiquement.</div>
+<div class="alert alert-info"><i class="bi bi-bank"></i>️ Saisir <strong>note /20</strong> et éventuellement la <strong>note de rattrapage</strong>. La validation (≥10) et la mention sont calculées automatiquement.</div>
 <form method="post">{% csrf_token %}
   <input type="hidden" name="semestre" value="{{ semestre }}">
   <div class="card">
     <div class="card-header">
       <span class="card-title">{{ classe.nom }} — Semestre {{ semestre }}</span>
-      <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer</button>
     </div>
     <div style="overflow-x:auto;">
     <table class="table-modern" style="min-width:700px;">
@@ -87,19 +87,19 @@
     </table>
     </div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
-      <button type="submit" class="btn btn-primary">💾 Enregistrer les notes</button>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer les notes</button>
     </div>
   </div>
 </form>
 {% elif classe %}
 <div class="card"><div style="text-align:center;padding:40px;color:var(--text-muted);">
-  <div style="font-size:36px;margin-bottom:10px;">📋</div>
+  <div style="font-size:36px;margin-bottom:10px;"><i class="bi bi-clipboard"></i></div>
   Aucune UE configurée pour le Semestre {{ semestre }}.
   <a href="{% url 'detail_cycle' classe.niveau.cycle.pk %}">Configurer les UEs →</a>
 </div></div>
 {% else %}
 <div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);">
-  <div style="font-size:48px;margin-bottom:14px;">🏛️</div>
+  <div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-bank"></i>️</div>
   <div style="font-size:16px;font-weight:700;">Sélectionnez une classe et une période</div>
   {% if not classes %}<div style="margin-top:10px;font-size:13px;">Aucune classe université. <a href="{% url 'ajouter_classe' %}">Créer une classe</a> avec le cycle Université.</div>{% endif %}
 </div></div>

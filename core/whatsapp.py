@@ -25,7 +25,7 @@ def send_whatsapp_message(telephone, message):
     if provider == 'dummy':
         # Mode développement : on imprime juste dans la console
         print("\n" + "="*50)
-        print(f"📱 🟢 WHATSAPP SIMULÉ POUR : {phone_clean}")
+        print(f" 🟢 WHATSAPP SIMULÉ POUR : {phone_clean}")
         print(f"MESSAGE:\n{message}")
         print("="*50 + "\n")
         logger.info(f"WhatsApp simulé envoyé à {phone_clean}")

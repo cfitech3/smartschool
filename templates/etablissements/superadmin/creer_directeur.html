@@ -1,10 +1,10 @@
 {% extends "base/base.html" %}
 {% block title %}Créer directeur — {{ etab.nom }}{% endblock %}
-{% block topbar_title %}👤 Nouveau directeur{% endblock %}
+{% block topbar_title %}<i class="bi bi-person-fill"></i> Nouveau directeur{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>👤 Créer un compte directeur</h1>
+    <h1><i class="bi bi-person-fill"></i> Créer un compte directeur</h1>
     <div class="page-subtitle">{{ etab.nom }}</div>
   </div>
   <a href="{% url 'gestion_comptes_etab' pk=etab.pk %}" class="btn btn-outline">← Retour comptes</a>
@@ -12,11 +12,11 @@
 
 {% if directeur_existant %}
 <div style="background:#FFF8E1;border-left:4px solid #F9A825;border-radius:10px;padding:14px 18px;margin-bottom:16px;">
-  <div style="font-weight:700;color:#F57F17;">⚠️ Un directeur existe déjà pour cet établissement</div>
+  <div style="font-weight:700;color:#F57F17;"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Un directeur existe déjà pour cet établissement</div>
   <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">
     {{ directeur_existant.get_full_name|default:directeur_existant.username }} 
     (<code>{{ directeur_existant.username }}</code>) — 
-    {% if directeur_existant.is_active %}✅ Actif{% else %}🔒 Bloqué{% endif %}
+    {% if directeur_existant.is_active %}<i class="bi bi-check-circle-fill text-success"></i> Actif{% else %}<i class="bi bi-lock-fill"></i> Bloqué{% endif %}
   </div>
   <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">
     Vous pouvez tout de même créer un second compte directeur si nécessaire.
@@ -75,12 +75,12 @@
       </div>
     </div>
     <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:20px;font-size:12px;color:var(--text-muted);">
-      🏫 Ce compte sera rattaché à <strong>{{ etab.nom }}</strong> avec le rôle <strong>Directeur/Admin</strong>.
+      <i class="bi bi-buildings-fill"></i> Ce compte sera rattaché à <strong>{{ etab.nom }}</strong> avec le rôle <strong>Directeur/Admin</strong>.
       Le directeur pourra accéder à toutes les données de son établissement.
     </div>
     <div style="display:flex;gap:10px;">
       <a href="{% url 'gestion_comptes_etab' pk=etab.pk %}" class="btn btn-outline" style="flex:1;text-align:center;">Annuler</a>
-      <button type="submit" class="btn btn-primary" style="flex:2;">✅ Créer le compte directeur</button>
+      <button type="submit" class="btn btn-primary" style="flex:2;"><i class="bi bi-check-circle-fill text-success"></i> Créer le compte directeur</button>
     </div>
   </form>
 </div>

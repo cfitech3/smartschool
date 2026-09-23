@@ -19,7 +19,7 @@
 </head>
 <body>
 <div class="bloc">
-  <div class="icon">🔒</div>
+  <div class="icon"><i class="bi bi-lock-fill"></i></div>
   <h1>Accès suspendu</h1>
   {% if etab %}
   <p>L'accès à <span class="etab-nom">{{ etab.nom }}</span> a été temporairement suspendu par l'administrateur réseau.</p>
@@ -28,7 +28,7 @@
   {% endif %}
   <p>Vos données sont conservées et resteront accessibles dès la réactivation.</p>
   <div class="contact">
-    📞 Contactez l'administrateur SmartSchool pour plus d'informations.
+    <i class="bi bi-telephone-fill"></i> Contactez l'administrateur SmartSchool pour plus d'informations.
   </div>
   <a href="{% url 'logout' %}" class="btn-deconnexion">Se déconnecter</a>
 </div>

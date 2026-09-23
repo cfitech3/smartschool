@@ -4,7 +4,7 @@
 {% block nav_enseignants %}active{% endblock %}
 {% block content %}
 <div class="page-header"><div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'detail_enseignant' enseignant.pk %}" class="btn btn-outline btn-sm">← Retour</a><h1>Affecter a : {{ enseignant.nom_complet }}</h1></div></div>
-{% if not annee %}<div class="alert alert-warning">⚠️ Aucune annee scolaire active.</div>{% endif %}
+{% if not annee %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Aucune annee scolaire active.</div>{% endif %}
 <form method="post" style="max-width:500px;">{% csrf_token %}
 <div class="card"><div class="card-header"><span class="card-title">Nouvelle affectation</span></div><div class="card-body">
   <div class="form-group"><label class="form-label">Classe *</label><select name="classe" class="form-control" required><option value="">-- Choisir --</option>{% for c in classes %}<option value="{{ c.pk }}">{{ c.nom }} — {{ c.niveau.nom }}</option>{% endfor %}</select></div>

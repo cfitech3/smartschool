@@ -6,7 +6,7 @@
 <div class="page-header">
   <div style="display:flex;align-items:center;gap:12px;">
     <a href="{% url 'espace_messages' eleve.pk %}" class="btn btn-outline btn-sm">← Retour</a>
-    <h1>💬 Contacter l'administration</h1>
+    <h1><i class="bi bi-chat-dots-fill"></i> Contacter l'administration</h1>
   </div>
 </div>
 <div style="max-width:580px;">
@@ -50,7 +50,7 @@
     </div>
   </div>
   <div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;">
-    <button type="submit" class="btn btn-primary">📤 Envoyer</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-box-arrow-up"></i> Envoyer</button>
     <a href="{% url 'espace_messages' eleve.pk %}" class="btn btn-outline">Annuler</a>
   </div>
 </div>

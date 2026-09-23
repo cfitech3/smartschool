@@ -38,6 +38,6 @@ function toggleTranches() {
 <div class="card-body" style="border-top:1px solid var(--border);display:flex;gap:10px;">
   <button type="submit" class="btn btn-primary">{% if mode == "ajouter" %}Creer{% else %}Enregistrer{% endif %}</button>
   <a href="{% url 'liste_types_frais' %}" class="btn btn-outline">Annuler</a>
-  {% if mode == "modifier" %}<button type="submit" name="action" value="supprimer" class="btn btn-outline" style="margin-left:auto;color:var(--danger);border-color:var(--danger);" onclick="return confirm('Supprimer ?')">🗑</button>{% endif %}
+  {% if mode == "modifier" %}<button type="submit" name="action" value="supprimer" class="btn btn-outline" style="margin-left:auto;color:var(--danger);border-color:var(--danger);" onclick="return confirm('Supprimer ?')"><i class="bi bi-trash-fill"></i></button>{% endif %}
 </div></div>
 </form>{% endblock %}

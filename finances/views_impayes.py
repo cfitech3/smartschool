@@ -243,7 +243,7 @@ def export_impayes_excel(request):
         if imp['classe'] and (current_classe != imp['classe'].nom):
             current_classe = imp['classe'].nom
             ws.merge_cells(f'A{row}:G{row}')
-            ws.cell(row=row, column=1, value=f"📚 {current_classe}").font = Font(bold=True, color=BLEU, size=11)
+            ws.cell(row=row, column=1, value=f" {current_classe}").font = Font(bold=True, color=BLEU, size=11)
             ws.cell(row=row, column=1).fill = PatternFill("solid", fgColor="E3F2FD")
             for c in range(1, 8):
                 ws.cell(row=row, column=c).border = brd()

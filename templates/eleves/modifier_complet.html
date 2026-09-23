@@ -6,7 +6,19 @@
 <div class="page-header"><div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'detail_eleve' eleve.pk %}" class="btn btn-outline btn-sm">← Retour</a><div><h1>Modifier : {{ eleve.nom }} {{ eleve.prenom }}</h1><div class="page-subtitle">{{ eleve.matricule }}</div></div></div></div>
 <form method="post" enctype="multipart/form-data">{% csrf_token %}
 <div class="grid-2" style="align-items:start;margin-bottom:16px;">
-  <div class="card"><div class="card-header"><span class="card-title">👤 Informations personnelles</span></div><div class="card-body">
+  <div class="card"><div class="card-header"><span class="card-title"><i class="bi bi-person-fill"></i> Informations personnelles</span></div><div class="card-body">
+    <!-- Photo actuelle + upload -->
+    <div style="text-align:center;margin-bottom:18px;">
+      <div id="photo-preview-mod" onclick="document.getElementById('id_photo_mod').click()" style="width:90px;height:90px;border-radius:50%;background:var(--bg);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;margin:0 auto 8px;overflow:hidden;" title="Cliquer pour changer la photo">
+        {% if eleve.photo %}
+          <img src="{{ eleve.photo.url }}" style="width:100%;height:100%;object-fit:cover;">
+        {% else %}
+          <i class="bi bi-camera-fill" style="font-size:28px;color:var(--text-muted);"></i>
+        {% endif %}
+      </div>
+      <input type="file" name="photo" id="id_photo_mod" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="previewPhoto(this,'photo-preview-mod')">
+      <div style="font-size:11px;color:var(--text-muted);"><i class="bi bi-image"></i> {% if eleve.photo %}Changer la photo{% else %}Ajouter une photo{% endif %} (JPG/PNG, max 2 Mo)</div>
+    </div>
     <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" value="{{ eleve.nom }}" required></div><div><label class="form-label">Prenom *</label><input type="text" name="prenom" class="form-control" value="{{ eleve.prenom }}" required></div></div>
     <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Sexe *</label><select name="sexe" class="form-control" required><option value="M"{% if eleve.sexe == 'M' %} selected{% endif %}>Masculin</option><option value="F"{% if eleve.sexe == 'F' %} selected{% endif %}>Feminin</option></select></div><div><label class="form-label">Date naissance *</label><input type="date" name="date_naissance" class="form-control" value="{{ eleve.date_naissance|date:'Y-m-d' }}" required></div></div>
     <div style="margin-bottom:14px;"><label class="form-label">Lieu de naissance</label><input type="text" name="lieu_naissance" class="form-control" value="{{ eleve.lieu_naissance }}"></div>
@@ -14,7 +26,7 @@
     <div><label class="form-label">Telephone</label><input type="text" name="telephone" class="form-control" value="{{ eleve.telephone }}"></div>
   </div></div>
   <div style="display:flex;flex-direction:column;gap:14px;">
-    <div class="card"><div class="card-header"><span class="card-title">🏫 Classe</span>{% if inscription %}<span class="badge badge-primary" style="font-size:13px;">Actuelle : {{ inscription.classe.nom }}</span>{% endif %}</div><div class="card-body">
+    <div class="card"><div class="card-header"><span class="card-title"><i class="bi bi-buildings-fill"></i> Classe</span>{% if inscription %}<span class="badge badge-primary" style="font-size:13px;">Actuelle : {{ inscription.classe.nom }}</span>{% endif %}</div><div class="card-body">
       <label class="form-label">Changer de classe</label>
       <select name="classe" class="form-control">
         <option value="">-- Garder la classe actuelle --</option>
@@ -22,12 +34,27 @@
       </select>
       <div style="font-size:12px;color:var(--text-muted);margin-top:5px;">Selectionnez une nouvelle classe pour transferer l'eleve</div>
     </div></div>
-    <div class="card"><div class="card-header"><span class="card-title">👨‍👩‍👦 Tuteur</span></div><div class="card-body">
+    <div class="card"><div class="card-header"><span class="card-title"><i class="bi bi-person"></i>‍<i class="bi bi-person"></i>‍<i class="bi bi-person"></i> Tuteur</span></div><div class="card-body">
       <div class="grid-2" style="margin-bottom:12px;"><div><label class="form-label">Nom</label><input type="text" name="tut_nom" class="form-control" value="{% if eleve.tuteur %}{{ eleve.tuteur.nom }}{% endif %}"></div><div><label class="form-label">Prenom</label><input type="text" name="tut_prenom" class="form-control" value="{% if eleve.tuteur %}{{ eleve.tuteur.prenom }}{% endif %}"></div></div>
       <div class="grid-2"><div><label class="form-label">Lien</label><select name="tut_lien" class="form-control"><option value="pere"{% if eleve.tuteur and eleve.tuteur.lien == 'pere' %} selected{% endif %}>Pere</option><option value="mere"{% if eleve.tuteur and eleve.tuteur.lien == 'mere' %} selected{% endif %}>Mere</option><option value="tuteur"{% if eleve.tuteur and eleve.tuteur.lien == 'tuteur' %} selected{% endif %}>Tuteur</option></select></div><div><label class="form-label">Telephone</label><input type="text" name="tut_telephone" class="form-control" value="{% if eleve.tuteur %}{{ eleve.tuteur.telephone }}{% endif %}"></div></div>
     </div></div>
   </div>
 </div>
-<div class="card"><div class="card-body" style="display:flex;gap:10px;"><button type="submit" class="btn btn-primary">✅ Enregistrer</button><a href="{% url 'detail_eleve' eleve.pk %}" class="btn btn-outline">Annuler</a></div></div>
+<div class="card"><div class="card-body" style="display:flex;gap:10px;"><button type="submit" class="btn btn-primary"><i class="bi bi-check-circle-fill text-success"></i> Enregistrer</button><a href="{% url 'detail_eleve' eleve.pk %}" class="btn btn-outline">Annuler</a></div></div>
 </form>
 {% endblock %}
+{% block extra_js %}<script>
+function previewPhoto(input, previewId) {
+  const preview = document.getElementById(previewId);
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    if (file.size > 2 * 1024 * 1024) { alert('La photo ne doit pas dépasser 2 Mo.'); input.value=''; return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
+      preview.style.border = '2px solid var(--primary)';
+    };
+    reader.readAsDataURL(file);
+  }
+}
+</script>{% endblock %}

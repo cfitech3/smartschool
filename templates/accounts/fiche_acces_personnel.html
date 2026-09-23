@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Fiche d'accès personnel — {{ compte.get_full_name }}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#e8eef4;padding:20px;}
+.actions{max-width:680px;margin:0 auto 14px;display:flex;gap:8px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;text-decoration:none;}
+.btn-primary{background:#1565C0;color:#fff;} .btn-outline{background:#fff;border:1.5px solid #ccc;color:#555;}
+.page{max-width:680px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.12);}
+.page-header{background:linear-gradient(135deg,#2E7D32,#1B5E20);color:#fff;padding:20px 24px;}
+.page-header h1{font-size:16px;font-weight:800;} .page-header .sub{font-size:12px;opacity:0.8;margin-top:4px;}
+.section{padding:20px 24px;border-bottom:1px solid #e3e8ef;}
+.section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#546E7A;margin-bottom:14px;}
+.compte-box{border:2px dashed #c5e1a5;border-radius:10px;padding:16px 20px;background:#f1f8e9;margin-bottom:12px;}
+.compte-box .label{font-size:11px;font-weight:700;text-transform:uppercase;color:#33691E;margin-bottom:8px;}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #eef2f7;}
+.info-row:last-child{border:none;}.info-lbl{font-size:12.5px;color:#546E7A;}.info-val{font-size:13.5px;font-weight:700;color:#1A237E;}
+.warning-box{background:#FFF3E0;border:1.5px solid #FFB300;border-radius:8px;padding:12px 16px;margin-top:16px;font-size:12px;color:#E65100;}
+.etab-footer{padding:16px 24px;background:#f0f4f8;text-align:center;font-size:11px;color:#546E7A;}
+@media print{body{background:#fff;padding:0;}.actions{display:none;}.page{box-shadow:none;border-radius:0;}@page{margin:8mm;}}
+</style></head><body>
+<div class="actions">
+  <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline">← Retour à la liste</a>
+  <button onclick="window.print()" class="btn btn-primary">️ Imprimer / PDF</button>
+</div>
+<div class="page">
+  <div class="page-header">
+    <h1> Fiche d'accès SmartSchool (Personnel)</h1>
+    <div class="sub">{{ etab.nom }} — Confidentiel, à remettre en main propre</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Informations du personnel</div>
+    <div class="info-row"><span class="info-lbl">Nom complet</span><span class="info-val">{{ compte.get_full_name }}</span></div>
+    <div class="info-row"><span class="info-lbl">Rôle / Fonction</span><span class="info-val">{{ compte.get_role_display }}</span></div>
+    {% if compte.telephone %}<div class="info-row"><span class="info-lbl">Téléphone</span><span class="info-val">{{ compte.telephone }}</span></div>{% endif %}
+  </div>
+
+  <div class="section">
+    <div class="section-title"> Compte d'accès</div>
+    <div class="compte-box">
+      <div class="label">Connexion : espace.smartschool.ml/auth/portail/{{ etab.code }}/</div>
+      <div class="info-row"><span class="info-lbl">Identifiant</span><span class="info-val" style="font-size:16px;letter-spacing:1px;font-family:monospace;">{{ compte.username }}</span></div>
+      <div class="info-row"><span class="info-lbl">Mot de passe provisoire</span>
+        <span class="info-val" style="font-size:16px;letter-spacing:1px;font-family:monospace;">{% if mdp %}{{ mdp }}{% else %}<i>(Non disponible)</i>{% endif %}</span>
+      </div>
+    </div>
+    {% if not mdp %}<div style="font-size:12px;color:#d32f2f;font-weight:bold;">Le mot de passe n'est plus disponible. Si oublié, veuillez le réinitialiser.</div>{% endif %}
+  </div>
+
+  <div class="section">
+    <div class="warning-box">️ <strong>Confidentiel</strong> — Il est recommandé de modifier votre mot de passe depuis votre profil. Ne communiquez pas ces identifiants.</div>
+  </div>
+  <div class="etab-footer">{{ etab.nom }} — {{ etab.adresse }} — Imprimé le {{ today|date:"d/m/Y" }}</div>
+</div>
+</body></html>

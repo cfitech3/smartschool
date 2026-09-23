@@ -6,27 +6,27 @@
 {% block content %}
 <div class="page-header">
   <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
-  <div><h1>💳 Paiements scolaires</h1><div class="page-subtitle">{% if annee %}{{ annee.libelle }}{% endif %}</div></div>
+  <div><h1><i class="bi bi-credit-card"></i> Paiements scolaires</h1><div class="page-subtitle">{% if annee %}{{ annee.libelle }}{% endif %}</div></div>
 </div>
 
 <!-- Stats rapides -->
 <div class="stats-grid" style="margin-bottom:20px;">
   <div class="stat-card">
-    <div class="stat-icon green">✅</div>
+    <div class="stat-icon green"><i class="bi bi-check-circle-fill text-success"></i></div>
     <div class="stat-body">
       <div class="stat-value">{{ total_paye|floatformat:0 }}</div>
       <div class="stat-label">FCFA payes cette annee</div>
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon blue">📋</div>
+    <div class="stat-icon blue"><i class="bi bi-clipboard"></i></div>
     <div class="stat-body">
       <div class="stat-value">{{ paiements|length }}</div>
       <div class="stat-label">Paiements effectues</div>
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon" style="background:rgba(198,40,40,0.1);">⚠️</div>
+    <div class="stat-icon" style="background:rgba(198,40,40,0.1);"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️</div>
     <div class="stat-body">
       <div class="stat-value" style="color:{% if nb_retards > 0 %}var(--danger){% else %}var(--success){% endif %};">{{ nb_retards }}</div>
       <div class="stat-label">Frais en retard</div>
@@ -38,7 +38,7 @@
 {% if frais_attendus %}
 <div class="card" style="margin-bottom:20px;">
   <div class="card-header">
-    <span class="card-title">📊 Situation des frais obligatoires</span>
+    <span class="card-title"><i class="bi bi-bar-chart-fill"></i> Situation des frais obligatoires</span>
     {% if nb_retards > 0 %}
     <span class="badge badge-danger">{{ nb_retards }} en retard</span>
     {% else %}
@@ -65,14 +65,14 @@
       {% if f.en_retard %}
         -{{ f.solde|floatformat:0|cut:"-" }} FCFA
       {% else %}
-        ✅ Regle
+        <i class="bi bi-check-circle-fill text-success"></i> Regle
       {% endif %}
     </td>
     <td style="text-align:center;">
       {% if f.en_retard %}
-        <span class="badge badge-danger">⚠️ En retard</span>
+        <span class="badge badge-danger"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ En retard</span>
       {% else %}
-        <span class="badge badge-success">✅ A jour</span>
+        <span class="badge badge-success"><i class="bi bi-check-circle-fill text-success"></i> A jour</span>
       {% endif %}
     </td>
   </tr>
@@ -81,7 +81,7 @@
   </table>
   {% if nb_retards > 0 %}
   <div style="padding:12px 18px;background:rgba(198,40,40,0.05);border-top:1px solid var(--border);">
-    <span style="font-size:13px;color:var(--danger);">⚠️ Des frais sont en attente de paiement. Veuillez contacter l'etablissement au plus vite.</span>
+    <span style="font-size:13px;color:var(--danger);"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Des frais sont en attente de paiement. Veuillez contacter l'etablissement au plus vite.</span>
   </div>
   {% endif %}
 </div>
@@ -90,7 +90,7 @@
 <!-- Historique des paiements effectues -->
 <div class="card">
   <div class="card-header">
-    <span class="card-title">📜 Historique des paiements</span>
+    <span class="card-title"><i class="bi bi-file-earmark-text"></i> Historique des paiements</span>
   </div>
   {% if paiements %}
   <table class="table-modern">
@@ -113,7 +113,7 @@
     <td style="text-align:right;font-weight:700;font-size:14px;color:var(--success);">{{ p.montant|floatformat:0 }} <span style="font-size:11px;color:var(--text-muted);">FCFA</span></td>
     <td style="font-size:12.5px;color:var(--text-muted);">{{ p.date_paiement|date:"d/m/Y" }}</td>
     <td>
-      {% if p.statut == 'valide' %}<span class="badge badge-success">✅ Valide</span>
+      {% if p.statut == 'valide' %}<span class="badge badge-success"><i class="bi bi-check-circle-fill text-success"></i> Valide</span>
       {% elif p.statut == 'annule' %}<span class="badge badge-danger">Annule</span>
       {% else %}<span class="badge badge-warning">En attente</span>{% endif %}
     </td>
@@ -123,7 +123,7 @@
   </table>
   {% else %}
   <div style="text-align:center;padding:40px;color:var(--text-muted);">
-    <div style="font-size:36px;margin-bottom:10px;">💳</div>
+    <div style="font-size:36px;margin-bottom:10px;"><i class="bi bi-credit-card"></i></div>
     Aucun paiement enregistre pour cette annee scolaire
   </div>
   {% endif %}

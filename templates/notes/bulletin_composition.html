@@ -58,7 +58,7 @@
 <body>
 <div class="actions" role="toolbar" aria-label="Actions bulletin composition">
   <a href="javascript:history.back()" class="btn btn-outline">← Retour</a>
-  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer</button>
+  <button onclick="window.print()" class="btn btn-primary"><i class="bi bi-printer-fill"></i>️ Imprimer</button>
 </div>
 
 <!-- Navigation entre compositions -->
@@ -132,11 +132,11 @@
       <span class="val" style="color:{% if moy_generale and moy_generale >= 5 %}#2E7D32{% elif moy_generale %}#C62828{% else %}#555{% endif %};">{% if moy_generale %}{{ moy_generale|floatformat:2 }}/10{% else %}—{% endif %}</span>
       {% if moy_generale %}
       <div style="margin-top:6px;">
-        {% if moy_generale >= 8 %}<span class="mention-badge mention-tb">🌟 Très Bien</span>
-        {% elif moy_generale >= 7 %}<span class="mention-badge mention-b">👍 Bien</span>
-        {% elif moy_generale >= 6 %}<span class="mention-badge mention-ab">✅ Assez Bien</span>
-        {% elif moy_generale >= 5 %}<span class="mention-badge mention-p">⚠️ Passable</span>
-        {% else %}<span class="mention-badge mention-i">❌ Insuffisant</span>{% endif %}
+        {% if moy_generale >= 8 %}<span class="mention-badge mention-tb"><i class="bi bi-star-fill text-warning"></i> Très Bien</span>
+        {% elif moy_generale >= 7 %}<span class="mention-badge mention-b"><i class="bi bi-hand-thumbs-up-fill"></i> Bien</span>
+        {% elif moy_generale >= 6 %}<span class="mention-badge mention-ab"><i class="bi bi-check-circle-fill text-success"></i> Assez Bien</span>
+        {% elif moy_generale >= 5 %}<span class="mention-badge mention-p"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Passable</span>
+        {% else %}<span class="mention-badge mention-i"><i class="bi bi-x-circle-fill text-danger"></i> Insuffisant</span>{% endif %}
       </div>
       {% endif %}
     </div>

@@ -61,8 +61,8 @@ def detail_enseignant_comptable(request, pk):
             ens.save()
             messages.success(
                 request,
-                f"✅ Salaire de {ens.nom_complet} mis à jour : "
-                f"{int(ens.salaire):,} FCFA/mois" if ens.salaire else "✅ Salaire supprimé."
+                f" Salaire de {ens.nom_complet} mis à jour : "
+                f"{int(ens.salaire):,} FCFA/mois" if ens.salaire else " Salaire supprimé."
             )
         except ValueError:
             messages.error(request, "Montant invalide.")

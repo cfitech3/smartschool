@@ -4,17 +4,17 @@
 {% block nav_bulletins %}active{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1>📄 Bulletins</h1><div class="page-subtitle">Format malien officiel</div></div>
+  <div><h1><i class="bi bi-file-earmark-text"></i> Bulletins</h1><div class="page-subtitle">Format malien officiel</div></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <a href="{% url 'liste_modeles' %}" class="btn btn-outline btn-sm">🖨️ Modèles</a>
-    <a href="{% url 'saisie_notes_mali' %}" class="btn btn-primary btn-sm">📝 Saisir notes</a>
+    <a href="{% url 'liste_modeles' %}" class="btn btn-outline btn-sm"><i class="bi bi-printer-fill"></i>️ Modèles</a>
+    <a href="{% url 'saisie_notes_mali' %}" class="btn btn-primary btn-sm"><i class="bi bi-journal-text"></i> Saisir notes</a>
   </div>
 </div>
 
 {% if modele_actif %}
-<div class="alert alert-info">🖨️ Modèle actif : <strong>{{ modele_actif.nom }}</strong> — <a href="{% url 'modifier_modele' modele_actif.pk %}" style="font-weight:700;color:var(--info);">Modifier →</a></div>
+<div class="alert alert-info"><i class="bi bi-printer-fill"></i>️ Modèle actif : <strong>{{ modele_actif.nom }}</strong> — <a href="{% url 'modifier_modele' modele_actif.pk %}" style="font-weight:700;color:var(--info);">Modifier →</a></div>
 {% else %}
-<div class="alert alert-warning">⚠️ Aucun modèle de bulletin actif. <a href="{% url 'creer_modele_type' 'bulletin' %}" style="font-weight:700;">Créer un modèle →</a></div>
+<div class="alert alert-warning"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Aucun modèle de bulletin actif. <a href="{% url 'creer_modele_type' 'bulletin' %}" style="font-weight:700;">Créer un modèle →</a></div>
 {% endif %}
 
 <!-- Filtre classe + période -->
@@ -71,10 +71,10 @@
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <!-- Recherche rapide -->
-      <input type="search" id="search-eleve" placeholder="🔍 Chercher un élève…"
+      <input type="search" id="search-eleve" placeholder="<i class="bi bi-search"></i> Chercher un élève…"
              class="form-control" style="max-width:200px;height:34px;font-size:13px;"
              oninput="filterEleves(this.value)">
-      <button onclick="imprimerTous()" class="btn btn-outline btn-sm">🖨️ Imprimer tout</button>
+      <button onclick="imprimerTous()" class="btn btn-outline btn-sm"><i class="bi bi-printer-fill"></i>️ Imprimer tout</button>
     </div>
   </div>
 
@@ -93,7 +93,7 @@
     {% for r in resultats %}
     <tr class="eleve-row" data-nom="{{ r.eleve.nom }} {{ r.eleve.prenom }}" data-rang="{{ r.rang|default:999 }}" data-moy="{{ r.moyenne|default:0 }}">
       <td style="text-align:center;font-weight:800;font-size:18px;color:{% if r.rang == 1 %}var(--accent){% elif r.rang == 2 %}var(--primary){% else %}var(--text-muted){% endif %};">
-        {{ r.rang }}{% if r.rang == 1 %} 🥇{% elif r.rang == 2 %} 🥈{% elif r.rang == 3 %} 🥉{% endif %}
+        {{ r.rang }}{% if r.rang == 1 %} <i class="bi bi-award-fill text-warning"></i>{% elif r.rang == 2 %} <i class="bi bi-award-fill text-secondary"></i>{% elif r.rang == 3 %} <i class="bi bi-award-fill text-warning"></i>{% endif %}
       </td>
       <td>
         <div style="font-weight:700;">{{ r.eleve.nom }} {{ r.eleve.prenom }}</div>
@@ -107,28 +107,28 @@
       <td style="text-align:center;">
         {% if r.moyenne %}
           {% if is_premier_cycle %}
-            {% if r.moyenne >= 8 %}<span class="badge badge-success">🌟 Très Bien</span>
-            {% elif r.moyenne >= 6.5 %}<span class="badge badge-info">👍 Bien</span>
-            {% elif r.moyenne >= 5 %}<span class="badge badge-warning">⚠️ Passable</span>
-            {% else %}<span class="badge badge-danger">❌ Insuffisant</span>{% endif %}
+            {% if r.moyenne >= 8 %}<span class="badge badge-success"><i class="bi bi-star-fill text-warning"></i> Très Bien</span>
+            {% elif r.moyenne >= 6.5 %}<span class="badge badge-info"><i class="bi bi-hand-thumbs-up-fill"></i> Bien</span>
+            {% elif r.moyenne >= 5 %}<span class="badge badge-warning"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Passable</span>
+            {% else %}<span class="badge badge-danger"><i class="bi bi-x-circle-fill text-danger"></i> Insuffisant</span>{% endif %}
           {% else %}
-            {% if r.moyenne >= 16 %}<span class="badge badge-success">🌟 Très Bien</span>
-            {% elif r.moyenne >= 14 %}<span class="badge badge-info">👍 Bien</span>
-            {% elif r.moyenne >= 12 %}<span class="badge badge-primary">✅ Assez Bien</span>
-            {% elif r.moyenne >= 10 %}<span class="badge badge-warning">⚠️ Passable</span>
-            {% else %}<span class="badge badge-danger">❌ Insuffisant</span>{% endif %}
+            {% if r.moyenne >= 16 %}<span class="badge badge-success"><i class="bi bi-star-fill text-warning"></i> Très Bien</span>
+            {% elif r.moyenne >= 14 %}<span class="badge badge-info"><i class="bi bi-hand-thumbs-up-fill"></i> Bien</span>
+            {% elif r.moyenne >= 12 %}<span class="badge badge-primary"><i class="bi bi-check-circle-fill text-success"></i> Assez Bien</span>
+            {% elif r.moyenne >= 10 %}<span class="badge badge-warning"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Passable</span>
+            {% else %}<span class="badge badge-danger"><i class="bi bi-x-circle-fill text-danger"></i> Insuffisant</span>{% endif %}
           {% endif %}
         {% else %}—{% endif %}
       </td>
       <td style="text-align:center;">
-        {% if r.moyenne %}<span class="badge badge-success" title="Notes saisies">✅</span>
-        {% else %}<span class="badge badge-warning" title="Aucune note">⚠️ Incomplet</span>{% endif %}
+        {% if r.moyenne %}<span class="badge badge-success" title="Notes saisies"><i class="bi bi-check-circle-fill text-success"></i></span>
+        {% else %}<span class="badge badge-warning" title="Aucune note"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Incomplet</span>{% endif %}
       </td>
       <td>
         {% if is_premier_cycle %}
-          <a href="{% url 'bulletin_composition' r.eleve.pk annee.pk numero %}" target="_blank" class="btn btn-primary btn-sm">📄 Ouvrir</a>
+          <a href="{% url 'bulletin_composition' r.eleve.pk annee.pk numero %}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-text"></i> Ouvrir</a>
         {% else %}
-          <a href="{% url 'bulletin_eleve' r.eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm">📄 Ouvrir</a>
+          <a href="{% url 'bulletin_eleve' r.eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-text"></i> Ouvrir</a>
         {% endif %}
       </td>
     </tr>
@@ -143,19 +143,19 @@
 
 {% elif is_premier_cycle and classe and numero %}
 <div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
-  <div style="font-size:40px;margin-bottom:12px;">📝</div>
+  <div style="font-size:40px;margin-bottom:12px;"><i class="bi bi-journal-text"></i></div>
   <div style="font-weight:600;">Aucune note saisie</div>
   <a href="{% url 'saisie_notes_mali' %}?classe={{ classe_id }}&numero={{ numero }}" class="btn btn-primary btn-sm" style="margin-top:14px;">+ Saisir des notes</a>
 </div></div>
 {% elif classe and periode %}
 <div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
-  <div style="font-size:40px;margin-bottom:12px;">📝</div>
+  <div style="font-size:40px;margin-bottom:12px;"><i class="bi bi-journal-text"></i></div>
   <div style="font-weight:600;">Aucune note saisie</div>
   <a href="{% url 'saisie_notes_mali' %}?classe={{ classe_id }}&periode={{ periode_id }}" class="btn btn-primary btn-sm" style="margin-top:14px;">+ Saisir des notes</a>
 </div></div>
 {% else %}
 <div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);">
-  <div style="font-size:48px;margin-bottom:14px;">📄</div>
+  <div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-file-earmark-text"></i></div>
   <div style="font-size:16px;font-weight:700;">Sélectionnez une classe et {% if is_premier_cycle %}une composition{% else %}une période{% endif %}</div>
 </div></div>
 {% endif %}
@@ -176,11 +176,11 @@ const resultats = [
   if (!statsEl || !resultats.length) return;
 
   const MENTIONS = [
-    { label:'🌟 Très Bien', min:16, max:20, color:'#2E7D32', bg:'#e8f5e9' },
-    { label:'👍 Bien',      min:14, max:16, color:'#1565C0', bg:'#e3f2fd' },
-    { label:'✅ Assez Bien',min:12, max:14, color:'#3949AB', bg:'#e8eaf6' },
-    { label:'⚠️ Passable',  min:10, max:12, color:'#E65100', bg:'#fff3e0' },
-    { label:'❌ Insuffisant',min:0, max:10, color:'#C62828', bg:'#ffebee' },
+    { label:'<i class="bi bi-star-fill text-warning"></i> Très Bien', min:16, max:20, color:'#2E7D32', bg:'#e8f5e9' },
+    { label:'<i class="bi bi-hand-thumbs-up-fill"></i> Bien',      min:14, max:16, color:'#1565C0', bg:'#e3f2fd' },
+    { label:'<i class="bi bi-check-circle-fill text-success"></i> Assez Bien',min:12, max:14, color:'#3949AB', bg:'#e8eaf6' },
+    { label:'<i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Passable',  min:10, max:12, color:'#E65100', bg:'#fff3e0' },
+    { label:'<i class="bi bi-x-circle-fill text-danger"></i> Insuffisant',min:0, max:10, color:'#C62828', bg:'#ffebee' },
   ];
   const COLORS_BAR = ['#2E7D32','#1565C0','#3949AB','#E65100','#C62828'];
   const total = resultats.filter(r => r.moy !== null).length;
@@ -249,4 +249,4 @@ function imprimerTous(){
   {% endif %}
 }
 </script>
-{% endblock %}
+{% endblock %}

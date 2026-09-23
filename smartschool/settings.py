@@ -150,7 +150,7 @@ else:
     if not DEBUG:
         import warnings
         warnings.warn(
-            "⚠️  AVERTISSEMENT : Aucune DATABASE_URL définie en production. "
+            "️  AVERTISSEMENT : Aucune DATABASE_URL définie en production. "
             "SQLite est utilisé, ce qui n'est pas recommandé pour un déploiement multi-utilisateurs. "
             "Définissez DATABASE_URL avec une URL PostgreSQL.",
             RuntimeWarning,
@@ -239,7 +239,7 @@ else:
     if not DEBUG and _cache_backend == 'locmem':
         import warnings
         warnings.warn(
-            "⚠️  CACHE LocMemCache utilisé en production. "
+            "️  CACHE LocMemCache utilisé en production. "
             "Les caches ne sont pas partagés entre workers Gunicorn. "
             "Définissez CACHE_BACKEND=redis ou CACHE_BACKEND=file.",
             RuntimeWarning,

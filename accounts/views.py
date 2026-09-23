@@ -69,6 +69,12 @@ def logout_view(request):
 
 @login_required
 def profil(request):
+    if request.method == 'POST':
+        if request.FILES.get('photo'):
+            request.user.photo = request.FILES['photo']
+            request.user.save()
+            messages.success(request, 'Photo de profil mise à jour avec succès.')
+            return redirect('profil')
     return render(request, 'accounts/profil.html', {'user': request.user})
 
 @login_required

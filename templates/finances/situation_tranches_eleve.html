@@ -1,10 +1,10 @@
 {% extends "base/base.html" %}
 {% block title %}Situation tranches — {{ eleve.nom_complet }}{% endblock %}
-{% block topbar_title %}💳 Tranches — {{ eleve.nom_complet }}{% endblock %}
+{% block topbar_title %}<i class="bi bi-credit-card"></i> Tranches — {{ eleve.nom_complet }}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>💳 {{ eleve.nom_complet }}</h1>
+    <h1><i class="bi bi-credit-card"></i> {{ eleve.nom_complet }}</h1>
     <div class="page-subtitle">Situation des paiements par tranches — {{ annee.libelle }}</div>
   </div>
   <a href="{% url 'situation_eleve' eleve.pk %}" class="btn btn-outline">← Dossier élève</a>
@@ -45,17 +45,17 @@
       <td style="font-size:13px;color:var(--text-muted);">{{ e.date_limite|date:"d/m/Y"|default:"—" }}</td>
       <td>
         {% if e.statut == 'payee' %}
-          <span style="color:var(--success);font-weight:700;">✅ Payée</span>
+          <span style="color:var(--success);font-weight:700;"><i class="bi bi-check-circle-fill text-success"></i> Payée</span>
           <div style="font-size:11px;color:var(--text-muted);">{{ e.date_paiement|date:"d/m/Y H:i" }}</div>
         {% elif e.statut == 'retard' %}
-          <span style="color:var(--danger);font-weight:700;">⚠️ En retard</span>
+          <span style="color:var(--danger);font-weight:700;"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ En retard</span>
         {% else %}
           <span style="color:var(--text-muted);">⏳ À payer</span>
         {% endif %}
       </td>
       <td>
         {% if e.statut != 'payee' %}
-        <a href="{% url 'payer_tranche' e.pk %}" class="btn btn-primary btn-sm">💳 Encaisser</a>
+        <a href="{% url 'payer_tranche' e.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-credit-card"></i> Encaisser</a>
         {% endif %}
       </td>
     </tr>

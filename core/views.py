@@ -16,9 +16,38 @@ from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_el
 def dashboard(request):
     if request.user.is_parent or request.user.is_eleve_user:
         return redirect('espace_accueil')
-    etab = request.etablissement
+
     today = timezone.now().date()
     stats = {}
+
+    # ── SUPER ADMIN : toujours Vue Globale, peu importe la session établissement
+    if request.user.role == 'super_admin':
+        stats['total_etablissements'] = Etablissement.objects.filter(is_active=True).count()
+        stats['inactifs'] = Etablissement.objects.filter(is_active=False).count()
+        stats['total_eleves'] = Eleve.objects.filter(is_active=True).count()
+        stats['total_users'] = User.objects.filter(is_active=True).count()
+        stats['recettes_mois'] = float(Paiement.objects.filter(
+            statut='valide', date_paiement__month=today.month
+        ).aggregate(t=Sum('montant'))['t'] or 0)
+        recettes_raw = Paiement.objects.filter(
+            statut='valide',
+            date_paiement__month=today.month,
+            date_paiement__year=today.year,
+        ).values('etablissement_id').annotate(t=Sum('montant'))
+        recettes_map = {r['etablissement_id']: float(r['t'] or 0) for r in recettes_raw}
+        etabs_list = list(Etablissement.objects.all().annotate(
+            nb_eleves=Count('eleves', filter=Q(eleves__is_active=True))
+        ))
+        for e in etabs_list:
+            e.recettes_mois = recettes_map.get(e.pk, 0)
+        return render(request, 'core/dashboard_super.html', {
+            'stats': stats,
+            'etablissements': etabs_list,
+            'today': today,
+        })
+
+    # ── AUTRES RÔLES : dashboard établissement
+    etab = request.etablissement
     paiements_recent = []
     classes_data = []
     chart_paiements = []
@@ -65,15 +94,7 @@ def dashboard(request):
                 notif_envoyee=True, notif_lue=False
             ).count()
 
-    elif request.user.role == 'super_admin':
-        stats['total_etablissements'] = Etablissement.objects.filter(is_active=True).count()
-        stats['total_eleves'] = Eleve.objects.filter(is_active=True).count()
-        stats['total_users'] = User.objects.filter(is_active=True).count()
-        stats['recettes_mois'] = float(Paiement.objects.filter(statut='valide', date_paiement__month=today.month).aggregate(t=Sum('montant'))['t'] or 0)
-        return render(request, 'core/dashboard_super.html', {
-            'stats': stats,
-            'etablissements': Etablissement.objects.filter(is_active=True).annotate(nb_eleves=Count('eleves', filter=Q(eleves__is_active=True))),
-        })
+
 
     return render(request, 'core/dashboard.html', {
         'stats': stats, 'paiements_recent': paiements_recent,
@@ -84,7 +105,17 @@ def dashboard(request):
 @login_required
 def changer_etablissement(request, etab_id):
     """Super admin bascule sur un établissement (actif ou suspendu)."""
-    if request.user.role == 'super_admin':
+    from accounts.models import User as UserModel
+    # En mode espionnage, l'utilisateur réel est stocké en session
+    original_pk = request.session.get('_impersonate_original_pk')
+    is_super = request.user.role == 'super_admin'
+    if not is_super and original_pk:
+        try:
+            original = UserModel.objects.get(pk=original_pk)
+            is_super = original.role == 'super_admin'
+        except UserModel.DoesNotExist:
+            pass
+    if is_super:
         try:
             etab = Etablissement.objects.get(pk=etab_id)  # Sans filtre is_active
             request.session['etablissement_id'] = etab.pk
