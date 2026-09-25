@@ -463,6 +463,8 @@ TRANCHES = [
     (3,'Tranche 3',116666,datetime.date(2026,4,30)),
 ]
 
+today = datetime.date.today()  # necessaire pour calculer statut echeances
+
 # Collecte toutes les insertions en batch
 batch_paie = []
 batch_ech  = []
