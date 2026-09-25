@@ -10,28 +10,30 @@ def login_view(request):
     if request.method == 'POST':
         # P3.5 : Rate limiting sur le login
         from django.core.cache import cache
-        
+        from django.middleware.csrf import rotate_token
+
         # Récupération de l'IP du client (gère les proxies basiques)
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             ip = x_forwarded_for.split(',')[0]
         else:
             ip = request.META.get('REMOTE_ADDR')
-            
+
         cache_key = f'login_attempts_{ip}'
         attempts = cache.get(cache_key, 0)
-        
+
         if attempts >= 5:
             messages.error(request, 'Trop de tentatives infructueuses. Veuillez réessayer dans 15 minutes.')
             return render(request, 'accounts/login.html', {})
-            
+
         user = authenticate(request, username=request.POST.get('username'), password=request.POST.get('password'))
         if user:
-            cache.delete(cache_key) # Réinitialiser après succès
+            cache.delete(cache_key)  # Réinitialiser après succès
             login(request, user)
-            return redirect(request.GET.get('next','dashboard'))
+            rotate_token(request)    # ← Force un nouveau token CSRF après login
+            return redirect(request.GET.get('next', 'dashboard'))
         else:
-            cache.set(cache_key, attempts + 1, 900) # Bloquer pendant 15 mins (900 sec)
+            cache.set(cache_key, attempts + 1, 900)  # Bloquer pendant 15 mins
             messages.error(request, f'Identifiant ou mot de passe incorrect. ({4 - attempts} essais restants)')
     return render(request, 'accounts/login.html', {})
 

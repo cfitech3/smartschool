@@ -202,6 +202,19 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 # SessionStorage est plus sûr que CookieStorage : les messages ne sont pas
 # exposés ni manipulables côté client.
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
+
+# ── Cookies CSRF et Session — fix persistant 403 ───────────────
+# SameSite='Lax' évite les problèmes de cookie bloqué en développement
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
+# HttpOnly protège contre le vol via JS (bonne pratique)
+CSRF_COOKIE_HTTPONLY = False   # Doit être False : Django lit le token en JS si besoin
+SESSION_COOKIE_HTTPONLY = True
+# Durée de vie du cookie CSRF : 1 an (ne pas le faire expirer trop tôt)
+CSRF_COOKIE_AGE = 31449600     # 1 an en secondes
+# Nom du cookie de session (distingue les projets sur le même localhost)
+SESSION_COOKIE_NAME = 'smartschool_sessionid'
+CSRF_COOKIE_NAME = 'smartschool_csrftoken'
 # ── Cache ─────────────────────────────────────────────────────────────────────
 # ARCH-002 : LocMemCache n'est pas partagé entre workers Gunicorn.
 # En production multi-workers, définir CACHE_BACKEND=redis ou CACHE_BACKEND=file.
@@ -261,7 +274,7 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-    # Cookies sécurisés (HTTPS uniquement)
+    # Cookies sécurisés (HTTPS uniquement) — uniquement en production
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
@@ -273,6 +286,10 @@ if not DEBUG:
 
     # Activer le filtre XSS du navigateur
     SECURE_BROWSER_XSS_FILTER = True
+else:
+    # Développement : pas de HTTPS, cookies en HTTP
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 
 # ══════════════════════════════════════════════════════════════
 # Configuration WhatsApp API (Alertes Connectées)

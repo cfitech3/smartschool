@@ -1,0 +1,153 @@
+{% extends "base/base.html" %}
+{% block title %}Jours Non Ouvrés{% endblock %}
+{% block topbar_title %}📅 Gestion des Jours Non Ouvrés{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1><i class="bi bi-calendar-x-fill"></i> Jours Non Ouvrés</h1>
+    <div class="page-subtitle">Gérez les jours fériés, congés et journées annulées</div>
+  </div>
+  <a href="{% url 'appel_presences' %}" class="btn btn-outline">
+    <i class="bi bi-clipboard-check"></i> Retour à l'appel
+  </a>
+</div>
+
+{% include "includes/alertes.html" %}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+
+  <!-- Formulaire de déclaration -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-plus-circle-fill"></i> Déclarer un jour non ouvré</span>
+    </div>
+    <form method="post" style="padding:18px;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="declarer">
+
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">📅 Date</label>
+        <input type="date" name="date" value="{{ today|date:'Y-m-d' }}"
+               style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:14px;"
+               required>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">🏷️ Type</label>
+        <select name="type_jour" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:14px;">
+          {% for val, label in types %}
+          <option value="{{ val }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">📝 Motif / Libellé</label>
+        <input type="text" name="motif" placeholder="Ex: Tabaski, Petit congé de fin de trimestre..."
+               style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:14px;"
+               required>
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">🏫 Portée</label>
+        <select name="classe_id" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:14px;">
+          <option value="">🌍 Tout l'établissement</option>
+          {% for cl in classes %}
+          <option value="{{ cl.pk }}">Classe {{ cl.nom }}</option>
+          {% endfor %}
+        </select>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Laisser "Tout l'établissement" pour annuler l'appel de toutes les classes</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%;">
+        <i class="bi bi-calendar-x"></i> Enregistrer le jour non ouvré
+      </button>
+    </form>
+  </div>
+
+  <!-- Liste des jours déclarés -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-list-ul"></i> Jours déclarés (60 derniers jours + à venir)</span>
+    </div>
+
+    {% if jours %}
+    <table class="table-modern">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Motif</th>
+          <th>Portée</th>
+          <th>Par</th>
+          <th style="text-align:center;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for jour in jours %}
+      <tr {% if jour.date == today %}style="background:rgba(var(--primary-rgb),0.08);"{% endif %}>
+        <td>
+          <strong>{{ jour.date|date:"d/m/Y" }}</strong>
+          <div style="font-size:11px;color:var(--text-muted);">{{ jour.date|date:"l" }}</div>
+        </td>
+        <td>
+          <span style="font-size:13px;">{{ jour.get_type_jour_display }}</span>
+          <div style="font-size:12px;color:var(--text-muted);">{{ jour.motif }}</div>
+        </td>
+        <td>
+          {% if jour.classe %}
+            <span style="font-size:12px;padding:3px 8px;background:rgba(var(--warning-rgb),0.15);color:var(--warning);border-radius:10px;">
+              {{ jour.classe.nom }}
+            </span>
+          {% else %}
+            <span style="font-size:12px;padding:3px 8px;background:rgba(var(--primary-rgb),0.12);color:var(--primary);border-radius:10px;">
+              🌍 Global
+            </span>
+          {% endif %}
+        </td>
+        <td style="font-size:12px;color:var(--text-muted);">{{ jour.declare_par.get_full_name|default:jour.declare_par.username }}</td>
+        <td style="text-align:center;">
+          {% if request.user.role == 'admin' or request.user.role == 'super_admin' %}
+          <form method="post" style="display:inline;" onsubmit="return confirm('Supprimer ce jour non ouvré ?');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="supprimer">
+            <input type="hidden" name="jour_id" value="{{ jour.pk }}">
+            <button type="submit" style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px 8px;border-radius:6px;" title="Supprimer">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:40px;color:var(--text-muted);">
+      <i class="bi bi-calendar-check" style="font-size:48px;opacity:0.3;"></i>
+      <div style="margin-top:12px;">Aucun jour non ouvré déclaré</div>
+      <div style="font-size:12px;margin-top:4px;">Les dimanches sont automatiquement chômés</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Info box -->
+<div class="card" style="margin-top:16px;background:rgba(var(--primary-rgb),0.06);border:1px solid rgba(var(--primary-rgb),0.2);">
+  <div style="padding:16px 20px;display:flex;gap:16px;align-items:flex-start;">
+    <i class="bi bi-info-circle-fill" style="color:var(--primary);font-size:24px;margin-top:2px;"></i>
+    <div>
+      <div style="font-weight:700;margin-bottom:6px;">Comment ça fonctionne ?</div>
+      <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text-muted);line-height:1.8;">
+        <li>Les <strong>dimanches</strong> sont automatiquement bloqués — aucune action nécessaire</li>
+        <li>Un jour <strong>global</strong> bloque l'appel pour toutes les classes de l'établissement</li>
+        <li>Un jour <strong>par classe</strong> bloque l'appel uniquement pour cette classe</li>
+        <li>Le calendrier de l'appel colore les jours non ouvrés en <span style="color:var(--danger);">rouge</span></li>
+        <li>Seuls les Directeurs et Secrétaires peuvent déclarer des jours non ouvrés</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -71,9 +71,12 @@
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <!-- Recherche rapide -->
-      <input type="search" id="search-eleve" placeholder="<i class="bi bi-search"></i> Chercher un élève…"
-             class="form-control" style="max-width:200px;height:34px;font-size:13px;"
-             oninput="filterEleves(this.value)">
+      <div style="position:relative;max-width:200px;">
+        <i class="bi bi-search" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;pointer-events:none;"></i>
+        <input type="search" id="search-eleve" placeholder="Chercher un élève…"
+               class="form-control" style="padding-left:28px;height:34px;font-size:13px;"
+               oninput="filterEleves(this.value)">
+      </div>
       <button onclick="imprimerTous()" class="btn btn-outline btn-sm"><i class="bi bi-printer-fill"></i>️ Imprimer tout</button>
     </div>
   </div>
@@ -242,8 +245,10 @@ function imprimerTous(){
   if (!confirm(`Cela va ouvrir ${total} onglet(s). Continuer ?`)) return;
   {% if is_premier_cycle %}
   const urls=[{% for r in resultats %}"{% url 'bulletin_composition' r.eleve.pk annee.pk numero %}",{% endfor %}];
-  {% else %}
+  {% elif periode %}
   const urls=[{% for r in resultats %}"{% url 'bulletin_eleve' r.eleve.pk periode.pk %}",{% endfor %}];
+  {% else %}
+  const urls=[];
   {% endif %}
   urls.forEach((url,i)=>setTimeout(()=>window.open(url,'_blank'),i*400));
   {% endif %}

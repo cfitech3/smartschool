@@ -21,4 +21,5 @@ urlpatterns = [
     path('presences/', views_presences.appel_presences, name='appel_presences'),
     path('presences/historique/', views_presences.historique_presences, name='historique_presences'),
     path('presences/fiche/<int:eleve_pk>/', views_presences.fiche_absences_eleve, name='fiche_absences_eleve'),
+    path('presences/jours-non-ouvres/', views_presences.gestion_jours_non_ouvres, name='gestion_jours_non_ouvres'),
 ]

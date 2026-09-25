@@ -123,3 +123,64 @@ class Presence(models.Model):
         ordering = ['-date']
 
     def __str__(self): return f"{self.eleve.nom_complet} — {self.date} — {self.get_statut_display()}"
+
+
+class JourNonOuvre(models.Model):
+    """Jour où l'appel est annulé (férié, congé, intempéries, etc.)"""
+    TYPES = [
+        ('ferie',      '🎉 Jour férié'),
+        ('conge',      '🏖️ Petit congé'),
+        ('intemperie', '⛈️ Intempéries'),
+        ('evenement',  '🎓 Événement spécial'),
+        ('autre',      '📋 Autre'),
+    ]
+    etablissement = models.ForeignKey(
+        'etablissements.Etablissement', on_delete=models.CASCADE,
+        related_name='jours_non_ouvres'
+    )
+    annee = models.ForeignKey(
+        'etablissements.AnneeScolaire', on_delete=models.CASCADE,
+        null=True, blank=True
+    )
+    date = models.DateField()
+    type_jour = models.CharField(max_length=20, choices=TYPES, default='ferie')
+    motif = models.CharField(max_length=200, help_text="Ex: Tabaski, Congé de fin de trimestre...")
+    # Portée : None = tout l'établissement, sinon classe spécifique
+    classe = models.ForeignKey(
+        'etablissements.Classe', on_delete=models.CASCADE,
+        null=True, blank=True,
+        help_text="Laisser vide pour appliquer à tout l'établissement"
+    )
+    declare_par = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date']
+        unique_together = ['etablissement', 'date', 'classe']
+
+    def __str__(self):
+        portee = self.classe.nom if self.classe else "Tout l'établissement"
+        return f"{self.get_type_jour_display()} — {self.date.strftime('%d/%m/%Y')} — {portee}"
+
+    @property
+    def est_global(self):
+        return self.classe is None
+
+    @staticmethod
+    def est_jour_non_ouvre(etab, date, classe=None):
+        """Vérifie si un jour est non ouvré (global ou pour une classe donnée)."""
+        if date.weekday() == 6:  # Dimanche toujours chômé
+            return True, "Dimanche"
+        qs = JourNonOuvre.objects.filter(etablissement=etab, date=date)
+        # Cherche d'abord un jour global
+        global_jour = qs.filter(classe__isnull=True).first()
+        if global_jour:
+            return True, global_jour.motif
+        # Puis cherche pour la classe spécifique
+        if classe:
+            classe_jour = qs.filter(classe=classe).first()
+            if classe_jour:
+                return True, classe_jour.motif
+        return False, None

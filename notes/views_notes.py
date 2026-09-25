@@ -687,7 +687,7 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
         else:              appre_dir = 'Travail Tres Insuffisant'
 
     return render(request, 'notes/bulletin_eleve.html', {
-        'eleve': eleve, 'annee': annee,
+        'eleve': eleve, 'annee': annee, 'periode': periode,
         'etab': etab, 'modele': modele, 'inscription': inscription,
         'lignes': lignes, 'moy_generale': moy_gen,
         'total_coeffic': total_coeffic, 'total_coef': total_coef,

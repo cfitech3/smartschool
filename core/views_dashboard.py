@@ -120,27 +120,34 @@ def _dashboard_super_admin(request, today):
 def _dashboard_admin(request, etab, annee, today):
     import json
     stats = {}
-    stats['total_eleves']     = get_eleves_actifs(etab, annee, user=request.user).count()  # Fix: filtre par année active
-    stats['total_enseignants']= User.objects.filter(etablissement=etab, role='enseignant', is_active=True).count()
-    stats['total_classes']    = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
-    stats['total_staff']      = User.objects.filter(etablissement=etab, is_active=True).exclude(
+
+    # ── Élèves & classes ──────────────────────────────────────
+    # Évaluation unique de la liste des IDs pour réutilisation
+    eleves_actifs_ids = list(get_eleves_actifs(etab, annee, user=request.user).values_list('pk', flat=True))
+    stats['total_eleves']      = len(eleves_actifs_ids)
+    stats['total_enseignants'] = User.objects.filter(etablissement=etab, role='enseignant', is_active=True).count()
+    stats['total_classes']     = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
+    stats['total_staff']       = User.objects.filter(etablissement=etab, is_active=True).exclude(
         role__in=['parent', 'eleve', 'admin', 'super_admin']
     ).count()
 
-    # Présences aujourd'hui (cycles actifs uniquement)
+    # ── Présences aujourd'hui ─────────────────────────────────
     cycles_ids = get_cycles_actifs_ids(etab)
-    stats['presents_today'] = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='present').count()
-    stats['absents_today']  = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='absent').count()
+    presences_auj = Presence.objects.filter(
+        classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today
+    ).values('statut').annotate(nb=Count('pk'))
+    presence_map = {p['statut']: p['nb'] for p in presences_auj}
+    stats['presents_today'] = presence_map.get('present', 0)
+    stats['absents_today']  = presence_map.get('absent', 0)
 
-    # Finances — Fix: utilise les élèves actifs de l'année au lieu de jointure fragile
-    eleves_actifs_ids = get_eleves_actifs(etab, annee, user=request.user).values_list('pk', flat=True)
-
-    pay_today = Paiement.objects.filter(
+    # ── Finances ──────────────────────────────────────────────
+    # Une seule requête pour paiements du jour (agrégat + count en Python)
+    pay_today_agg = Paiement.objects.filter(
         etablissement=etab, date_paiement__date=today,
         statut='valide', eleve_id__in=eleves_actifs_ids,
-    )
-    stats['paiements_jour']    = float(pay_today.aggregate(t=Sum('montant'))['t'] or 0)
-    stats['nb_paiements_jour'] = pay_today.count()
+    ).aggregate(total=Sum('montant'), nb=Count('pk'))
+    stats['paiements_jour']    = float(pay_today_agg['total'] or 0)
+    stats['nb_paiements_jour'] = pay_today_agg['nb'] or 0
 
     recettes_qs = Paiement.objects.filter(
         etablissement=etab, statut='valide',
@@ -149,14 +156,12 @@ def _dashboard_admin(request, etab, annee, today):
     )
     stats['recettes_mois'] = float(recettes_qs.aggregate(t=Sum('montant'))['t'] or 0)
 
-    eleves_payes_ids = recettes_qs.values_list('eleve_id', flat=True).distinct()
-    
     from finances.models import Echeance
     stats['eleves_retard'] = Echeance.objects.filter(
         etablissement=etab, annee=annee, statut__in=['a_payer', 'retard'], date_limite__lt=today
     ).values('eleve_id').distinct().count()
 
-    # Notifications
+    # ── Notifications ─────────────────────────────────────────
     stats['notifs_non_lues'] = LogModificationNote.objects.filter(
         note_periode__eleve__etablissement=etab, notif_lue=False
     ).count()
@@ -182,18 +187,24 @@ def _dashboard_admin(request, etab, annee, today):
     except Exception:
         logger.exception("Erreur comptage messages admin")
 
-    # Graphique 30 jours (couvre mieux les données réelles)
+    # ── Graphique 30 jours — UNE SEULE requête GROUP BY ───────
+    date_debut = today - datetime.timedelta(days=29)
+    paiements_30j = (
+        Paiement.objects
+        .filter(etablissement=etab, statut='valide', date_paiement__date__gte=date_debut)
+        .values('date_paiement__date')
+        .annotate(total=Sum('montant'))
+    )
+    totaux_map = {str(p['date_paiement__date']): float(p['total'] or 0) for p in paiements_30j}
     chart = []
     for i in range(29, -1, -1):
         d = today - datetime.timedelta(days=i)
-        total = float(Paiement.objects.filter(
-            etablissement=etab, date_paiement__date=d, statut='valide'
-        ).aggregate(t=Sum('montant'))['t'] or 0)
-        chart.append({'jour': d.strftime('%d/%m'), 'total': total})
+        chart.append({'jour': d.strftime('%d/%m'), 'total': totaux_map.get(str(d), 0)})
 
+    # ── Données tableau ───────────────────────────────────────
     paiements_recent = Paiement.objects.filter(
         etablissement=etab, statut='valide'
-    ).select_related('eleve','type_frais').order_by('-date_paiement')[:6]
+    ).select_related('eleve', 'type_frais').order_by('-date_paiement')[:6]
 
     classes_data = []
     if annee:
@@ -201,8 +212,7 @@ def _dashboard_admin(request, etab, annee, today):
             nb=Count('inscriptions', filter=Q(inscriptions__is_active=True))
         ).order_by('niveau__ordre', 'nom')[:8]
 
-    # Élèves récemment inscrits
-    inscrits_recents = get_inscriptions_actives(etab, annee, user=request.user).select_related('eleve','classe').order_by('-date_inscription')[:5] if annee else []
+    inscrits_recents = get_inscriptions_actives(etab, annee, user=request.user).select_related('eleve', 'classe').order_by('-date_inscription')[:5] if annee else []
 
     alertes = get_alertes_etablissement(etab, annee, request.user)
     return render(request, 'core/dashboard_admin.html', {
@@ -298,14 +308,19 @@ def _dashboard_comptable(request, etab, today):
     ) if stats['total_eleves'] > 0 else 0
 
 
-    # Graphique 30 jours
+    # Graphique 30 jours — UNE SEULE requête GROUP BY
+    date_debut_chart = today - datetime.timedelta(days=29)
+    paiements_30j = (
+        Paiement.objects
+        .filter(etablissement=etab, statut='valide', date_paiement__date__gte=date_debut_chart)
+        .values('date_paiement__date')
+        .annotate(total=Sum('montant'))
+    )
+    totaux_map_c = {str(p['date_paiement__date']): float(p['total'] or 0) for p in paiements_30j}
     chart = []
     for i in range(29, -1, -1):
         d = today - datetime.timedelta(days=i)
-        total = float(Paiement.objects.filter(
-            etablissement=etab, date_paiement__date=d, statut='valide'
-        ).aggregate(t=Sum('montant'))['t'] or 0)
-        chart.append({'jour': d.strftime('%d/%m'), 'total': total})
+        chart.append({'jour': d.strftime('%d/%m'), 'total': totaux_map_c.get(str(d), 0)})
 
     paiements_recent = Paiement.objects.filter(
         etablissement=etab, statut='valide'

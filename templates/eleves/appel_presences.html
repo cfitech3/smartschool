@@ -37,7 +37,14 @@
     <h1><i class="bi bi-clipboard"></i> Appel des présences</h1>
     {% if annee %}<div style="font-size:13px;color:var(--text-muted);margin-top:3px;">{{ annee.libelle }}</div>{% endif %}
   </div>
-  <a href="{% url 'historique_presences' %}" class="btn btn-outline btn-sm"><i class="bi bi-bar-chart-fill"></i> Historique</a>
+  <div style="display:flex;gap:8px;">
+    {% if request.user.role in 'admin,super_admin,secretariat,surveillant' %}
+    <a href="{% url 'gestion_jours_non_ouvres' %}" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);">
+      <i class="bi bi-calendar-x"></i> Jours non ouvrés
+    </a>
+    {% endif %}
+    <a href="{% url 'historique_presences' %}" class="btn btn-outline btn-sm"><i class="bi bi-bar-chart-fill"></i> Historique</a>
+  </div>
 </div>
 
 <!-- Filtre classe + date -->
@@ -77,6 +84,24 @@
 </div>
 
 {% if classe %}
+  {% if jour_non_ouvre %}
+  <!-- JOUR NON OUVRE : blocage de l'appel -->
+  <div style="background:linear-gradient(135deg,#ffebee,#fce4ec);border:2px solid #e53935;border-radius:12px;padding:24px 28px;margin-bottom:16px;text-align:center;">
+    <div style="font-size:48px;margin-bottom:12px;">🚫</div>
+    <div style="font-size:20px;font-weight:800;color:#c62828;margin-bottom:6px;">Jour non ouvré</div>
+    <div style="font-size:15px;color:#b71c1c;margin-bottom:16px;">
+      <strong>{{ date_appel|date:"l d F Y" }}</strong> — {{ motif_non_ouvre }}
+    </div>
+    <div style="font-size:13px;color:#e53935;margin-bottom:20px;">
+      L'appel ne peut pas être effectué ce jour-là.
+    </div>
+    {% if request.user.role in 'admin,super_admin,secretariat,surveillant' %}
+    <a href="{% url 'gestion_jours_non_ouvres' %}" class="btn btn-outline" style="border-color:#e53935;color:#e53935;">
+      <i class="bi bi-pencil-square"></i> Modifier les jours non ouvrés
+    </a>
+    {% endif %}
+  </div>
+  {% else %}
   {% if appel_fait %}
   <div class="alert alert-info"><i class="bi bi-check-circle-fill text-success"></i> Appel déjà enregistré pour cette date — vous pouvez le modifier.</div>
   {% endif %}
@@ -318,4 +343,5 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+{% endif %}{# fin else jour_non_ouvre #}
 {% endblock %}
