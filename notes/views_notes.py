@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from accounts.permissions import permission_required, role_required
+from accounts.permissions import permission_required, role_required, is_etab_superieur, verifier_acces_bulletin
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
@@ -106,6 +106,8 @@ def calculer_rangs_classe(classe, periode, matieres):
     )
 
     # Calculer la moyenne générale de chaque élève à partir de l'index
+    from .services import get_coefficients_map
+    coefs_map = get_coefficients_map(classe, matieres)
     moyennes = []  # liste de (eleve_pk, moyenne_generale)
     for insc in inscriptions:
         eleve_pk = insc.eleve_id
@@ -115,20 +117,29 @@ def calculer_rangs_classe(classe, periode, matieres):
         for mat in matieres:
             note = index_notes.get((eleve_pk, mat.pk))
             if note is not None:
-                moy_coeff = note.moy_coeffic
-                if moy_coeff is not None:
+                coef = coefs_map.get(mat.pk, mat.coefficient)
+                note._coef_cache = coef
+                moy_finale = note.moyenne_finale
+                if moy_finale is not None:
+                    moy_coeff = round(moy_finale * coef, 2)
                     total_coeffic += Decimal(str(moy_coeff))
-                    total_coef += mat.coefficient
+                    total_coef += coef
 
         if total_coef > 0:
             moy_gen = round(float(total_coeffic) / total_coef, 2)
             moyennes.append((eleve_pk, moy_gen))
 
-    # Trier par moyenne décroissante pour attribuer les rangs
+    # Trier par moyenne décroissante pour attribuer les rangs (avec gestion des ex-aequo)
     moyennes.sort(key=lambda x: x[1], reverse=True)
 
-    # Construire le dictionnaire rang {eleve_pk: rang}
-    rangs = {eleve_pk: rang for rang, (eleve_pk, _) in enumerate(moyennes, start=1)}
+    rangs = {}
+    prev_moy = None
+    prev_rang = 0
+    for idx, (eleve_pk, moy_val) in enumerate(moyennes, start=1):
+        if moy_val != prev_moy:
+            prev_rang = idx
+            prev_moy = moy_val
+        rangs[eleve_pk] = prev_rang
     return rangs
 
 
@@ -180,7 +191,14 @@ def calculer_rangs_classe_composition(classe, annee, numero, matieres):
             moyennes.append((eleve_pk, moy_gen))
 
     moyennes.sort(key=lambda x: x[1], reverse=True)
-    rangs = {eleve_pk: rang for rang, (eleve_pk, _) in enumerate(moyennes, start=1)}
+    rangs = {}
+    prev_moy = None
+    prev_rang = 0
+    for idx, (eleve_pk, moy_val) in enumerate(moyennes, start=1):
+        if moy_val != prev_moy:
+            prev_rang = idx
+            prev_moy = moy_val
+        rangs[eleve_pk] = prev_rang
     return rangs
 
 
@@ -189,6 +207,8 @@ def calculer_rangs_classe_composition(classe, annee, numero, matieres):
 @permission_required('notes')
 @require_etab
 def saisie_notes_mali(request):
+    if is_etab_superieur(request.etablissement):
+        return redirect('saisie_notes_ue')
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
 
@@ -222,7 +242,7 @@ def saisie_notes_mali(request):
     numero_str = request.GET.get('numero')  # pour le 1er cycle
     matiere_id = request.GET.get('matiere')
 
-    classe  = get_object_or_404(Classe,  pk=classe_id,  etablissement=etab) if classe_id  else None
+    classe  = get_object_or_404(classes, pk=classe_id) if (classe_id and classes) else None
     matiere = get_object_or_404(Matiere, pk=matiere_id, etablissement=etab) if matiere_id else None
 
     # Détecter le cycle de la classe pour adapter le formulaire
@@ -252,7 +272,7 @@ def saisie_notes_mali(request):
         periode = None  # pas de Periode pour le 1er cycle
     else:
         numero = None
-        periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
+        periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab, annee=annee) if (periode_id and annee) else None
 
     eleves_data = []
     # 1er cycle : charger les élèves si classe + matiere + numero valides
@@ -267,7 +287,9 @@ def saisie_notes_mali(request):
             if is_premier_cycle:
                 # Pour le 1er cycle : pas de NotePeriode, seulement Compositions
                 note = None
-                peut, raison = True, None  # permission gérée à la soumission
+                peut, raison = peut_modifier_note(
+                    request.user, note_periode=None, matiere=matiere, classe=classe, periode=None
+                )
             else:
                 note = NotePeriode.objects.filter(eleve=insc.eleve, matiere=matiere, periode=periode, classe=classe).first()
                 peut, raison = peut_modifier_note(
@@ -289,8 +311,19 @@ def saisie_notes_mali(request):
             eleves_data.append(item)
 
     if request.method == 'POST' and classe and matiere and (periode or (is_premier_cycle and numero)):
-        note_max_c = Decimal(request.POST.get('note_max_classe', '20'))
-        note_max_n = Decimal(request.POST.get('note_max_compo', '40'))
+        from decimal import InvalidOperation
+        try:
+            note_max_c = Decimal(request.POST.get('note_max_classe', '20').replace(',', '.'))
+            if note_max_c <= 0:
+                note_max_c = Decimal('20')
+        except InvalidOperation:
+            note_max_c = Decimal('20')
+        try:
+            note_max_n = Decimal(request.POST.get('note_max_compo', '40').replace(',', '.'))
+            if note_max_n <= 0:
+                note_max_n = Decimal('40')
+        except InvalidOperation:
+            note_max_n = Decimal('40')
         saved = 0
         modifiees = 0
 
@@ -314,8 +347,8 @@ def saisie_notes_mali(request):
                 from decimal import InvalidOperation
                 touche = False
 
-                # Moy. classe (identique au cas standard)
-                if mc:
+                # Moy. classe (uniquement si un objet Periode existe : hors 1er cycle sans période)
+                if mc and not is_premier_cycle and periode:
                     try:
                         val_mc = Decimal(mc.replace(',', '.'))
                     except InvalidOperation:
@@ -369,6 +402,9 @@ def saisie_notes_mali(request):
                     except InvalidOperation:
                         messages.warning(request, f"Format de note conduite invalide pour {insc.eleve.nom_complet}.")
                         continue
+                    if not (0 <= valeur <= 18):
+                        messages.warning(request, f"Note conduite hors plage (0-18) ignorée pour {insc.eleve.nom_complet}.")
+                        continue
                     note_existante = NotePeriode.objects.filter(
                         eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode
                     ).first()
@@ -378,11 +414,12 @@ def saisie_notes_mali(request):
                             messages.error(request, raison)
                             continue
                         avant = note_existante.note_conduite
-                        enregistrer_log(note_existante, request.user, 'note_conduite', avant, valeur)
-                        note_existante.note_conduite = valeur
-                        note_existante.modifie_par = request.user
-                        note_existante.save()
-                        modifiees += 1
+                        if avant != valeur:
+                            enregistrer_log(note_existante, request.user, 'note_conduite', avant, valeur)
+                            note_existante.note_conduite = valeur
+                            note_existante.modifie_par = request.user
+                            note_existante.save()
+                            modifiees += 1
                     else:
                         peut, raison = peut_modifier_note(request.user, matiere=matiere, classe=classe, periode=periode)
                         if not peut:
@@ -393,20 +430,68 @@ def saisie_notes_mali(request):
                             note_conduite=valeur, saisi_par=request.user
                         )
                         saved += 1
-            else:
-                mc = request.POST.get(f'mc_{insc.eleve.pk}', '').strip()
-                mn = request.POST.get(f'mn_{insc.eleve.pk}', '').strip()
-                if mc or mn:
-                    note_existante = NotePeriode.objects.filter(
-                        eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode
-                    ).first()
+            elif mode_calcul == 'direct':
+                nd = request.POST.get(f'nd_{insc.eleve.pk}', '').strip()
+                note_existante = NotePeriode.objects.filter(
+                    eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode
+                ).first()
+                if nd:
+                    try:
+                        val_nd = Decimal(nd.replace(',', '.'))
+                    except InvalidOperation:
+                        messages.warning(request, f"Format de note directe invalide pour {insc.eleve.nom_complet}.")
+                        continue
+                    if not (0 <= val_nd <= 20):
+                        messages.warning(request, f"Note directe hors plage (0-20) ignorée pour {insc.eleve.nom_complet}.")
+                        continue
                     if note_existante:
                         peut, raison = peut_modifier_note(request.user, note_existante)
                         if not peut:
                             messages.error(request, raison)
                             continue
+                        avant = note_existante.moy_classe
+                        if avant != val_nd or note_existante.moy_compo is not None:
+                            enregistrer_log(note_existante, request.user, 'moy_classe', avant, val_nd)
+                            note_existante.moy_classe = val_nd
+                            note_existante.moy_compo = None
+                            note_existante.note_max_classe = Decimal('20')
+                            note_existante.modifie_par = request.user
+                            note_existante.save()
+                            modifiees += 1
+                    else:
+                        peut, raison = peut_modifier_note(request.user, matiere=matiere, classe=classe, periode=periode)
+                        if not peut:
+                            messages.error(request, raison)
+                            continue
+                        NotePeriode.objects.create(
+                            eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode,
+                            moy_classe=val_nd, moy_compo=None, note_max_classe=Decimal('20'),
+                            note_max_compo=Decimal('20'), saisi_par=request.user,
+                        )
+                        saved += 1
+                elif note_existante and f'nd_{insc.eleve.pk}' in request.POST:
+                    peut, raison = peut_modifier_note(request.user, note_existante)
+                    if peut and note_existante.moy_classe is not None:
+                        enregistrer_log(note_existante, request.user, 'moy_classe', note_existante.moy_classe, None)
+                        note_existante.moy_classe = None
+                        note_existante.moy_compo = None
+                        note_existante.modifie_par = request.user
+                        note_existante.save()
+                        modifiees += 1
+            else:
+                mc = request.POST.get(f'mc_{insc.eleve.pk}', '').strip()
+                mn = request.POST.get(f'mn_{insc.eleve.pk}', '').strip()
+                note_existante = NotePeriode.objects.filter(
+                    eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode
+                ).first()
+                if mc or mn:
+                    if note_existante:
+                        peut, raison = peut_modifier_note(request.user, note_existante)
+                        if not peut:
+                            messages.error(request, raison)
+                            continue
+                        a_change = False
                         if mc:
-                            from decimal import InvalidOperation
                             try:
                                 val_mc = Decimal(mc.replace(',','.'))
                             except InvalidOperation:
@@ -414,12 +499,17 @@ def saisie_notes_mali(request):
                                 continue
                             if 0 <= val_mc <= note_max_c:
                                 avant = note_existante.moy_classe
-                                enregistrer_log(note_existante, request.user, 'moy_classe', avant, val_mc)
-                                note_existante.moy_classe = val_mc
+                                if avant != val_mc:
+                                    enregistrer_log(note_existante, request.user, 'moy_classe', avant, val_mc)
+                                    note_existante.moy_classe = val_mc
+                                    a_change = True
                             else:
                                 messages.warning(request, f"Note classe hors plage (0-{note_max_c}) ignoree pour {insc.eleve.nom_complet}.")
+                        elif f'mc_{insc.eleve.pk}' in request.POST and note_existante.moy_classe is not None:
+                            enregistrer_log(note_existante, request.user, 'moy_classe', note_existante.moy_classe, None)
+                            note_existante.moy_classe = None
+                            a_change = True
                         if mn:
-                            from decimal import InvalidOperation
                             try:
                                 val_mn = Decimal(mn.replace(',','.'))
                             except InvalidOperation:
@@ -427,15 +517,22 @@ def saisie_notes_mali(request):
                                 continue
                             if 0 <= val_mn <= note_max_n:
                                 avant = note_existante.moy_compo
-                                enregistrer_log(note_existante, request.user, 'moy_compo', avant, val_mn)
-                                note_existante.moy_compo = val_mn
+                                if avant != val_mn:
+                                    enregistrer_log(note_existante, request.user, 'moy_compo', avant, val_mn)
+                                    note_existante.moy_compo = val_mn
+                                    a_change = True
                             else:
                                 messages.warning(request, f"Note compo hors plage (0-{note_max_n}) ignoree pour {insc.eleve.nom_complet}.")
-                        note_existante.modifie_par = request.user
-                        note_existante.note_max_classe = note_max_c
-                        note_existante.note_max_compo  = note_max_n
-                        note_existante.save()
-                        modifiees += 1
+                        elif f'mn_{insc.eleve.pk}' in request.POST and note_existante.moy_compo is not None:
+                            enregistrer_log(note_existante, request.user, 'moy_compo', note_existante.moy_compo, None)
+                            note_existante.moy_compo = None
+                            a_change = True
+                        if a_change:
+                            note_existante.modifie_par = request.user
+                            note_existante.note_max_classe = note_max_c
+                            note_existante.note_max_compo  = note_max_n
+                            note_existante.save()
+                            modifiees += 1
                     else:
                         peut, raison = peut_modifier_note(request.user, matiere=matiere, classe=classe, periode=periode)
                         if not peut:
@@ -443,7 +540,6 @@ def saisie_notes_mali(request):
                             continue
                         defaults = {'note_max_classe': note_max_c, 'note_max_compo': note_max_n, 'saisi_par': request.user}
                         if mc:
-                            from decimal import InvalidOperation
                             try:
                                 val_mc = Decimal(mc.replace(',','.'))
                             except InvalidOperation:
@@ -452,7 +548,6 @@ def saisie_notes_mali(request):
                             if 0 <= val_mc <= note_max_c:
                                 defaults['moy_classe'] = val_mc
                         if mn:
-                            from decimal import InvalidOperation
                             try:
                                 val_mn = Decimal(mn.replace(',','.'))
                             except InvalidOperation:
@@ -460,8 +555,21 @@ def saisie_notes_mali(request):
                                 continue
                             if 0 <= val_mn <= note_max_n:
                                 defaults['moy_compo'] = val_mn
-                        NotePeriode.objects.create(eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode, **defaults)
-                        saved += 1
+                        if 'moy_classe' in defaults or 'moy_compo' in defaults:
+                            NotePeriode.objects.create(eleve=insc.eleve, matiere=matiere, classe=classe, periode=periode, **defaults)
+                            saved += 1
+                elif note_existante and (f'mc_{insc.eleve.pk}' in request.POST or f'mn_{insc.eleve.pk}' in request.POST):
+                    peut, raison = peut_modifier_note(request.user, note_existante)
+                    if peut and (note_existante.moy_classe is not None or note_existante.moy_compo is not None):
+                        if note_existante.moy_classe is not None:
+                            enregistrer_log(note_existante, request.user, 'moy_classe', note_existante.moy_classe, None)
+                        if note_existante.moy_compo is not None:
+                            enregistrer_log(note_existante, request.user, 'moy_compo', note_existante.moy_compo, None)
+                        note_existante.moy_classe = None
+                        note_existante.moy_compo = None
+                        note_existante.modifie_par = request.user
+                        note_existante.save()
+                        modifiees += 1
 
         msg = f"{saved} note(s) creee(s)"
         if modifiees: msg += f", {modifiees} modifiee(s)"
@@ -499,14 +607,15 @@ def releve_notes_classe(request):
 
     classe_id  = request.GET.get('classe')
     periode_id = request.GET.get('periode')
-    classe  = get_object_or_404(Classe,  pk=classe_id,  etablissement=etab) if classe_id  else None
-    periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
+    classe  = get_object_or_404(classes, pk=classe_id) if (classe_id and classes) else None
+    periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab, annee=annee) if (periode_id and annee) else None
 
     tableau = []
     matieres = []
     if classe and periode:
-        from .services import get_matieres_pour_classe
+        from .services import get_matieres_pour_classe, get_coefficients_map
         matieres = get_matieres_pour_classe(classe, periode)
+        coefs_map = get_coefficients_map(classe, matieres)
         # P2.5 : Préchargement des notes pour éviter N+1 requêtes
         toutes_notes = NotePeriode.objects.filter(classe=classe, periode=periode)
         index_notes = {(n.eleve_id, n.matiere_id): n for n in toutes_notes}
@@ -514,12 +623,17 @@ def releve_notes_classe(request):
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve').order_by('eleve__nom')
         resultats = []
         for insc in inscriptions:
-            lignes, moy, tc, tcoef = calculer_bulletin(insc.eleve, periode, matieres, index_notes=index_notes)
-            resultats.append({'eleve': insc.eleve, 'moyenne': moy, 'lignes': lignes})
+            lignes, moy, tc, tcoef = calculer_bulletin(insc.eleve, periode, matieres, index_notes=index_notes, classe=classe, coefs_map=coefs_map)
+            resultats.append({'eleve': insc.eleve, 'moyenne': moy, 'lignes': lignes, 'rang': None})
         resultats_avec_moy = [r for r in resultats if r['moyenne'] is not None]
         resultats_avec_moy.sort(key=lambda x: x['moyenne'], reverse=True)
+        prev_moy = None
+        prev_rang = 0
         for i, r in enumerate(resultats_avec_moy, 1):
-            r['rang'] = i
+            if r['moyenne'] != prev_moy:
+                prev_rang = i
+                prev_moy = r['moyenne']
+            r['rang'] = prev_rang
         tableau = resultats
 
     return render(request, 'notes/releve_classe.html', {
@@ -534,6 +648,11 @@ def releve_notes_classe(request):
 @permission_required('bulletins')
 @require_etab
 def bulletins_classe_mali(request):
+    """
+    Vue réservée aux admins et secrétariats (module 'bulletins').
+    Les enseignants n'ont pas accès aux bulletins — ils saisissent uniquement
+    les notes des classes auxquelles ils sont affectés.
+    """
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
     classes = get_classes_actives(etab, annee, user=request.user) if annee else []
@@ -542,7 +661,7 @@ def bulletins_classe_mali(request):
     classe_id  = request.GET.get('classe')
     periode_id = request.GET.get('periode')
     numero_str = request.GET.get('numero')  # pour le 1er cycle
-    classe  = get_object_or_404(Classe,  pk=classe_id,  etablissement=etab) if classe_id  else None
+    classe  = get_object_or_404(classes, pk=classe_id) if (classe_id and classes) else None
 
     # Détecter le cycle de la classe
     cycle = None
@@ -574,11 +693,10 @@ def bulletins_classe_mali(request):
         periode = None
     else:
         numero = None
-        periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
+        periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab, annee=annee) if (periode_id and annee) else None
 
     resultats = []
     moy_premier = None
-    matieres = Matiere.objects.filter(etablissement=etab)
     modele_actif = ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()
 
     # 1er cycle : afficher si classe + numero valides
@@ -588,24 +706,37 @@ def bulletins_classe_mali(request):
     )
 
     if peut_afficher:
+        from .services import get_matieres_pour_classe, get_matieres_pour_eleve, calculer_bulletin_composition, get_coefficients_map
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve')
 
         if is_premier_cycle and annee:
             # 1er cycle : calculer depuis les Compositions /10 pour la composition choisie
-            from notes.services import calculer_bulletin_composition
+            matieres = get_matieres_pour_eleve(None, annee, classe)
             for insc in inscriptions:
                 _, moy, _, _ = calculer_bulletin_composition(insc.eleve, annee, numero, matieres)
-                resultats.append({'eleve': insc.eleve, 'moyenne': moy})
+                resultats.append({'eleve': insc.eleve, 'moyenne': moy, 'rang': None})
         else:
-            # Autres cycles : NotePeriode classique
+            # Autres cycles : NotePeriode classique en O(n)
+            matieres = get_matieres_pour_classe(classe, periode)
+            coefs_map = get_coefficients_map(classe, matieres)
+            toutes_notes = NotePeriode.objects.filter(classe=classe, periode=periode)
+            index_notes = {(n.eleve_id, n.matiere_id): n for n in toutes_notes}
             for insc in inscriptions:
-                _, moy, _, _ = calculer_bulletin(insc.eleve, periode, matieres)
-                resultats.append({'eleve': insc.eleve, 'moyenne': moy})
+                _, moy, _, _ = calculer_bulletin(insc.eleve, periode, matieres, index_notes=index_notes, classe=classe, coefs_map=coefs_map)
+                resultats.append({'eleve': insc.eleve, 'moyenne': moy, 'rang': None})
 
-        resultats.sort(key=lambda x: x['moyenne'] or 0, reverse=True)
-        for i, r in enumerate(resultats, 1):
-            r['rang'] = i
-        if resultats and resultats[0]['moyenne']:
+        resultats.sort(key=lambda x: (x['moyenne'] is not None, x['moyenne'] if x['moyenne'] is not None else -1), reverse=True)
+        prev_moy = None
+        prev_rang = 0
+        idx_classe = 0
+        for r in resultats:
+            if r['moyenne'] is not None:
+                idx_classe += 1
+                if r['moyenne'] != prev_moy:
+                    prev_rang = idx_classe
+                    prev_moy = r['moyenne']
+                r['rang'] = prev_rang
+        if resultats and resultats[0]['moyenne'] is not None:
             moy_premier = resultats[0]['moyenne']
 
     return render(request, 'notes/bulletins_classe.html', {
@@ -629,14 +760,11 @@ def bulletins_classe_mali(request):
 def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
     etab = request.etablissement
     eleve = get_object_or_404(Eleve, pk=eleve_pk, etablissement=etab)
-    
-    # Sécurité IDOR Famille
-    if request.user.role in ['parent', 'eleve']:
-        from core.views_espace_famille import get_eleves_accessibles
-        eleves_ok = get_eleves_accessibles(request.user).values_list('pk', flat=True)
-        if eleve.pk not in eleves_ok:
-            messages.error(request, "Accès refusé. Ce bulletin ne vous appartient pas.")
-            return redirect('dashboard')
+
+    # Contrôle d'accès centralisé (personnel autorisé + anti-IDOR famille)
+    refus = verifier_acces_bulletin(request, eleve)
+    if refus:
+        return refus
 
     periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
     annee = periode.annee
@@ -651,7 +779,7 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
     else:
         modele = ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()
 
-    lignes, moy_gen, total_coeffic, total_coef = calculer_bulletin(eleve, periode, matieres)
+    lignes, moy_gen, total_coeffic, total_coef = calculer_bulletin(eleve, periode, matieres, classe=classe_pour_matieres)
 
     rang = None
     moy_premier = None
@@ -667,24 +795,22 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
 
         # Moyenne du premier : on relit le résultat trié depuis rangs_classe
         if rangs_classe:
-            # Retrouver la moyenne du 1er élève classé
-            # (rang 1 = clé dont la valeur vaut 1)
             pk_premier = next(
                 (pk for pk, r in rangs_classe.items() if r == 1), None
             )
             if pk_premier is not None:
                 _, moy_premier, _, _ = calculer_bulletin(
-                    Eleve.objects.get(pk=pk_premier), periode, matieres
+                    Eleve.objects.get(pk=pk_premier), periode, matieres, classe=classe
                 )
 
     appre_dir = ''
     if moy_gen is not None:
-        if moy_gen >= 8:   appre_dir = 'Excellent Travail'
-        elif moy_gen >= 7: appre_dir = 'Bon Travail'
-        elif moy_gen >= 6: appre_dir = 'Travail Assez Bien'
-        elif moy_gen >= 5: appre_dir = 'Travail Passable'
-        elif moy_gen >= 3: appre_dir = 'Travail Insuffisant'
-        else:              appre_dir = 'Travail Tres Insuffisant'
+        if moy_gen >= 16:   appre_dir = 'Excellent Travail'
+        elif moy_gen >= 14: appre_dir = 'Bon Travail'
+        elif moy_gen >= 12: appre_dir = 'Travail Assez Bien'
+        elif moy_gen >= 10: appre_dir = 'Travail Passable'
+        elif moy_gen >= 6:  appre_dir = 'Travail Insuffisant'
+        else:               appre_dir = 'Travail Tres Insuffisant'
 
     return render(request, 'notes/bulletin_eleve.html', {
         'eleve': eleve, 'annee': annee, 'periode': periode,
@@ -698,6 +824,7 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
 
 
 @login_required
+@require_etab
 def bulletin_composition(request, eleve_pk, annee_pk, numero):
     """
     Bulletin d'une composition individuelle (1er cycle fondamental,
@@ -708,13 +835,10 @@ def bulletin_composition(request, eleve_pk, annee_pk, numero):
     etab  = request.etablissement
     eleve = get_object_or_404(Eleve, pk=eleve_pk, etablissement=etab)
 
-    # Sécurité IDOR Famille — même contrôle que bulletin_eleve
-    if request.user.role in ['parent', 'eleve']:
-        from core.views_espace_famille import get_eleves_accessibles
-        eleves_ok = get_eleves_accessibles(request.user).values_list('pk', flat=True)
-        if eleve.pk not in eleves_ok:
-            messages.error(request, "Accès refusé. Ce bulletin ne vous appartient pas.")
-            return redirect('dashboard')
+    # Contrôle d'accès centralisé — même règle que bulletin_eleve
+    refus = verifier_acces_bulletin(request, eleve)
+    if refus:
+        return refus
 
     annee = get_object_or_404(AnneeScolaire, pk=annee_pk, etablissement=etab)
     inscription = eleve.get_inscription_active()
@@ -745,6 +869,14 @@ def bulletin_composition(request, eleve_pk, annee_pk, numero):
     if inscription:
         classe = inscription.classe
         effectif = classe.inscriptions.filter(is_active=True).count()
+        rangs_classe = calculer_rangs_classe_composition(classe, annee, numero, matieres)
+        rang = rangs_classe.get(eleve.pk)
+        if rangs_classe:
+            pk_premier = next((pk for pk, r in rangs_classe.items() if r == 1), None)
+            if pk_premier is not None:
+                _, moy_premier, _, _ = calculer_bulletin_composition(
+                    Eleve.objects.get(pk=pk_premier), annee, numero, matieres
+                )
 
     appre_dir = ''
     if moy_gen is not None:

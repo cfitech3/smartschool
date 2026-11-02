@@ -33,8 +33,34 @@
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Telephone</td><td style="padding:10px 0;">{{ user.telephone|default:"—" }}</td></tr>
         <tr><td style="padding:10px 0;color:var(--text-muted);">Inscrit le</td><td style="padding:10px 0;">{{ user.date_joined|date:"d F Y" }}</td></tr>
       </table>
-      <a href="{% url 'logout' %}" class="btn btn-outline btn-sm" style="margin-top:16px;"><i class="bi bi-box-arrow-right"></i> Deconnexion</a>
+      <form method="post" action="{% url 'logout' %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-sm" style="margin-top:16px;cursor:pointer;"><i class="bi bi-box-arrow-right"></i> Deconnexion</button>
+      </form>
     </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:20px;max-width:560px;">
+  <div class="card-header"><span class="card-title"><i class="bi bi-shield-lock-fill"></i> Changer mon mot de passe</span></div>
+  <div class="card-body">
+    <form method="post" action="{% url 'profil' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="changer_mdp">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">Ancien mot de passe *</label>
+        <input type="password" name="ancien_mdp" class="form-control" required autocomplete="current-password">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">Nouveau mot de passe * (min. 10 caractères)</label>
+        <input type="password" name="nouveau_mdp" class="form-control" minlength="10" required autocomplete="new-password">
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label class="form-label">Confirmer le nouveau mot de passe *</label>
+        <input type="password" name="confirmer_mdp" class="form-control" minlength="10" required autocomplete="new-password">
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Mettre à jour le mot de passe</button>
+    </form>
   </div>
 </div>
 {% endblock %}

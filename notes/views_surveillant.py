@@ -31,21 +31,31 @@ def require_surveillant(fn):
     return wrapper
 
 
+def require_conduite(fn):
+    def wrapper(request, *args, **kwargs):
+        if request.user.role not in ('super_admin', 'admin', 'surveillant'):
+            messages.error(request, "Accès réservé à la direction et à la surveillance générale.")
+            return redirect('dashboard')
+        return fn(request, *args, **kwargs)
+    wrapper.__name__ = fn.__name__
+    return wrapper
+
+
 @login_required
 @require_etab
-@require_surveillant
+@require_conduite
 def saisie_conduite(request):
     """Saisie de la note de conduite par le surveillant général."""
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    classes = get_classes_actives(etab, annee, user=request.user) if annee else []
+    classes = get_classes_actives(etab, annee, user=request.user) if annee else Classe.objects.none()
     periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
     matiere_conduite = Matiere.objects.filter(etablissement=etab, is_conduite=True).first()
 
     classe_id  = request.GET.get('classe')
     periode_id = request.GET.get('periode')
-    classe  = get_object_or_404(Classe,  pk=classe_id,  etablissement=etab) if classe_id  else None
-    periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else None
+    classe  = get_object_or_404(classes, pk=classe_id) if classe_id else None
+    periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab, annee=annee) if (periode_id and annee) else None
 
     eleves_data = []
     if classe and periode and matiere_conduite:
@@ -70,13 +80,21 @@ def saisie_conduite(request):
             })
 
     if request.method == 'POST' and classe and periode and matiere_conduite:
+        if not periode.peut_saisir and not request.user.is_admin:
+            messages.error(request, "La saisie est clôturée pour cette période. Contactez l'administration.")
+            return redirect(f"{request.path}?classe={classe_id}&periode={periode_id}")
         saved = 0
         for insc in classe.inscriptions.filter(is_active=True).select_related('eleve'):
             nc = request.POST.get(f'nc_{insc.eleve.pk}', '').strip()
             if nc:
                 try:
                     valeur = Decimal(nc.replace(',','.'))
-                    if 0 <= valeur <= 20:
+                    if 0 <= valeur <= 18:
+                        note_existante = NotePeriode.objects.filter(
+                            eleve=insc.eleve, matiere=matiere_conduite,
+                            classe=classe, periode=periode,
+                        ).first()
+                        avant = note_existante.note_conduite if note_existante else None
                         note, created = NotePeriode.objects.update_or_create(
                             eleve=insc.eleve, matiere=matiere_conduite,
                             classe=classe, periode=periode,
@@ -89,8 +107,9 @@ def saisie_conduite(request):
                         if not created:
                             note.modifie_par = request.user
                             note.save(update_fields=['modifie_par'])
-                        from .views_notes import enregistrer_log
-                        enregistrer_log(note, request.user, 'note_conduite', None, valeur)
+                        if avant != valeur:
+                            from .views_notes import enregistrer_log
+                            enregistrer_log(note, request.user, 'note_conduite', avant, valeur)
                         saved += 1
                 except Exception:
                     pass
@@ -107,8 +126,8 @@ def saisie_conduite(request):
 
 
 def _suggerer_conduite(nb_absences, nb_retards):
-    """Suggère une note de conduite selon les absences."""
-    score = 20 - (nb_absences * 1.5) - (nb_retards * 0.5)
+    """Suggère une note de conduite sur 18 selon les absences."""
+    score = 18 - (nb_absences * 1.5) - (nb_retards * 0.5)
     return max(0, round(score, 1))
 
 

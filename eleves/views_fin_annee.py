@@ -18,7 +18,7 @@ from notes.services import calculer_bulletin
 from core.cycle_filter import get_classes_actives
 
 
-def _get_classe_suivante(classe_actuelle):
+def _get_classe_suivante(classe_actuelle, annee_suivante=None):
     """
     Retourne la classe suggérée pour l'année suivante :
     même nom mais niveau d'ordre supérieur.
@@ -33,12 +33,16 @@ def _get_classe_suivante(classe_actuelle):
     niveau_suivant = niveaux_cycle.first()
     if not niveau_suivant:
         return None
-    # Prendre la première classe du niveau suivant (même établissement)
-    classe_suiv = Classe.objects.filter(
+    # Prendre la première classe du niveau suivant (même établissement, année suivante en priorité)
+    qs = Classe.objects.filter(
         etablissement=classe_actuelle.etablissement,
         niveau=niveau_suivant,
-    ).first()
-    return classe_suiv
+    )
+    if annee_suivante:
+        classe_suiv = qs.filter(annee=annee_suivante).first()
+        if classe_suiv:
+            return classe_suiv
+    return qs.first()
 
 
 def _calculer_moyenne_annuelle(eleve, classe, annee):
@@ -111,6 +115,8 @@ def assistant_fin_annee(request):
         return redirect('dashboard')
 
     etab = request.etablissement
+    if not etab:
+        return redirect('dashboard')
     annees = AnneeScolaire.objects.filter(etablissement=etab).order_by('-date_debut')
     annee_active = annees.filter(is_active=True).first()
     classes = get_classes_actives(etab, annee_active, user=request.user) if annee_active else []
@@ -126,13 +132,12 @@ def assistant_fin_annee(request):
     if classe_actuelle_id and annee_suivante_id:
         classe_actuelle = get_object_or_404(Classe, pk=classe_actuelle_id, etablissement=etab)
         annee_suivante  = get_object_or_404(AnneeScolaire, pk=annee_suivante_id, etablissement=etab)
-        classe_suivante_suggeree = _get_classe_suivante(classe_actuelle)
+        classe_suivante_suggeree = _get_classe_suivante(classe_actuelle, annee_suivante)
 
-        note_passage = float(
-            classe_actuelle.niveau.cycle.note_passage
-            if classe_actuelle.niveau and classe_actuelle.niveau.cycle
-            else 10
-        )
+        cycle_actuel = classe_actuelle.niveau.cycle if classe_actuelle.niveau else None
+        note_passage = float(cycle_actuel.note_passage if cycle_actuel else 10)
+        if cycle_actuel and cycle_actuel.is_premier_cycle and cycle_actuel.utilise_compositions_multiples and note_passage > 10:
+            note_passage = note_passage / 2.0
 
         inscriptions = classe_actuelle.inscriptions.filter(
             annee=annee_active, is_active=True
@@ -185,6 +190,9 @@ def assistant_fin_annee(request):
 
                     if decision == 'admis' and classe_suivante_id:
                         classe_dest = get_object_or_404(Classe, pk=classe_suivante_id, etablissement=etab)
+                        Inscription.objects.filter(
+                            eleve=eleve, annee=annee_active
+                        ).update(is_active=False)
                         Inscription.objects.create(
                             eleve=eleve, classe=classe_dest,
                             annee=annee_suivante, statut='actif', is_active=True
@@ -192,9 +200,16 @@ def assistant_fin_annee(request):
                         nb_admis += 1
 
                     elif decision == 'redouble':
+                        classe_redouble = Classe.objects.filter(
+                            etablissement=etab, annee=annee_suivante,
+                            nom=classe_actuelle.nom, niveau=classe_actuelle.niveau
+                        ).first() or classe_actuelle
+                        Inscription.objects.filter(
+                            eleve=eleve, annee=annee_active
+                        ).update(is_active=False)
                         Inscription.objects.create(
-                            eleve=eleve, classe=classe_actuelle,
-                            annee=annee_suivante, statut='actif', is_active=True
+                            eleve=eleve, classe=classe_redouble,
+                            annee=annee_suivante, statut='redoublant', is_active=True
                         )
                         nb_redouble += 1
 
@@ -216,6 +231,9 @@ def assistant_fin_annee(request):
 
     # ── CLÔTURE ANNÉE ──────────────────────────────────────────────────────
     if request.method == 'POST' and request.POST.get('action') == 'cloturer_annee':
+        if not request.user.is_admin:
+            messages.error(request, "Seul l'administrateur de l'établissement peut clôturer l'année scolaire.")
+            return redirect('assistant_fin_annee')
         annee_a_cloturer_id = request.POST.get('annee_a_cloturer')
         annee_a_activer_id  = request.POST.get('annee_a_activer')
 
@@ -253,12 +271,14 @@ def assistant_fin_annee(request):
                         f"après l'opération (1 attendue). Opération annulée."
                     )
 
+            from django.core.cache import cache
+            cache.delete(f"annee_active_{etab.pk}")
             messages.success(request, " Année clôturée et nouvelle année activée.")
         except Exception as ex:
             messages.error(request, f"Erreur clôture : {str(ex)}")
         return redirect('assistant_fin_annee')
 
-    classe_suivante_suggeree = _get_classe_suivante(classe_actuelle) if classe_actuelle else None
+    classe_suivante_suggeree = _get_classe_suivante(classe_actuelle, annee_suivante) if classe_actuelle else None
 
     # Stats récapitulatif
     stats = None
@@ -272,6 +292,10 @@ def assistant_fin_annee(request):
             'deja_inscrits': sum(1 for e in eleves_data if e['deja_inscrit']),
         }
 
+    toutes_classes_qs = Classe.objects.filter(etablissement=etab)
+    if annee_suivante and toutes_classes_qs.filter(annee=annee_suivante).exists():
+        toutes_classes_qs = toutes_classes_qs.filter(annee=annee_suivante)
+
     return render(request, 'eleves/assistant_fin_annee.html', {
         'annees': annees,
         'annee_active': annee_active,
@@ -283,5 +307,5 @@ def assistant_fin_annee(request):
         'classe_actuelle_id': classe_actuelle_id,
         'annee_suivante_id': annee_suivante_id,
         'stats': stats,
-        'toutes_classes': Classe.objects.filter(etablissement=etab).order_by('niveau__ordre', 'nom'),
+        'toutes_classes': toutes_classes_qs.order_by('niveau__ordre', 'nom'),
     })

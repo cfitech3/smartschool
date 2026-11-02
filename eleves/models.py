@@ -10,7 +10,7 @@ class Eleve(models.Model):
     nom = models.CharField(max_length=100)
     prenom = models.CharField(max_length=100)
     sexe = models.CharField(max_length=1, choices=SEXES)
-    date_naissance = models.DateField()
+    date_naissance = models.DateField(null=True, blank=True)
     lieu_naissance = models.CharField(max_length=100, blank=True)
     adresse = models.TextField(blank=True)
     telephone = models.CharField(max_length=20, blank=True)
@@ -39,12 +39,11 @@ class Eleve(models.Model):
         """
         prefixe = f"{etablissement.code}-{annee_str}-"
         with transaction.atomic():
-            # Compter les élèves existants avec ce préfixe pour déterminer
-            # le prochain numéro séquentiel. select_for_update() verrouille
-            # les lignes concernées pendant la transaction.
+            # Verrouiller la ligne établissement (compatible PostgreSQL : pas de FOR UPDATE sur COUNT)
+            from etablissements.models import Etablissement
+            list(Etablissement.objects.select_for_update().filter(pk=etablissement.pk).values_list('pk', flat=True))
             nb_existants = (
                 Eleve.objects
-                .select_for_update()
                 .filter(matricule__startswith=prefixe)
                 .count()
             )
@@ -70,11 +69,18 @@ class Eleve(models.Model):
 
     @property
     def age(self):
+        if not self.date_naissance:
+            return None
         today = timezone.now().date()
         return today.year - self.date_naissance.year - ((today.month, today.day) < (self.date_naissance.month, self.date_naissance.day))
 
     def get_inscription_active(self):
-        return self.inscriptions.filter(is_active=True).first()
+        if hasattr(self, '_prefetched_objects_cache') and 'inscriptions' in self._prefetched_objects_cache:
+            for insc in self._prefetched_objects_cache['inscriptions']:
+                if insc.is_active:
+                    return insc
+            return None
+        return self.inscriptions.filter(is_active=True).select_related('classe__niveau__cycle').first()
 
 
 class Tuteur(models.Model):

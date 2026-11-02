@@ -13,9 +13,20 @@ Variables requises en production (DEBUG=False) :
 """
 import os
 from pathlib import Path
+from urllib.parse import urlparse, unquote, parse_qs
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Chargement automatique du fichier .env s'il existe à la racine du projet
+_env_path = BASE_DIR / '.env'
+if _env_path.is_file():
+    for _line in _env_path.read_text(encoding='utf-8', errors='ignore').splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith('#') or '=' not in _line:
+            continue
+        _k, _v = _line.split('=', 1)
+        os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
 # ── Environnement : production ou développement ──────────────────────────────
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
@@ -27,13 +38,13 @@ def _get_env(var_name, default=None, required_in_prod=False):
     Si required_in_prod=True et que DEBUG=False, lève ImproperlyConfigured
     plutôt que d'utiliser la valeur par défaut.
     """
-    value = os.environ.get(var_name, default)
-    if not DEBUG and required_in_prod and not value:
+    raw = os.environ.get(var_name)
+    if not DEBUG and required_in_prod and not raw:
         raise ImproperlyConfigured(
             f"La variable d'environnement '{var_name}' est obligatoire en production "
             f"(DEBUG=False). Définissez-la dans votre environnement ou fichier .env."
         )
-    return value
+    return raw if raw is not None else default
 
 
 # ── Clé secrète ──────────────────────────────────────────────────────────────
@@ -117,27 +128,24 @@ WSGI_APPLICATION = 'smartschool.wsgi.application'
 _database_url = os.environ.get('DATABASE_URL', '')
 
 if _database_url:
-    # Parsing manuel de l'URL PostgreSQL pour ne pas dépendre de dj-database-url
-    # Format attendu : postgresql://user:password@host:port/dbname
-    import re
-    _db_match = re.match(
-        r'^postgresql://(?P<user>[^:]+):(?P<password>[^@]+)@(?P<host>[^:/]+):?(?P<port>\d+)?/(?P<name>.+)$',
-        _database_url
-    )
-    if _db_match:
-        _db = _db_match.groupdict()
+    # Parsing robuste de DATABASE_URL via urllib.parse (supporte postgres://,
+    # postgresql://, mots de passe encodés %40 et paramètres ?sslmode=require)
+    _parsed_db = urlparse(_database_url)
+    if _parsed_db.scheme in ('postgres', 'postgresql') and _parsed_db.hostname and _parsed_db.path.lstrip('/'):
+        _db_options = {'connect_timeout': 10}
+        _qs = parse_qs(_parsed_db.query)
+        if 'sslmode' in _qs and _qs['sslmode']:
+            _db_options['sslmode'] = _qs['sslmode'][0]
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.postgresql',
-                'NAME': _db['name'],
-                'USER': _db['user'],
-                'PASSWORD': _db['password'],
-                'HOST': _db['host'],
-                'PORT': _db.get('port') or '5432',
+                'NAME': unquote(_parsed_db.path.lstrip('/')),
+                'USER': unquote(_parsed_db.username or ''),
+                'PASSWORD': unquote(_parsed_db.password or ''),
+                'HOST': _parsed_db.hostname,
+                'PORT': str(_parsed_db.port or 5432),
                 'CONN_MAX_AGE': 60,  # Connexions persistantes (perf)
-                'OPTIONS': {
-                    'connect_timeout': 10,
-                },
+                'OPTIONS': _db_options,
             }
         }
     else:
@@ -174,10 +182,16 @@ LOGOUT_REDIRECT_URL = '/auth/login/'
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {'min_length': 8},
+        'OPTIONS': {'min_length': 12},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
@@ -191,7 +205,18 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': (
+            'django.contrib.staticfiles.storage.StaticFilesStorage'
+            if DEBUG
+            else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+        ),
+    },
+}
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -215,6 +240,9 @@ CSRF_COOKIE_AGE = 31449600     # 1 an en secondes
 # Nom du cookie de session (distingue les projets sur le même localhost)
 SESSION_COOKIE_NAME = 'smartschool_sessionid'
 CSRF_COOKIE_NAME = 'smartschool_csrftoken'
+_csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+if _csrf_origins_env:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins_env.split(',') if o.strip()]
 # ── Cache ─────────────────────────────────────────────────────────────────────
 # ARCH-002 : LocMemCache n'est pas partagé entre workers Gunicorn.
 # En production multi-workers, définir CACHE_BACKEND=redis ou CACHE_BACKEND=file.
@@ -268,6 +296,12 @@ else:
 
 # ── Sécurité renforcée en production (DEBUG=False) ────────────────────────────
 if not DEBUG:
+    # Reverse-proxy HTTPS (PythonAnywhere, Nginx, etc.)
+    # Django voit du HTTP en interne ; ce header indique que le proxy a reçu HTTPS.
+    # Sans cela : SECURE_SSL_REDIRECT provoque une boucle infinie, et les cookies
+    # Secure ne sont jamais posés correctement.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
     # Forcer HTTPS
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000       # 1 an
@@ -283,9 +317,6 @@ if not DEBUG:
 
     # Empêcher le sniffing de type MIME
     SECURE_CONTENT_TYPE_NOSNIFF = True
-
-    # Activer le filtre XSS du navigateur
-    SECURE_BROWSER_XSS_FILTER = True
 else:
     # Développement : pas de HTTPS, cookies en HTTP
     SESSION_COOKIE_SECURE = False

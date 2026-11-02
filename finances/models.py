@@ -69,7 +69,7 @@ class Paiement(models.Model):
     def __str__(self): return f"{self.eleve.nom_complet} — {self.montant} FCFA"
 
     @staticmethod
-    def _generer_reference_atomique():
+    def _generer_reference_atomique(etablissement_id=None):
         """
         Génère une référence de paiement unique et non-devinable de façon atomique.
 
@@ -80,6 +80,12 @@ class Paiement(models.Model):
         de concurrence même avec plusieurs workers Gunicorn simultanés.
         """
         with transaction.atomic():
+            if etablissement_id:
+                from etablissements.models import Etablissement
+                list(Etablissement.objects.select_for_update().filter(pk=etablissement_id).values_list('pk', flat=True))
+            else:
+                list(Paiement.objects.select_for_update().order_by('-pk').values_list('pk', flat=True)[:1])
+
             # Timestamp en microsecondes, réduit aux 8 derniers chiffres
             ts_micro = str(int(time.time() * 1_000_000))[-8:]
             reference = f"PAY-{ts_micro}"
@@ -87,7 +93,7 @@ class Paiement(models.Model):
             # En cas de collision (très peu probable mais possible), ajouter
             # un compteur croissant jusqu'à trouver une référence libre.
             if Paiement.objects.filter(reference=reference).exists():
-                compteur = Paiement.objects.select_for_update().count()
+                compteur = Paiement.objects.count()
                 reference = f"PAY-{ts_micro[:4]}{compteur:04d}"
                 # Dernière vérification de sécurité
                 while Paiement.objects.filter(reference=reference).exists():
@@ -97,7 +103,7 @@ class Paiement(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.reference:
-            self.reference = self._generer_reference_atomique()
+            self.reference = self._generer_reference_atomique(etablissement_id=self.etablissement_id)
         super().save(*args, **kwargs)
 
 

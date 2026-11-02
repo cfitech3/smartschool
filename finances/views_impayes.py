@@ -4,17 +4,18 @@ Frais impayés : liste par classe + export Excel + génération de notifications
 import datetime
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, Max
 from django.http import HttpResponse
 from django.utils import timezone
-from accounts.permissions import permission_required
+from accounts.permissions import permission_required, require_etab
+from core.validators import safe_excel_value
 from .models import Paiement, TypeFrais
 from eleves.models import Eleve, Inscription
 from etablissements.models import AnneeScolaire, Classe
 from core.cycle_filter import get_eleves_actifs, get_classes_actives
 
 
-def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val=None):
+def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val=None, user=None):
     """
     Retourne la liste des élèves avec leurs frais impayés.
     Un élève est 'impayé' sur un type de frais s'il n'a aucun paiement valide
@@ -31,7 +32,7 @@ def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val
         ).select_related('eleve', 'classe')
         eleves_qs = [i.eleve for i in inscriptions]
     else:
-        eleves_qs = list(get_eleves_actifs(etab, user=request.user))
+        eleves_qs = list(get_eleves_actifs(etab, annee=annee, user=user))
 
     if not eleves_qs:
         return []
@@ -46,48 +47,86 @@ def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val
     # IDs d'élèves ayant payé ce mois pour chaque type
     eleves_ids = [e.pk for e in eleves_qs]
 
-    # Construire la liste des impayés
+    # Construire la liste des impayés (préchargement groupé sans requêtes N+1)
+    from .models import ReductionFrais
+    types_list = list(types)
+    reductions_qs = ReductionFrais.objects.filter(
+        etablissement=etab, eleve_id__in=eleves_ids
+    )
+    if annee:
+        reductions_qs = reductions_qs.filter(annee=annee)
+    reductions_map = {(r.eleve_id, r.type_frais_id): float(r.montant) for r in reductions_qs}
+
+    # Inscriptions actives par élève (1 requête)
+    inscriptions_map = {
+        i.eleve_id: i
+        for i in Inscription.objects.filter(
+            eleve_id__in=eleves_ids, annee=annee, is_active=True
+        ).select_related('classe')
+    }
+
+    # Paiements du mois par élève (1 requête)
+    paiements_mois_map = {}
+    for eid, tfid in Paiement.objects.filter(
+        eleve_id__in=eleves_ids, etablissement=etab, statut='valide',
+        date_paiement__month=mois, date_paiement__year=annee_val,
+    ).values_list('eleve_id', 'type_frais_id'):
+        paiements_mois_map.setdefault(eid, set()).add(tfid)
+
+    # Cumul payé sur l'année par (eleve_id, type_frais_id) (1 requête)
+    qs_cumul = Paiement.objects.filter(
+        eleve_id__in=eleves_ids, etablissement=etab, statut='valide'
+    )
+    if annee:
+        qs_cumul = qs_cumul.filter(annee=annee)
+    else:
+        qs_cumul = qs_cumul.filter(date_paiement__year=annee_val)
+    cumul_map = {
+        (row['eleve_id'], row['type_frais_id']): float(row['t'] or 0)
+        for row in qs_cumul.values('eleve_id', 'type_frais_id').annotate(t=Sum('montant'))
+    }
+
+    # Dernier paiement par élève (1 requête)
+    dernier_map = {
+        row['eleve_id']: row['last_dt']
+        for row in Paiement.objects.filter(
+            eleve_id__in=eleves_ids, etablissement=etab, statut='valide'
+        ).values('eleve_id').annotate(last_dt=Max('date_paiement'))
+    }
+
     impayes = []
     for eleve in eleves_qs:
-        # Paiements valides de cet élève ce mois
-        paiements_mois = Paiement.objects.filter(
-            eleve=eleve, etablissement=etab, statut='valide',
-            date_paiement__month=mois, date_paiement__year=annee_val,
-        ).values_list('type_frais_id', flat=True)
+        paiements_mois = paiements_mois_map.get(eleve.pk, set())
+        insc = inscriptions_map.get(eleve.pk)
 
-        # Inscription active pour avoir la classe
-        insc = Inscription.objects.filter(
-            eleve=eleve, annee=annee, is_active=True
-        ).select_related('classe').first()
-
-        # Pour chaque type de frais non payé
         frais_non_payes = []
-        for tf in types:
-            if tf.pk not in paiements_mois:
-                # Vérifier aussi les paiements annuels (periodicite='unique')
-                if tf.periodicite == 'unique':
-                    paye_annee = Paiement.objects.filter(
-                        eleve=eleve, etablissement=etab, statut='valide',
-                        type_frais=tf,
-                        date_paiement__year=annee_val,
-                    ).exists()
-                    if paye_annee:
-                        continue
+        montant_du_eleve = 0.0
+        for tf in types_list:
+            reduc_tf = reductions_map.get((eleve.pk, tf.pk), 0.0)
+            attendu_net = max(0.0, float(tf.montant_defaut) - reduc_tf)
+            if attendu_net <= 0:
+                continue
+
+            if tf.periodicite in ('unique', 'annuel', 'tranches'):
+                paye_total_tf = cumul_map.get((eleve.pk, tf.pk), 0.0)
+                solde_tf = attendu_net - paye_total_tf
+                if solde_tf <= 0:
+                    continue
                 frais_non_payes.append(tf)
+                montant_du_eleve += solde_tf
+            else:
+                if tf.pk not in paiements_mois:
+                    frais_non_payes.append(tf)
+                    montant_du_eleve += attendu_net
 
         if frais_non_payes:
-            # Dernier paiement de l'élève (toutes catégories)
-            dernier = Paiement.objects.filter(
-                eleve=eleve, etablissement=etab, statut='valide'
-            ).order_by('-date_paiement').first()
-
             impayes.append({
                 'eleve': eleve,
                 'classe': insc.classe if insc else None,
                 'frais_non_payes': frais_non_payes,
                 'nb_frais': len(frais_non_payes),
-                'montant_du': sum(float(tf.montant_defaut) for tf in frais_non_payes),
-                'dernier_paiement': dernier.date_paiement if dernier else None,
+                'montant_du': montant_du_eleve,
+                'dernier_paiement': dernier_map.get(eleve.pk),
             })
 
     # Trier par classe puis par nom
@@ -101,6 +140,7 @@ def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val
 
 @login_required
 @permission_required('finances')
+@require_etab
 def liste_impayes(request):
     """Liste des frais impayés avec filtres par classe, type de frais, mois."""
     etab = request.etablissement
@@ -110,14 +150,20 @@ def liste_impayes(request):
     # Filtres
     classe_id  = request.GET.get('classe', '')
     type_id    = request.GET.get('type_frais', '')
-    mois       = int(request.GET.get('mois', today.month))
-    annee_val  = int(request.GET.get('annee', today.year))
+    try:
+        mois = max(1, min(12, int(request.GET.get('mois', today.month))))
+    except (ValueError, TypeError):
+        mois = today.month
+    try:
+        annee_val = int(request.GET.get('annee', today.year))
+    except (ValueError, TypeError):
+        annee_val = today.year
 
     classe_sel = Classe.objects.filter(pk=classe_id, etablissement=etab).first() if classe_id else None
     type_sel   = TypeFrais.objects.filter(pk=type_id, etablissement=etab).first() if type_id else None
 
     impayes = _get_impayes(etab, annee, classe=classe_sel, type_frais=type_sel,
-                           mois=mois, annee_val=annee_val)
+                           mois=mois, annee_val=annee_val, user=request.user)
 
     # Regrouper par classe
     par_classe = {}
@@ -161,6 +207,7 @@ def liste_impayes(request):
 
 @login_required
 @permission_required('finances')
+@require_etab
 def export_impayes_excel(request):
     """Export Excel des impayés filtré par classe / type de frais / mois."""
     try:
@@ -177,14 +224,20 @@ def export_impayes_excel(request):
 
     classe_id = request.GET.get('classe', '')
     type_id   = request.GET.get('type_frais', '')
-    mois      = int(request.GET.get('mois', today.month))
-    annee_val = int(request.GET.get('annee', today.year))
+    try:
+        mois = max(1, min(12, int(request.GET.get('mois', today.month))))
+    except (ValueError, TypeError):
+        mois = today.month
+    try:
+        annee_val = int(request.GET.get('annee', today.year))
+    except (ValueError, TypeError):
+        annee_val = today.year
 
     classe_sel = Classe.objects.filter(pk=classe_id, etablissement=etab).first() if classe_id else None
     type_sel   = TypeFrais.objects.filter(pk=type_id, etablissement=etab).first() if type_id else None
 
     impayes = _get_impayes(etab, annee, classe=classe_sel, type_frais=type_sel,
-                           mois=mois, annee_val=annee_val)
+                           mois=mois, annee_val=annee_val, user=request.user)
 
     MOIS_FR = ['','Janvier','Février','Mars','Avril','Mai','Juin',
                'Juillet','Août','Septembre','Octobre','Novembre','Décembre']
@@ -261,8 +314,8 @@ def export_impayes_excel(request):
         frais_noms = ", ".join(tf.nom for tf in imp['frais_non_payes'])
         alt = PatternFill("solid", fgColor=GRIS) if i % 2 == 0 else None
 
-        vals = [i, imp['eleve'].nom_complet, imp['classe'].nom if imp['classe'] else '—',
-                frais_noms, imp['montant_du'], contact,
+        vals = [i, safe_excel_value(imp['eleve'].nom_complet), safe_excel_value(imp['classe'].nom if imp['classe'] else '—'),
+                safe_excel_value(frais_noms), imp['montant_du'], safe_excel_value(contact),
                 imp['dernier_paiement'].strftime('%d/%m/%Y') if imp['dernier_paiement'] else 'Jamais']
 
         for col, val in enumerate(vals, 1):

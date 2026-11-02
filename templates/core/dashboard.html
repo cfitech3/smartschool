@@ -47,7 +47,7 @@
 {% endblock %}
 {% block extra_js %}
 <script>
-const data={{ chart_paiements|safe }};
+const data={{ chart_paiements|default:"[]"|safe }};
 const ctx=document.getElementById("chartPay");
 if(ctx&&data.length){new Chart(ctx,{type:"bar",data:{labels:data.map(d=>d.jour),datasets:[{label:"Recettes",data:data.map(d=>d.total),backgroundColor:data.map((_,i)=>i===data.length-1?"rgba(255,111,0,0.85)":"rgba(21,101,192,0.7)"),borderRadius:5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString()+" F"},grid:{color:"rgba(0,0,0,0.05)"}},x:{grid:{display:false}}}}});}
 </script>

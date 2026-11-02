@@ -1,11 +1,23 @@
 from django.contrib.auth.signals import user_logged_in, user_login_failed
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_ipv46_address
 from django.dispatch import receiver
 
 
 def _get_ip(request):
-    if not request: return None
+    if not request:
+        return None
     xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
-    return xff.split(',')[0].strip() or request.META.get('REMOTE_ADDR')
+    candidate = xff.split(',')[0].strip() if xff else ''
+    remote = (request.META.get('REMOTE_ADDR') or '').strip()
+    for ip in (candidate, remote):
+        if ip:
+            try:
+                validate_ipv46_address(ip)
+                return ip
+            except ValidationError:
+                continue
+    return None
 
 
 def _get_ua(request):

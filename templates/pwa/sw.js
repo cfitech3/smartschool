@@ -53,6 +53,12 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Nettoyer le cache des pages authentifiées lors de la connexion/déconnexion
+  if (url.pathname.startsWith('/auth/logout') || url.pathname.startsWith('/auth/login')) {
+    caches.delete(CACHE_PAGES);
+    return;
+  }
+
   // Ignorer les requêtes non-GET et cross-origin
   if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;

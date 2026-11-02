@@ -23,14 +23,18 @@ def liste_eleves(request):
     from core.cycle_filter import get_eleves_actifs, get_classes_actives
     etab=request.etablissement
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    eleves=get_eleves_actifs(etab, user=request.user).select_related("tuteur").prefetch_related("inscriptions__classe__niveau").order_by("nom","prenom")
+    statut_filtre = request.GET.get("statut", "actifs")
+    if statut_filtre == "archives":
+        eleves = Eleve.objects.filter(etablissement=etab, is_active=False).select_related("tuteur").prefetch_related("inscriptions__classe__niveau").order_by("nom","prenom")
+    else:
+        eleves=get_eleves_actifs(etab, user=request.user).select_related("tuteur").prefetch_related("inscriptions__classe__niveau").order_by("nom","prenom")
     q=request.GET.get("q",""); classe_id=request.GET.get("classe",""); sexe=request.GET.get("sexe","")
     if q: eleves=eleves.filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))
     if classe_id: eleves=eleves.filter(inscriptions__classe_id=classe_id,inscriptions__is_active=True)
     if sexe: eleves=eleves.filter(sexe=sexe)
     classes=get_classes_actives(etab, annee, user=request.user) if annee else []
     paginator=Paginator(eleves,25); page=request.GET.get("page",1); eleves_page=paginator.get_page(page)
-    return render(request,"eleves/liste.html",{"eleves":eleves_page,"classes":classes,"annee":annee,"q":q,"classe_id":classe_id,"sexe":sexe,"total":paginator.count})
+    return render(request,"eleves/liste.html",{"eleves":eleves_page,"classes":classes,"annee":annee,"q":q,"classe_id":classe_id,"sexe":sexe,"statut_filtre":statut_filtre,"total":paginator.count})
 
 @login_required
 @permission_required("eleves")
@@ -52,15 +56,22 @@ def ajouter_eleve(request):
     tf=TuteurForm(request.POST or None,prefix="tuteur",etablissement=etab)
     inf=InscriptionForm(request.POST or None,prefix="insc",etablissement=etab,annee=annee)
     if request.method=="POST":
+        if not annee:
+            messages.error(request, "Aucune année scolaire active. Activez d'abord une année scolaire dans les paramètres.")
+            return render(request,"eleves/ajouter.html",{"eleve_form":ef,"tuteur_form":tf,"inscription_form":inf,"annee":annee})
         ev=ef.is_valid(); iv=inf.is_valid()
-        tuteur=None
-        if request.POST.get("tuteur-nom","").strip() and tf.is_valid():
-            tuteur=tf.save(commit=False); tuteur.etablissement=etab; tuteur.save()
-        if ev and iv:
-            eleve=ef.save(commit=False); eleve.etablissement=etab
-            if tuteur: eleve.tuteur=tuteur
-            eleve.save()
-            insc=inf.save(commit=False); insc.eleve=eleve; insc.annee=annee; insc.save()
+        has_tuteur = bool(request.POST.get("tuteur-nom","").strip())
+        tv = tf.is_valid() if has_tuteur else True
+        if ev and iv and tv:
+            from django.db import transaction
+            with transaction.atomic():
+                tuteur=None
+                if has_tuteur:
+                    tuteur=tf.save(commit=False); tuteur.etablissement=etab; tuteur.save()
+                eleve=ef.save(commit=False); eleve.etablissement=etab
+                if tuteur: eleve.tuteur=tuteur
+                eleve.save()
+                insc=inf.save(commit=False); insc.eleve=eleve; insc.annee=annee; insc.save()
             messages.success(request,f"Eleve {eleve.nom_complet} inscrit ! Matricule: {eleve.matricule}")
             if request.POST.get("ajouter_autre"): return redirect("ajouter_eleve")
             return redirect("detail_eleve",pk=eleve.pk)
@@ -73,10 +84,38 @@ def supprimer_eleve(request,pk):
     etab=request.etablissement
     eleve=get_object_or_404(Eleve,pk=pk,etablissement=etab)
     if request.method=="POST":
-        nom=eleve.nom_complet; eleve.is_active=False; eleve.save()
+        nom=eleve.nom_complet
+        eleve.is_active=False
+        eleve.save(update_fields=['is_active'])
+        eleve.inscriptions.filter(is_active=True).update(is_active=False)
+        if eleve.user_compte_id:
+            eleve.user_compte.is_active = False
+            eleve.user_compte.save(update_fields=['is_active'])
         messages.success(request,f"Eleve {nom} archive.")
         return redirect("liste_eleves")
     return render(request,"eleves/confirmer_suppression.html",{"eleve":eleve})
+
+
+@login_required
+@permission_required('eleves')
+@req
+def restaurer_eleve(request, pk):
+    etab = request.etablissement
+    eleve = get_object_or_404(Eleve, pk=pk, etablissement=etab)
+    if request.method == "POST":
+        eleve.is_active = True
+        eleve.save(update_fields=['is_active'])
+        annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
+        if annee:
+            derniere_insc = eleve.inscriptions.filter(annee=annee).order_by('-date_inscription').first()
+            if derniere_insc:
+                derniere_insc.is_active = True
+                derniere_insc.save(update_fields=['is_active'])
+        if eleve.user_compte_id:
+            eleve.user_compte.is_active = True
+            eleve.user_compte.save(update_fields=['is_active'])
+        messages.success(request, f"Élève {eleve.nom_complet} restauré avec succès.")
+    return redirect("liste_eleves")
 
 @login_required
 @permission_required("classes")
@@ -109,16 +148,30 @@ def ajouter_classe(request):
         cap=request.POST.get("capacite_max",40); salle=request.POST.get("salle","")
         niveau=None
         if niv_libre:
-            niveau,_=Niveau.objects.get_or_create(etablissement=etab,nom=niv_libre,defaults={"ordre":Niveau.objects.filter(etablissement=etab).count()+1})
-        elif niv_id:
-            niveau=get_object_or_404(Niveau,pk=niv_id,etablissement=etab)
+            from etablissements.models import Cycle
+            cycle_cible = None
+            if niv_id and str(niv_id).startswith("libre_"):
+                cid = str(niv_id).replace("libre_", "")
+                if cid.isdigit():
+                    cycle_cible = Cycle.objects.filter(pk=int(cid), etablissement=etab).first()
+            if not cycle_cible:
+                cycle_cible = Cycle.objects.filter(etablissement=etab).order_by('ordre').first()
+            niveau,_=Niveau.objects.get_or_create(
+                etablissement=etab, nom=niv_libre,
+                defaults={"ordre":Niveau.objects.filter(etablissement=etab).count()+1, "cycle": cycle_cible}
+            )
+            if not niveau.cycle and cycle_cible:
+                niveau.cycle = cycle_cible
+                niveau.save(update_fields=['cycle'])
+        elif niv_id and str(niv_id).isdigit():
+            niveau=get_object_or_404(Niveau,pk=int(niv_id),etablissement=etab)
         if nom and niveau and annee:
             if Classe.objects.filter(etablissement=etab,annee=annee,nom=nom).exists():
                 messages.error(request,f"Classe {nom} existe deja.")
             else:
                 from etablissements.models import SerieLycee
                 serie_pk=request.POST.get('serie')
-                serie=SerieLycee.objects.filter(pk=serie_pk).first() if serie_pk else None
+                serie=SerieLycee.objects.filter(pk=serie_pk, cycle__etablissement=etab).first() if serie_pk else None
                 
                 try:
                     capacite_entier = int(cap)
@@ -152,14 +205,22 @@ def modifier_classe(request,pk):
         if request.POST.get("action")=="supprimer":
             nom=classe.nom; classe.delete()
             messages.success(request,f"Classe {nom} supprimee."); return redirect("liste_classes")
-        classe.nom=request.POST.get("nom",classe.nom)
-        niv_id=request.POST.get("niveau"); 
-        if niv_id: classe.niveau=get_object_or_404(Niveau,pk=niv_id,etablissement=etab)
-        try:
-            classe.capacite_max = int(request.POST.get("capacite_max", classe.capacite_max))
-        except ValueError:
-            messages.warning(request, "Capacité invalide ignorée.")
-            
-        classe.salle=request.POST.get("salle",""); classe.save()
+        nouv_nom = request.POST.get("nom", classe.nom).strip()
+        if nouv_nom and Classe.objects.filter(etablissement=etab, annee=classe.annee, nom=nouv_nom).exclude(pk=classe.pk).exists():
+            messages.error(request, f"Une classe '{nouv_nom}' existe déjà pour cette année.")
+            return render(request,"eleves/modifier_classe.html",{"classe":classe,"niveaux":niveaux})
+        if nouv_nom:
+            classe.nom = nouv_nom
+        niv_id=request.POST.get("niveau")
+        if niv_id and str(niv_id).isdigit():
+            classe.niveau=get_object_or_404(Niveau,pk=int(niv_id),etablissement=etab)
+        if "capacite_max" in request.POST:
+            try:
+                classe.capacite_max = int(request.POST.get("capacite_max", classe.capacite_max))
+            except ValueError:
+                messages.warning(request, "Capacité invalide ignorée.")
+        if "salle" in request.POST:
+            classe.salle = request.POST.get("salle", "")
+        classe.save()
         messages.success(request,"Classe mise a jour."); return redirect("detail_classe",pk=classe.pk)
     return render(request,"eleves/modifier_classe.html",{"classe":classe,"niveaux":niveaux})

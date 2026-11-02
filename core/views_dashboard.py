@@ -141,10 +141,10 @@ def _dashboard_admin(request, etab, annee, today):
     stats['absents_today']  = presence_map.get('absent', 0)
 
     # ── Finances ──────────────────────────────────────────────
-    # Une seule requête pour paiements du jour (agrégat + count en Python)
+    # Une seule requête pour paiements du jour (tous les paiements validés de l'établissement)
     pay_today_agg = Paiement.objects.filter(
         etablissement=etab, date_paiement__date=today,
-        statut='valide', eleve_id__in=eleves_actifs_ids,
+        statut='valide',
     ).aggregate(total=Sum('montant'), nb=Count('pk'))
     stats['paiements_jour']    = float(pay_today_agg['total'] or 0)
     stats['nb_paiements_jour'] = pay_today_agg['nb'] or 0
@@ -152,7 +152,6 @@ def _dashboard_admin(request, etab, annee, today):
     recettes_qs = Paiement.objects.filter(
         etablissement=etab, statut='valide',
         date_paiement__month=today.month, date_paiement__year=today.year,
-        eleve_id__in=eleves_actifs_ids,
     )
     stats['recettes_mois'] = float(recettes_qs.aggregate(t=Sum('montant'))['t'] or 0)
 
@@ -179,7 +178,7 @@ def _dashboard_admin(request, etab, annee, today):
     try:
         from notes.models import MessageFamille
         stats['nb_messages'] = MessageFamille.objects.filter(
-            destinataire_role='directeur', statut='non_lu',
+            destinataire_role__in=['directeur', 'administration'], statut='non_lu',
             expediteur__etablissement=etab
         ).count()
     except ImportError:
@@ -252,9 +251,11 @@ def _dashboard_secretariat(request, etab, annee, today):
     except Exception:
         logger.exception("Erreur comptage notifications secrétariat")
 
-    # Classes avec appel non fait aujourd'hui
+    # Classes avec appel non fait aujourd'hui (hors jours non ouvrés)
+    from eleves.models import JourNonOuvre
+    est_ferie, _ = JourNonOuvre.est_jour_non_ouvre(etab, today)
     classes_sans_appel = []
-    if annee:
+    if annee and not est_ferie:
         toutes_classes = Classe.objects.filter(etablissement=etab, annee=annee)
         classes_avec_appel = Presence.objects.filter(
             classe__etablissement=etab, date=today
@@ -279,10 +280,9 @@ def _dashboard_comptable(request, etab, today):
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
     eleves_actifs_ids = list(get_eleves_actifs(etab, annee, user=request.user).values_list('pk', flat=True))
 
-    # Fix: utilise eleve_id__in au lieu de la jointure fragile sur inscriptions
+    # Fix: inclut tous les paiements validés de l'établissement (y compris élèves transférés/archivés)
     base_pai = Paiement.objects.filter(
         etablissement=etab, statut='valide',
-        eleve_id__in=eleves_actifs_ids,
     )
     stats = {}
     stats['recettes_jour']     = float(base_pai.filter(date_paiement__date=today).aggregate(t=Sum('montant'))['t'] or 0)
@@ -293,7 +293,8 @@ def _dashboard_comptable(request, etab, today):
     stats['total_eleves'] = len(eleves_actifs_ids)  # deja calcule, pas de 2eme requete
 
     recettes_mois_qs = base_pai.filter(
-        date_paiement__month=today.month, date_paiement__year=today.year
+        date_paiement__month=today.month, date_paiement__year=today.year,
+        eleve_id__in=eleves_actifs_ids,
     )
     eleves_payes_ids = recettes_mois_qs.values_list('eleve_id', flat=True).distinct()
     stats['eleves_payes'] = eleves_payes_ids.count()

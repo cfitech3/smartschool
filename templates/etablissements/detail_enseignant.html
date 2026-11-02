@@ -25,7 +25,9 @@
     <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 18px;color:var(--text-muted);">Email</td><td style="padding:10px 18px;">{{ enseignant.user.email|default:"—" }}</td></tr>
     <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 18px;color:var(--text-muted);">Telephone</td><td style="padding:10px 18px;">{{ enseignant.user.telephone|default:"—" }}</td></tr>
     <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 18px;color:var(--text-muted);">Embauche</td><td style="padding:10px 18px;">{{ enseignant.date_embauche|date:"d/m/Y"|default:"—" }}</td></tr>
+    {% if request.user.is_admin or request.user.is_comptable %}
     <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 18px;color:var(--text-muted);">Salaire</td><td style="padding:10px 18px;font-weight:700;">{% if enseignant.salaire %}{{ enseignant.salaire|floatformat:0 }} FCFA{% else %}—{% endif %}</td></tr>
+    {% endif %}
     <tr><td style="padding:10px 18px;color:var(--text-muted);">Statut</td><td style="padding:10px 18px;">{% if enseignant.statut == 'actif' %}<span class="badge badge-success">Actif</span>{% elif enseignant.statut == 'conge' %}<span class="badge badge-warning">Conge</span>{% else %}<span class="badge badge-danger">Inactif</span>{% endif %}</td></tr>
   </table></div>
   <div class="card"><div class="card-header"><span class="card-title"><i class="bi bi-book-half"></i> Affectations {% if annee %}— {{ annee.libelle }}{% endif %}</span><a href="{% url 'affecter_matiere' enseignant.pk %}" class="btn btn-primary btn-sm">+ Affecter</a></div>

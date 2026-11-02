@@ -65,8 +65,8 @@
         {% if e.directeur %}<div style="font-size:11px;color:var(--text-muted);">{{ e.directeur }}</div>{% endif %}
       </td>
       <td>
-        <code style="font-size:11px;color:var(--primary);">/portail/{{ e.code }}/</code>
-        <button onclick="copyLink('{{ e.code }}')" style="background:none;border:none;cursor:pointer;font-size:13px;" title="Copier"><i class="bi bi-clipboard"></i></button>
+        <code style="font-size:11px;color:var(--primary);">/auth/portail/{{ e.code }}/</code>
+        <button onclick="copyLink('{{ e.code|escapejs }}')" style="background:none;border:none;cursor:pointer;font-size:13px;" title="Copier"><i class="bi bi-clipboard"></i></button>
       </td>
       <td style="text-align:center;font-weight:700;">{{ e.nb_eleves }}</td>
       <td style="text-align:right;font-weight:600;color:var(--success);">{{ e.recettes_mois|floatformat:0 }} FCFA</td>
@@ -83,7 +83,7 @@
           <a href="{% url 'gestion_comptes_etab' e.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-people-fill"></i> Comptes</a>
           <a href="{% url 'changer_etablissement' e.pk %}" class="btn btn-outline btn-sm" title="Basculer sur cet établissement"><i class="bi bi-shuffle"></i></a>
           <form method="post" action="{% url 'toggle_etablissement' e.pk %}" style="margin:0;"
-                onsubmit="return confirm('{% if e.is_active %}Suspendre{% else %}Réactiver{% endif %} {{ e.nom }} ?')">
+                onsubmit="return confirm('{% if e.is_active %}Suspendre{% else %}Réactiver{% endif %} {{ e.nom|escapejs }} ?')">
             {% csrf_token %}
             <button type="submit" class="btn btn-sm"
                     style="background:{% if e.is_active %}var(--warning){% else %}var(--success){% endif %};color:#fff;">
@@ -145,7 +145,7 @@
 function copyLink(code) {
   const url = window.location.origin + '/auth/portail/' + code + '/';
   navigator.clipboard.writeText(url).then(() => {
-    Toastify({text:"<i class="bi bi-check-circle-fill text-success"></i> Lien copié : " + url, duration:3000, gravity:"top", position:"right",
+    Toastify({text:'<i class="bi bi-check-circle-fill text-success"></i> Lien copié : ' + url, duration:3000, gravity:"top", position:"right",
       style:{background:"var(--success)",color:"#fff",borderRadius:"8px",fontSize:"13px"}
     }).showToast();
   });

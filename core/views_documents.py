@@ -1,8 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import HttpResponse
 from django.utils import timezone
+from django.utils.html import escape
 from django.db.models import Q, Sum
+from accounts.permissions import permission_required, has_permission
 from eleves.models import Eleve
 from finances.models import Paiement
 from etablissements.models import AnneeScolaire, ModeleDocument
@@ -33,47 +36,65 @@ def get_modele(etab, type_doc):
 @login_required
 @req
 def recherche_globale(request):
+    if request.user.role in ('parent', 'eleve'):
+        messages.error(request, "Accès réservé au personnel de l'établissement.")
+        return redirect("dashboard")
     q=request.GET.get("q","").strip(); etab=request.etablissement
     resultats={"eleves":[],"paiements":[],"enseignants":[]}
     if q and len(q)>=2:
         from accounts.models import User
-        resultats["eleves"]=get_eleves_actifs(etab, user=request.user).filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))[:10]
-        resultats["paiements"]=Paiement.objects.filter(etablissement=etab).filter(Q(eleve__nom__icontains=q)|Q(eleve__prenom__icontains=q)|Q(reference__icontains=q)).select_related("eleve","type_frais")[:5]
-        resultats["enseignants"]=User.objects.filter(etablissement=etab,role="enseignant").filter(Q(first_name__icontains=q)|Q(last_name__icontains=q))[:5]
+        if has_permission(request.user, 'eleves') or request.user.role in ('surveillant', 'enseignant'):
+            resultats["eleves"]=get_eleves_actifs(etab, user=request.user).filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))[:10]
+        if has_permission(request.user, 'paiements'):
+            resultats["paiements"]=Paiement.objects.filter(etablissement=etab).filter(Q(eleve__nom__icontains=q)|Q(eleve__prenom__icontains=q)|Q(reference__icontains=q)).select_related("eleve","type_frais")[:5]
+        if request.user.role in ('admin', 'super_admin', 'secretariat'):
+            resultats["enseignants"]=User.objects.filter(etablissement=etab,role="enseignant").filter(Q(first_name__icontains=q)|Q(last_name__icontains=q))[:5]
     return render(request,"core/recherche.html",{"q":q,"resultats":resultats,"total":sum(len(v) for v in resultats.values())})
 
 @login_required
+@permission_required("documents")
 @req
 def liste_documents(request):
+    from django.core.paginator import Paginator
     etab=request.etablissement; annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     q=request.GET.get("q","")
-    eleves=get_eleves_actifs(etab, user=request.user).order_by("nom","prenom")
+    eleves=get_eleves_actifs(etab, user=request.user).prefetch_related("inscriptions__classe__niveau").order_by("nom","prenom")
     if q: eleves=eleves.filter(Q(nom__icontains=q)|Q(prenom__icontains=q)|Q(matricule__icontains=q))
+    paginator = Paginator(eleves, 50)
+    eleves_page = paginator.get_page(request.GET.get("page", 1))
     modeles_actifs={m.type_document:m for m in ModeleDocument.objects.filter(etablissement=etab,is_actif=True)}
     classes = get_classes_actives(etab, user=request.user)
-    return render(request,"core/documents.html",{"eleves":eleves,"annee":annee,"q":q,"modeles_actifs":modeles_actifs,"classes":classes})
+    return render(request,"core/documents.html",{"eleves":eleves_page,"annee":annee,"q":q,"modeles_actifs":modeles_actifs,"classes":classes})
 
 @login_required
 @req
 def generer_document(request, eleve_pk, type_doc):
+    if type_doc == "recu_paiement_annuel":
+        if not (has_permission(request.user, "documents") or has_permission(request.user, "paiements")):
+            messages.error(request, "Vous n'avez pas l'autorisation de générer ce document.")
+            return redirect("dashboard")
+    elif not has_permission(request.user, "documents"):
+        messages.error(request, "Vous n'avez pas l'autorisation de générer ce document.")
+        return redirect("dashboard")
+
     etab=request.etablissement
     eleve=get_object_or_404(Eleve,pk=eleve_pk,etablissement=etab)
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     inscription=eleve.get_inscription_active(); today=timezone.now().date()
     # Récupérer le bon modèle selon le type
     modele=get_modele(etab, type_doc)
-    # Remplacement des balises si un contenu personnalisé existe
+    # Remplacement sécurisé des balises (échappement anti-XSS des données dynamiques)
     contenu_rendu = None
     if modele and modele.contenu_personnalise:
         contenu_rendu = modele.contenu_personnalise
-        contenu_rendu = contenu_rendu.replace('[NOM_ELEVE]', f"{eleve.nom} {eleve.prenom}")
-        contenu_rendu = contenu_rendu.replace('[CLASSE]', inscription.classe.nom if inscription else '')
-        contenu_rendu = contenu_rendu.replace('[MATRICULE]', eleve.matricule or '')
+        contenu_rendu = contenu_rendu.replace('[NOM_ELEVE]', escape(f"{eleve.nom} {eleve.prenom}"))
+        contenu_rendu = contenu_rendu.replace('[CLASSE]', escape(inscription.classe.nom if inscription else ''))
+        contenu_rendu = contenu_rendu.replace('[MATRICULE]', escape(eleve.matricule or ''))
         date_n = eleve.date_naissance.strftime('%d/%m/%Y') if eleve.date_naissance else ''
-        contenu_rendu = contenu_rendu.replace('[DATE_NAISSANCE]', date_n)
-        contenu_rendu = contenu_rendu.replace('[LIEU_NAISSANCE]', eleve.lieu_naissance or '')
-        contenu_rendu = contenu_rendu.replace('[ANNEE_SCOLAIRE]', annee.libelle if annee else '')
-        contenu_rendu = contenu_rendu.replace('[NOM_ECOLE]', etab.nom)
+        contenu_rendu = contenu_rendu.replace('[DATE_NAISSANCE]', escape(date_n))
+        contenu_rendu = contenu_rendu.replace('[LIEU_NAISSANCE]', escape(eleve.lieu_naissance or ''))
+        contenu_rendu = contenu_rendu.replace('[ANNEE_SCOLAIRE]', escape(annee.libelle if annee else ''))
+        contenu_rendu = contenu_rendu.replace('[NOM_ECOLE]', escape(etab.nom))
     
     ctx={"eleve":eleve,"etab":etab,"annee":annee,"inscription":inscription,
          "today":today,"modele":modele,
@@ -89,11 +110,11 @@ def generer_document(request, eleve_pk, type_doc):
         ctx.update({"paiements":paiements,"total":paiements.aggregate(t=Sum("montant"))["t"] or 0})
         return render(request,"core/docs/recu_annuel.html",ctx)
 
-    from django.contrib import messages as dj_messages
-    dj_messages.error(request,"Type de document inconnu.")
+    messages.error(request,"Type de document inconnu.")
     return redirect("liste_documents")
 
 @login_required
+@permission_required("documents")
 @req
 def carte_scolaire(request, eleve_pk):
     etab=request.etablissement
@@ -107,6 +128,7 @@ def carte_scolaire(request, eleve_pk):
     })
 
 @login_required
+@permission_required("documents")
 @req
 def cartes_classe(request, classe_pk):
     from eleves.models import Inscription
@@ -132,6 +154,7 @@ def cartes_classe(request, classe_pk):
     })
 
 @login_required
+@permission_required("eleves")
 @req
 def export_eleves_excel(request):
     import openpyxl; from openpyxl.styles import Font,PatternFill,Alignment,Border,Side
@@ -145,9 +168,10 @@ def export_eleves_excel(request):
     for c,h in enumerate(headers,1):
         cell=ws.cell(row=3,column=c,value=h); cell.fill=hf; cell.font=hft; cell.border=b
     af=PatternFill(start_color="EBF2FF",end_color="EBF2FF",fill_type="solid")
+    from core.validators import safe_excel_value
     for i,e in enumerate(eleves,1):
         insc=e.get_inscription_active(); f=af if i%2==0 else None
-        data=[i,e.matricule,e.nom,e.prenom,e.get_sexe_display(),e.date_naissance.strftime("%d/%m/%Y"),insc.classe.nom if insc else "—",f"{e.tuteur.nom} {e.tuteur.prenom} — {e.tuteur.telephone}" if e.tuteur else "—"]
+        data=[i,safe_excel_value(e.matricule),safe_excel_value(e.nom),safe_excel_value(e.prenom),safe_excel_value(e.get_sexe_display()),e.date_naissance.strftime("%d/%m/%Y") if e.date_naissance else "—",safe_excel_value(insc.classe.nom if insc else "—"),safe_excel_value(f"{e.tuteur.nom} {e.tuteur.prenom} — {e.tuteur.telephone}" if e.tuteur else "—")]
         for c,v in enumerate(data,1):
             cell=ws.cell(row=i+3,column=c,value=v); cell.border=b
             if f: cell.fill=f
@@ -156,9 +180,11 @@ def export_eleves_excel(request):
     resp["Content-Disposition"]=f"attachment; filename=eleves_{etab.code}.xlsx"; wb.save(resp); return resp
 
 @login_required
+@permission_required("paiements")
 @req
 def export_paiements_excel(request):
     import openpyxl; from openpyxl.styles import Font,PatternFill,Alignment,Border,Side
+    from core.validators import safe_excel_value
     etab=request.etablissement
     paiements=Paiement.objects.filter(etablissement=etab,statut="valide").select_related("eleve","type_frais").order_by("-date_paiement")
     wb=openpyxl.Workbook(); ws=wb.active; ws.title="Paiements"
@@ -171,7 +197,7 @@ def export_paiements_excel(request):
     pl=list(paiements)
     for i,p in enumerate(pl,1):
         f=af if i%2==0 else None
-        data=[p.reference,f"{p.eleve.nom} {p.eleve.prenom}",p.eleve.matricule,p.type_frais.nom,float(p.montant),p.get_mode_paiement_display(),p.date_paiement.strftime("%d/%m/%Y")]
+        data=[safe_excel_value(p.reference),safe_excel_value(f"{p.eleve.nom} {p.eleve.prenom}"),safe_excel_value(p.eleve.matricule),safe_excel_value(p.type_frais.nom),float(p.montant),safe_excel_value(p.get_mode_paiement_display()),p.date_paiement.strftime("%d/%m/%Y")]
         for c,v in enumerate(data,1):
             cell=ws.cell(row=i+3,column=c,value=v); cell.border=b
             if f: cell.fill=f

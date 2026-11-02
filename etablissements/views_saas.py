@@ -162,8 +162,11 @@ def creer_directeur(request, etab_pk):
             errors.append("Identifiant obligatoire.")
         elif User.objects.filter(username=username).exists():
             errors.append(f"L'identifiant '{username}' est déjà utilisé.")
-        if len(password) < 6:
-            errors.append("Le mot de passe doit faire au moins 6 caractères.")
+        try:
+            from django.contrib.auth.password_validation import validate_password
+            validate_password(password, user=User(username=username, first_name=prenom, last_name=nom))
+        except Exception as e:
+            errors.extend(getattr(e, 'messages', [str(e)]))
 
         if errors:
             for err in errors:
@@ -205,41 +208,41 @@ def creer_directeur(request, etab_pk):
 def stats_commerciales(request):
     """Statistiques de croissance SaaS : recettes par établissement sur 12 mois."""
     today = timezone.now().date()
-    annee = int(request.GET.get('annee', today.year))
+    try:
+        annee = int(request.GET.get('annee', today.year))
+    except (ValueError, TypeError):
+        annee = today.year
 
     MOIS_FR = ['','Janv','Févr','Mars','Avr','Mai','Juin',
                'Juil','Août','Sept','Oct','Nov','Déc']
 
-    etabs = Etablissement.objects.all().order_by('nom')
+    etabs = list(Etablissement.objects.all().order_by('nom'))
 
-    # Recettes par établissement × mois (tableau croisé)
+    # 1 seule requête SQL agrégée par (etablissement_id, mois) au lieu de 24 × N_etabs
+    recettes_par_etab_mois = {
+        (row['etablissement_id'], row['date_paiement__month']): float(row['t'] or 0)
+        for row in Paiement.objects.filter(
+            statut='valide', date_paiement__year=annee
+        ).values('etablissement_id', 'date_paiement__month').annotate(t=Sum('montant'))
+    }
+
+    # Recettes par établissement × mois (tableau croisé) + courbes comparatives
     tableau = []
+    chart_etabs = []
     totaux_mois = [0.0] * 12
     grand_total = 0.0
 
     for e in etabs:
         ligne = {'etab': e, 'mois': [], 'total': 0.0}
+        serie = []
         for m in range(1, 13):
-            t = float(Paiement.objects.filter(
-                etablissement=e, statut='valide',
-                date_paiement__month=m, date_paiement__year=annee,
-            ).aggregate(t=Sum('montant'))['t'] or 0)
+            t = recettes_par_etab_mois.get((e.pk, m), 0.0)
             ligne['mois'].append(t)
             ligne['total'] += t
+            serie.append(t)
             totaux_mois[m - 1] += t
             grand_total += t
         tableau.append(ligne)
-
-    # Graphique comparatif : une courbe par établissement
-    chart_etabs = []
-    for e in etabs:
-        serie = []
-        for m in range(1, 13):
-            t = float(Paiement.objects.filter(
-                etablissement=e, statut='valide',
-                date_paiement__month=m, date_paiement__year=annee,
-            ).aggregate(t=Sum('montant'))['t'] or 0)
-            serie.append(t)
         chart_etabs.append({'nom': e.nom, 'data': serie})
 
     # Évolution recettes réseau mois par mois
@@ -281,6 +284,11 @@ def parametres_reseau(request):
         params.mentions_legales   = request.POST.get('mentions_legales', '').strip()
         params.message_accueil    = request.POST.get('message_accueil', '').strip()
         if request.FILES.get('logo_plateforme'):
+            from etablissements.views import _valider_photo
+            err_logo = _valider_photo(request.FILES['logo_plateforme'])
+            if err_logo:
+                messages.error(request, err_logo)
+                return redirect('parametres_reseau')
             params.logo_plateforme = request.FILES['logo_plateforme']
         params.save()
 
@@ -322,8 +330,12 @@ def export_rapport_reseau(request):
         messages.error(request, "openpyxl non installé.")
         return redirect('dashboard_saas')
 
+    from core.validators import safe_excel_value
     today = timezone.now().date()
-    annee = int(request.GET.get('annee', today.year))
+    try:
+        annee = int(request.GET.get('annee', today.year))
+    except (ValueError, TypeError):
+        annee = today.year
 
     wb = openpyxl.Workbook()
     BLEU = "1565C0"; BLEU_CLAIR = "E3F2FD"; VERT = "2E7D32"; ROUGE = "C62828"
@@ -379,7 +391,7 @@ def export_rapport_reseau(request):
         connexions = User.objects.filter(etablissement=e, last_login__gte=semaine_debut).count()
         statut = "Actif" if e.is_active and connexions > 0 else ("Dormant" if e.is_active else "Suspendu")
 
-        vals = [e.nom, e.nb_eleves, e.nb_users, recettes_mois, recettes_annee, statut]
+        vals = [safe_excel_value(e.nom), e.nb_eleves, e.nb_users, recettes_mois, recettes_annee, statut]
         alt = PatternFill("solid", fgColor="F5F5F5") if i % 2 else None
         for col, val in enumerate(vals, 1):
             cell = ws1.cell(row=row, column=col, value=val)
@@ -417,10 +429,10 @@ def export_rapport_reseau(request):
 
     for r, log in enumerate(JournalAction.objects.select_related('etablissement').order_by('-date')[:100], 2):
         ws2.cell(row=r, column=1, value=log.date.strftime('%d/%m/%Y %H:%M'))
-        ws2.cell(row=r, column=2, value=log.get_type_action_display())
-        ws2.cell(row=r, column=3, value=log.etablissement.nom if log.etablissement else '—')
-        ws2.cell(row=r, column=4, value=log.cible)
-        ws2.cell(row=r, column=5, value=log.detail)
+        ws2.cell(row=r, column=2, value=safe_excel_value(log.get_type_action_display()))
+        ws2.cell(row=r, column=3, value=safe_excel_value(log.etablissement.nom if log.etablissement else '—'))
+        ws2.cell(row=r, column=4, value=safe_excel_value(log.cible))
+        ws2.cell(row=r, column=5, value=safe_excel_value(log.detail))
         for col in range(1, 6):
             ws2.cell(row=r, column=col).border = border()
 

@@ -5,7 +5,7 @@
 <div class="page-header">
   <div>
     <h1><i class="bi bi-clipboard"></i> Relevé de notes</h1>
-    <div class="page-subtitle">{% if classe %}{{ classe.nom }}{% if periode %} — {{ periode.nom }}{% endif %}{% else %}Sélectionner une classe{% endif %}</div>
+    <div class="page-subtitle">{% if classe %}{{ classe.nom }}{% if periode %} — {{ periode.libelle }}{% endif %}{% else %}Sélectionner une classe{% endif %}</div>
   </div>
   {% if classe and periode %}
   <button onclick="window.print()" class="btn btn-outline"><i class="bi bi-printer-fill"></i>️ Imprimer</button>
@@ -29,7 +29,7 @@
       <select name="periode" required style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
         <option value="">-- Choisir --</option>
         {% for per in periodes %}
-        <option value="{{ per.pk }}" {% if periode_id == per.pk|stringformat:"s" %}selected{% endif %}>{{ per.nom }}</option>
+        <option value="{{ per.pk }}" {% if periode_id == per.pk|stringformat:"s" %}selected{% endif %}>{{ per.libelle }}</option>
         {% endfor %}
       </select>
     </div>
@@ -60,13 +60,13 @@
       <td style="font-weight:700;">{{ r.eleve.nom_complet }}</td>
       {% for ligne in r.lignes %}
       <td style="text-align:center;font-size:13px;
-        color:{% if ligne.moyenne_finale %}{% if ligne.moyenne_finale >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
-        {% if ligne.moyenne_finale %}{{ ligne.moyenne_finale|floatformat:2 }}{% else %}—{% endif %}
+        color:{% if ligne.moyenne_finale is not None %}{% if ligne.moyenne_finale >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
+        {% if ligne.moyenne_finale is not None %}{{ ligne.moyenne_finale|floatformat:2 }}{% else %}—{% endif %}
       </td>
       {% endfor %}
       <td style="text-align:center;font-weight:900;font-size:15px;background:var(--bg);
-        color:{% if r.moyenne %}{% if r.moyenne >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
-        {% if r.moyenne %}{{ r.moyenne|floatformat:2 }}/20{% else %}—{% endif %}
+        color:{% if r.moyenne is not None %}{% if r.moyenne >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
+        {% if r.moyenne is not None %}{{ r.moyenne|floatformat:2 }}/20{% else %}—{% endif %}
       </td>
     </tr>
     {% endfor %}
@@ -75,7 +75,7 @@
 </div>
 {% elif classe and periode %}
 <div class="card" style="padding:40px;text-align:center;color:var(--text-muted);">
-  Aucune note saisie pour {{ classe.nom }} — {{ periode.nom }}.
+  Aucune note saisie pour {{ classe.nom }} — {{ periode.libelle }}.
 </div>
 {% endif %}
 {% endblock %}

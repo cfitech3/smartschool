@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count, Q, Avg
 from django.utils import timezone
-from accounts.permissions import permission_required
+from accounts.permissions import permission_required, require_etab
 from .models import Paiement, TypeFrais
 from eleves.models import Eleve, Inscription
 from core.cycle_filter import get_eleves_actifs, get_classes_actives
@@ -15,14 +15,21 @@ from etablissements.models import AnneeScolaire
 
 @login_required
 @permission_required('finances')
+@require_etab
 def rapport_retards(request):
     """Liste des élèves en retard de paiement avec contact tuteur."""
     etab = request.etablissement
     today = timezone.now().date()
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
 
-    mois = int(request.GET.get('mois', today.month))
-    annee_val = int(request.GET.get('annee', today.year))
+    try:
+        mois = max(1, min(12, int(request.GET.get('mois', today.month))))
+    except (ValueError, TypeError):
+        mois = today.month
+    try:
+        annee_val = int(request.GET.get('annee', today.year))
+    except (ValueError, TypeError):
+        annee_val = today.year
 
     payes_ids = Paiement.objects.filter(
         etablissement=etab, statut='valide',
@@ -53,13 +60,17 @@ def rapport_retards(request):
 
 @login_required
 @permission_required('finances')
+@require_etab
 def rapport_bilan_annuel(request):
     """Bilan de fin d'année scolaire."""
     etab = request.etablissement
     today = timezone.now().date()
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
 
-    annee_val = int(request.GET.get('annee', today.year))
+    try:
+        annee_val = int(request.GET.get('annee', today.year))
+    except (ValueError, TypeError):
+        annee_val = today.year
     MOIS_FR = ['', 'Janv','Févr','Mars','Avr','Mai','Juin',
                'Juil','Août','Sept','Oct','Nov','Déc']
 

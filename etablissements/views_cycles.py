@@ -42,20 +42,26 @@ def detail_cycle(request, pk):
         if action == 'update_cycle':
             cycle.nom = request.POST.get('nom', cycle.nom)
             cycle.mode_calcul = request.POST.get('mode_calcul', cycle.mode_calcul)
-            cycle.note_passage = request.POST.get('note_passage', cycle.note_passage)
+            try:
+                cycle.note_passage = float(request.POST.get('note_passage', cycle.note_passage))
+            except (ValueError, TypeError):
+                pass
             cycle.diplome_prepare = request.POST.get('diplome_prepare', cycle.diplome_prepare)
             cycle.save()
             messages.success(request, "Cycle mis à jour.")
 
         elif action == 'add_matiere':
             mat_pk = request.POST.get('matiere_pk')
-            coef   = request.POST.get('coefficient', 1)
+            try:
+                coef = max(1, int(request.POST.get('coefficient', 1)))
+            except (ValueError, TypeError):
+                coef = 1
             oblig  = 'est_obligatoire' in request.POST
             if mat_pk:
                 mat = get_object_or_404(Matiere, pk=mat_pk, etablissement=etab)
                 MatiereCycle.objects.update_or_create(
                     cycle=cycle, matiere=mat,
-                    defaults={'coefficient': int(coef), 'est_obligatoire': oblig,
+                    defaults={'coefficient': coef, 'est_obligatoire': oblig,
                               'ordre': matieres_cycle.count() + 1}
                 )
                 messages.success(request, f"Matière '{mat.nom}' ajoutée au cycle.")
@@ -67,8 +73,11 @@ def detail_cycle(request, pk):
 
         elif action == 'update_coef':
             mat_pk = request.POST.get('matiere_pk')
-            coef   = request.POST.get('coefficient', 1)
-            MatiereCycle.objects.filter(cycle=cycle, matiere_id=mat_pk).update(coefficient=int(coef))
+            try:
+                coef = max(1, int(request.POST.get('coefficient', 1)))
+            except (ValueError, TypeError):
+                coef = 1
+            MatiereCycle.objects.filter(cycle=cycle, matiere_id=mat_pk).update(coefficient=coef)
             messages.success(request, "Coefficient mis à jour.")
 
         elif action == 'add_serie':
@@ -79,16 +88,29 @@ def detail_cycle(request, pk):
                 messages.success(request, f"Série {code} ajoutée.")
 
         elif action == 'add_ue':
-            UEUniversite.objects.create(
-                cycle=cycle,
-                code=request.POST.get('code','').strip(),
-                nom=request.POST.get('nom','').strip(),
-                credits=int(request.POST.get('credits', 3)),
-                semestre=int(request.POST.get('semestre', 1)),
-                coefficient=int(request.POST.get('coefficient', 1)),
-                est_obligatoire='est_obligatoire' in request.POST,
-            )
-            messages.success(request, "UE ajoutée.")
+            code_ue = request.POST.get('code', '').strip().upper()
+            nom_ue  = request.POST.get('nom', '').strip()
+            try:
+                credits_ue = max(1, int(request.POST.get('credits', 3)))
+                sem_ue     = max(1, int(request.POST.get('semestre', 1)))
+                coef_ue    = max(1, int(request.POST.get('coefficient', 1)))
+            except (ValueError, TypeError):
+                credits_ue, sem_ue, coef_ue = 3, 1, 1
+            if not code_ue or not nom_ue:
+                messages.error(request, "Code et intitulé de l'UE obligatoires.")
+            elif UEUniversite.objects.filter(cycle=cycle, code=code_ue).exists():
+                messages.error(request, f"L'UE '{code_ue}' existe déjà dans ce cycle.")
+            else:
+                UEUniversite.objects.create(
+                    cycle=cycle,
+                    code=code_ue,
+                    nom=nom_ue,
+                    credits=credits_ue,
+                    semestre=sem_ue,
+                    coefficient=coef_ue,
+                    est_obligatoire='est_obligatoire' in request.POST,
+                )
+                messages.success(request, "UE ajoutée.")
 
         return redirect('detail_cycle', pk=cycle.pk)
 

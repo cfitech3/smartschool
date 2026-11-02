@@ -31,7 +31,13 @@ def modifier_eleve_complet(request,pk):
         eleve.lieu_naissance=request.POST.get("lieu_naissance","").strip()
         eleve.adresse=request.POST.get("adresse","").strip()
         eleve.telephone=request.POST.get("telephone","").strip()
-        if request.FILES.get("photo"): eleve.photo=request.FILES["photo"]
+        if request.FILES.get("photo"):
+            from etablissements.views import _valider_photo
+            err_photo = _valider_photo(request.FILES["photo"])
+            if err_photo:
+                messages.error(request, err_photo)
+                return redirect("modifier_eleve_complet", pk=eleve.pk)
+            eleve.photo=request.FILES["photo"]
         eleve.save()
         # Changer classe
         nv_cl=request.POST.get("classe")
@@ -47,13 +53,30 @@ def modifier_eleve_complet(request,pk):
         # Tuteur
         tnom=request.POST.get("tut_nom","").strip()
         if tnom:
+            tprenom = request.POST.get("tut_prenom", "").strip()
+            ttel = request.POST.get("tut_telephone", "").strip()
+            tlien = request.POST.get("tut_lien", "pere")
             if eleve.tuteur:
-                t=eleve.tuteur; t.nom=tnom; t.prenom=request.POST.get("tut_prenom","")
-                t.telephone=request.POST.get("tut_telephone",""); t.lien=request.POST.get("tut_lien","pere"); t.save()
+                t = eleve.tuteur
+                est_partage = Eleve.objects.filter(tuteur=t).exclude(pk=eleve.pk).exists()
+                identite_changee = (t.nom != tnom or t.prenom != tprenom or (ttel and t.telephone != ttel))
+                if est_partage and identite_changee:
+                    nouv_t = Tuteur.objects.create(
+                        etablissement=etab, nom=tnom, prenom=tprenom,
+                        telephone=ttel, lien=tlien
+                    )
+                    eleve.tuteur = nouv_t
+                    eleve.save(update_fields=['tuteur'])
+                else:
+                    t.nom = tnom
+                    t.prenom = tprenom
+                    t.telephone = ttel
+                    t.lien = tlien
+                    t.save()
             else:
-                t=Tuteur.objects.create(etablissement=etab,nom=tnom,prenom=request.POST.get("tut_prenom",""),
-                    telephone=request.POST.get("tut_telephone",""),lien=request.POST.get("tut_lien","pere"))
-                eleve.tuteur=t; eleve.save()
+                t=Tuteur.objects.create(etablissement=etab,nom=tnom,prenom=tprenom,
+                    telephone=ttel,lien=tlien)
+                eleve.tuteur=t; eleve.save(update_fields=['tuteur'])
         messages.success(request,f"{eleve.nom_complet} mis a jour.")
         return redirect("detail_eleve",pk=eleve.pk)
     return render(request,"eleves/modifier_complet.html",{"eleve":eleve,"inscription":inscription,"classes":classes,"annee":annee})

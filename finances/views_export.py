@@ -9,7 +9,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
-from accounts.permissions import permission_required
+from accounts.permissions import permission_required, require_etab
+from core.validators import safe_excel_value
 from .models import Paiement, TypeFrais
 from eleves.models import Eleve, Inscription
 from core.cycle_filter import get_eleves_actifs
@@ -17,6 +18,7 @@ from core.cycle_filter import get_eleves_actifs
 
 @login_required
 @permission_required('finances')
+@require_etab
 def export_excel_finances(request):
     """Export Excel des paiements avec filtres."""
     try:
@@ -30,9 +32,15 @@ def export_excel_finances(request):
     etab = request.etablissement
     today = timezone.now().date()
 
-    # Filtres
-    mois = int(request.GET.get('mois', today.month))
-    annee_val = int(request.GET.get('annee', today.year))
+    # Filtres sécurisés
+    try:
+        mois = max(1, min(12, int(request.GET.get('mois', today.month))))
+    except (ValueError, TypeError):
+        mois = today.month
+    try:
+        annee_val = int(request.GET.get('annee', today.year))
+    except (ValueError, TypeError):
+        annee_val = today.year
     type_export = request.GET.get('type', 'paiements')  # paiements | retards | bilan
 
     wb = openpyxl.Workbook()
@@ -112,18 +120,18 @@ def export_excel_finances(request):
         total = 0
         row = 5
         for i, p in enumerate(paiements, 1):
-            insc = p.eleve.inscriptions.filter(is_active=True).first()
+            insc = p.eleve.get_inscription_active()
             classe_nom = insc.classe.nom if insc else '—'
             ws.cell(row=row, column=1, value=i)
-            ws.cell(row=row, column=2, value=p.eleve.nom_complet)
-            ws.cell(row=row, column=3, value=classe_nom)
-            ws.cell(row=row, column=4, value=p.type_frais.nom if p.type_frais else '—')
+            ws.cell(row=row, column=2, value=safe_excel_value(p.eleve.nom_complet))
+            ws.cell(row=row, column=3, value=safe_excel_value(classe_nom))
+            ws.cell(row=row, column=4, value=safe_excel_value(p.type_frais.nom if p.type_frais else '—'))
             montant_cell = ws.cell(row=row, column=5, value=float(p.montant))
             montant_cell.number_format = '#,##0'
             montant_cell.font = Font(bold=True, color=VERT)
-            ws.cell(row=row, column=6, value=p.get_mode_paiement_display())
+            ws.cell(row=row, column=6, value=safe_excel_value(p.get_mode_paiement_display()))
             ws.cell(row=row, column=7, value=p.date_paiement.strftime('%d/%m/%Y %H:%M') if p.date_paiement else '—')
-            ws.cell(row=row, column=8, value=p.reference or '—')
+            ws.cell(row=row, column=8, value=safe_excel_value(p.reference or '—'))
             style_row(ws, row, 8, alt=(i % 2 == 0))
             ws.row_dimensions[row].height = 18
             total += float(p.montant)
@@ -187,10 +195,10 @@ def export_excel_finances(request):
             dernier_str = dernier.date_paiement.strftime('%d/%m/%Y') if dernier else 'Jamais'
 
             ws.cell(row=row, column=1, value=i)
-            ws.cell(row=row, column=2, value=eleve.nom_complet).font = Font(bold=True)
-            ws.cell(row=row, column=3, value=classe_nom)
-            ws.cell(row=row, column=4, value=tuteur_nom)
-            ws.cell(row=row, column=5, value=tuteur_tel)
+            ws.cell(row=row, column=2, value=safe_excel_value(eleve.nom_complet)).font = Font(bold=True)
+            ws.cell(row=row, column=3, value=safe_excel_value(classe_nom))
+            ws.cell(row=row, column=4, value=safe_excel_value(tuteur_nom))
+            ws.cell(row=row, column=5, value=safe_excel_value(tuteur_tel))
             retard_cell = ws.cell(row=row, column=6, value=dernier_str)
             retard_cell.font = Font(color=ROUGE)
             style_row(ws, row, 6, alt=(i % 2 == 0))

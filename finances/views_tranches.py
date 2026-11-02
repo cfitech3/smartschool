@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
-from accounts.permissions import permission_required
+from accounts.permissions import permission_required, require_etab
 from .models import TypeFrais, Echeance, Paiement
 from eleves.models import Eleve, Inscription
 from etablissements.models import AnneeScolaire
@@ -17,6 +17,7 @@ from core.cycle_filter import get_eleves_actifs
 
 @login_required
 @permission_required('finances')
+@require_etab
 def generer_echeances(request, type_frais_pk):
     """
     Génère les échéances pour tous les élèves actifs d'un type de frais 'par tranches'.
@@ -30,8 +31,9 @@ def generer_echeances(request, type_frais_pk):
         return redirect('liste_types_frais')
 
     if request.method == 'POST':
-        dates_str = [request.POST.get(f'date_{i}', '') for i in range(1, type_frais.nombre_tranches + 1)]
-        montants_str = [request.POST.get(f'montant_{i}', '0') for i in range(1, type_frais.nombre_tranches + 1)]
+        nb = type_frais.nombre_tranches or 1
+        dates_str = [request.POST.get(f'date_{i}', '') for i in range(1, nb + 1)]
+        montants_str = [request.POST.get(f'montant_{i}', '0') for i in range(1, nb + 1)]
 
         # Validation
         errors = []
@@ -57,11 +59,28 @@ def generer_echeances(request, type_frais_pk):
             for e in errors:
                 messages.error(request, e)
         else:
+            from .models import ReductionFrais
             eleves = get_eleves_actifs(etab, user=request.user)
+            reductions_map = {
+                r.eleve_id: int(r.montant)
+                for r in ReductionFrais.objects.filter(
+                    etablissement=etab, annee=annee, type_frais=type_frais
+                )
+            }
+            montant_defaut_int = int(type_frais.montant_defaut)
             nb_crees = 0
             with transaction.atomic():
                 for eleve in eleves:
-                    for i, (montant, date_limite) in enumerate(zip(montants, dates), 1):
+                    reduc = reductions_map.get(eleve.pk, 0)
+                    net_total = max(0, montant_defaut_int - reduc)
+                    if reduc > 0 and montant_defaut_int > 0:
+                        montants_eleve = [int(round(m * net_total / montant_defaut_int)) for m in montants]
+                        if montants_eleve:
+                            montants_eleve[-1] = max(0, net_total - sum(montants_eleve[:-1]))
+                    else:
+                        montants_eleve = montants
+
+                    for i, (montant, date_limite) in enumerate(zip(montants_eleve, dates), 1):
                         _, created = Echeance.objects.get_or_create(
                             etablissement=etab, eleve=eleve,
                             annee=annee, type_frais=type_frais, numero=i,
@@ -69,7 +88,7 @@ def generer_echeances(request, type_frais_pk):
                                 'libelle': f'Tranche {i}',
                                 'montant': montant,
                                 'date_limite': date_limite,
-                                'statut': 'a_payer',
+                                'statut': 'payee' if montant == 0 else 'a_payer',
                             }
                         )
                         if created:
@@ -99,6 +118,7 @@ def generer_echeances(request, type_frais_pk):
 
 @login_required
 @permission_required('finances')
+@require_etab
 def tableau_tranches(request, type_frais_pk):
     """Tableau de bord des tranches : état des paiements par élève et par tranche."""
     etab = request.etablissement
@@ -160,11 +180,11 @@ def tableau_tranches(request, type_frais_pk):
 
 @login_required
 @permission_required('finances')
+@require_etab
 def payer_tranche(request, echeance_pk):
     """Encaisse le paiement d'une tranche spécifique."""
     etab = request.etablissement
     echeance = get_object_or_404(Echeance, pk=echeance_pk, etablissement=etab)
-    annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
 
     if echeance.statut == 'payee':
         messages.warning(request, "Cette tranche est déjà payée.")
@@ -176,24 +196,32 @@ def payer_tranche(request, echeance_pk):
         
         try:
             montant = int(request.POST.get('montant', echeance.montant))
+            if montant <= 0 or montant < int(echeance.montant):
+                messages.error(request, f"Le montant saisi doit couvrir l'intégralité de la tranche ({int(echeance.montant):,} FCFA).")
+                return redirect('payer_tranche', echeance_pk=echeance.pk)
         except ValueError:
             messages.error(request, "Montant invalide saisi.")
             return redirect('payer_tranche', echeance_pk=echeance.pk)
 
         with transaction.atomic():
+            echeance_locked = Echeance.objects.select_for_update().get(pk=echeance.pk, etablissement=etab)
+            if echeance_locked.statut == 'payee':
+                messages.warning(request, "Cette tranche a déjà été encaissée.")
+                return redirect('tableau_tranches', type_frais_pk=echeance_locked.type_frais.pk)
+            annee_paiement = echeance_locked.annee or AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
             pai = Paiement.objects.create(
                 etablissement=etab,
-                eleve=echeance.eleve,
-                annee=annee,
-                type_frais=echeance.type_frais,
+                eleve=echeance_locked.eleve,
+                annee=annee_paiement,
+                type_frais=echeance_locked.type_frais,
                 montant=montant,
                 mode_paiement=mode,
                 statut='valide',
-                periode_payee=echeance.libelle,
+                periode_payee=echeance_locked.libelle,
                 encaisse_par=request.user,
                 notes=notes,
             )
-            echeance.marquer_payee(pai)
+            echeance_locked.marquer_payee(pai)
 
         messages.success(request, f" {echeance.libelle} de {echeance.eleve.nom_complet} encaissée — {montant:,} FCFA.")
         return redirect('tableau_tranches', type_frais_pk=echeance.type_frais.pk)
@@ -206,6 +234,7 @@ def payer_tranche(request, echeance_pk):
 
 @login_required
 @permission_required('finances')
+@require_etab
 def situation_tranches_eleve(request, eleve_pk):
     """Vue complète des tranches d'un élève : toutes les années, tous les types."""
     etab = request.etablissement

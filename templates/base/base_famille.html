@@ -38,7 +38,10 @@
       <a href="{% url 'espace_messages' eleve.pk %}" class="nav-link {% block nav_messages %}{% endblock %}"><span class="nav-icon"><i class="bi bi-chat-dots-fill"></i></span><span>Contacter</span></a>
       <a href="{% url 'espace_reclamations' eleve.pk %}" class="nav-link {% block nav_reclamations %}{% endblock %}"><span class="nav-icon"><i class="bi bi-envelope-fill"></i>️</span><span>Reclamations</span></a>
       {% endif %}
-      <a href="{% url 'logout' %}" class="nav-link" style="color:#ef5350;margin-top:8px;"><span class="nav-icon"><i class="bi bi-box-arrow-right"></i></span><span>Deconnexion</span></a>
+      <form method="post" action="{% url 'logout' %}" style="margin-top:8px;">
+        {% csrf_token %}
+        <button type="submit" class="nav-link" style="color:#ef5350;background:none;border:none;cursor:pointer;width:100%;text-align:left;display:flex;align-items:center;gap:8px;padding:8px 16px;"><span class="nav-icon"><i class="bi bi-box-arrow-right"></i></span><span>Deconnexion</span></button>
+      </form>
     </nav>
     <div class="sidebar-footer">
       <div class="user-card">
@@ -101,9 +104,12 @@
       <span class="bn-icon"><i class="bi bi-chat-dots-fill"></i></span><span>Messages</span>
     </a>
     {% else %}
-    <a href="{% url 'logout' %}" class="bn-item" id="bn-logout">
-      <span class="bn-icon"><i class="bi bi-box-arrow-right"></i></span><span>Déconnexion</span>
-    </a>
+    <form method="post" action="{% url 'logout' %}" style="display:contents;">
+      {% csrf_token %}
+      <button type="submit" class="bn-item" id="bn-logout" style="background:none;border:none;cursor:pointer;">
+        <span class="bn-icon"><i class="bi bi-box-arrow-right"></i></span><span>Déconnexion</span>
+      </button>
+    </form>
     {% endif %}
   </div>
 </nav>
@@ -112,14 +118,14 @@ function initTheme() {
   const savedTheme = localStorage.getItem('theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
   const themeBtn = document.getElementById('theme-btn');
-  if (themeBtn) themeBtn.textContent = savedTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>️' : '<i class="bi bi-moon-fill"></i>';
+  if (themeBtn) themeBtn.innerHTML = savedTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
 }
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   const newTheme = current === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', newTheme);
   localStorage.setItem('theme', newTheme);
-  document.getElementById('theme-btn').textContent = newTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>️' : '<i class="bi bi-moon-fill"></i>';
+  document.getElementById('theme-btn').innerHTML = newTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
 }
 initTheme();
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('overlay').classList.toggle('open');}
@@ -128,6 +134,7 @@ function checkMobile(){const b=document.getElementById('menu-btn');b.style.displ
 checkMobile();window.addEventListener('resize',checkMobile);
 document.querySelectorAll('.nav-link').forEach(l=>l.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();}));
 </script>
+{% block extra_js %}{% endblock %}
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

@@ -81,8 +81,13 @@ class NoteUE(models.Model):
         return f"{self.eleve.nom_complet} — {self.ue.code} — {self.note or '—'}/20"
 
     def save(self, *args, **kwargs):
-        # Calculer la validation et la mention automatiquement
-        note_finale = self.note_rattrapage if (self.note_rattrapage and self.note and self.note_rattrapage > self.note) else self.note
+        # Calculer la validation et la mention automatiquement (y compris si note == 0)
+        if self.note_rattrapage is not None and self.note is not None:
+            note_finale = self.note_rattrapage if self.note_rattrapage > self.note else self.note
+        elif self.note_rattrapage is not None:
+            note_finale = self.note_rattrapage
+        else:
+            note_finale = self.note
         if note_finale is not None:
             self.credits_valides = float(note_finale) >= 10
             if float(note_finale) >= 16: self.mention = 'Très Bien'
@@ -95,7 +100,9 @@ class NoteUE(models.Model):
     @property
     def note_retenue(self):
         """Note finale (rattrapage si meilleure)."""
-        if self.note_rattrapage and self.note and self.note_rattrapage > self.note:
+        if self.note_rattrapage is not None and self.note is not None:
+            return self.note_rattrapage if self.note_rattrapage > self.note else self.note
+        if self.note_rattrapage is not None:
             return self.note_rattrapage
         return self.note
 
@@ -132,18 +139,44 @@ class NotePeriode(models.Model):
     def moyenne_finale(self):
         if self.matiere.is_conduite:
             return float(self.note_conduite) if self.note_conduite is not None else None
+        max_c = float(self.note_max_classe) if (self.note_max_classe and self.note_max_classe > 0) else 20.0
+        max_n = float(self.note_max_compo) if (self.note_max_compo and self.note_max_compo > 0) else 40.0
         if self.moy_classe is not None and self.moy_compo is not None:
-            mc20 = (float(self.moy_classe) / float(self.note_max_classe)) * 20
-            mn20 = (float(self.moy_compo)  / float(self.note_max_compo))  * 20
+            mc20 = (float(self.moy_classe) / max_c) * 20
+            mn20 = (float(self.moy_compo)  / max_n) * 20
             return round((mc20 + mn20) / 2, 2)
         elif self.moy_classe is not None:
-            return round((float(self.moy_classe) / float(self.note_max_classe)) * 20, 2)
+            return round((float(self.moy_classe) / max_c) * 20, 2)
         return None
+
+    @property
+    def coefficient_effectif(self):
+        """Résout le coefficient selon la série (Lycée) ou le cycle de la classe, sinon Matiere.coefficient."""
+        if hasattr(self, '_coef_cache'):
+            return self._coef_cache
+        coef = self.matiere.coefficient
+        try:
+            if self.classe_id and self.classe:
+                from etablissements.models import MatiereSerieCoef, MatiereCycle
+                if self.classe.serie_id:
+                    sc = MatiereSerieCoef.objects.filter(serie_id=self.classe.serie_id, matiere_id=self.matiere_id).values_list('coefficient', flat=True).first()
+                    if sc is not None:
+                        self._coef_cache = sc
+                        return sc
+                if self.classe.niveau_id and self.classe.niveau and self.classe.niveau.cycle_id:
+                    mc = MatiereCycle.objects.filter(cycle_id=self.classe.niveau.cycle_id, matiere_id=self.matiere_id).values_list('coefficient', flat=True).first()
+                    if mc is not None:
+                        self._coef_cache = mc
+                        return mc
+        except Exception:
+            pass
+        self._coef_cache = coef
+        return coef
 
     @property
     def moy_coeffic(self):
         moy = self.moyenne_finale
-        return round(moy * self.matiere.coefficient, 2) if moy is not None else None
+        return round(moy * self.coefficient_effectif, 2) if moy is not None else None
 
     @property
     def appreciation(self):
@@ -238,6 +271,25 @@ class EmploiDuTemps(models.Model):
     heure_debut = models.CharField(max_length=5)
     heure_fin   = models.CharField(max_length=5)
     salle     = models.CharField(max_length=50, blank=True)
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.heure_debut and self.heure_fin and self.heure_fin <= self.heure_debut:
+            raise ValidationError("L'heure de fin doit être postérieure à l'heure de début.")
+        if self.classe_id and self.jour and self.heure_debut and self.heure_fin:
+            conflits_classe = EmploiDuTemps.objects.filter(
+                classe_id=self.classe_id, jour=self.jour,
+                heure_debut__lt=self.heure_fin, heure_fin__gt=self.heure_debut
+            ).exclude(pk=self.pk)
+            if conflits_classe.exists():
+                raise ValidationError("Un autre cours est déjà programmé sur ce créneau pour cette classe.")
+        if self.enseignant_id and self.jour and self.heure_debut and self.heure_fin:
+            conflits_ens = EmploiDuTemps.objects.filter(
+                enseignant_id=self.enseignant_id, jour=self.jour,
+                heure_debut__lt=self.heure_fin, heure_fin__gt=self.heure_debut
+            ).exclude(pk=self.pk)
+            if conflits_ens.exists():
+                raise ValidationError("Cet enseignant a déjà un cours programmé sur ce créneau.")
 
     def __str__(self): return f"{self.classe.nom} — {self.jour} {self.heure_debut}-{self.heure_fin} — {self.matiere.nom}"
 

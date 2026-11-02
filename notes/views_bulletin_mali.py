@@ -25,10 +25,18 @@ def require_etab(fn):
 
 
 @login_required
+@require_etab
 def telecharger_bulletin_pdf_mali(request, eleve_pk, periode_pk):
-    """Télécharge le bulletin en format PDF."""
+    """Télécharge le bulletin en format PDF.
+    Interdit aux enseignants — réservé aux admins, secrétariat et familles.
+    """
+    from accounts.permissions import verifier_acces_bulletin
     etab = request.etablissement
     eleve = get_object_or_404(Eleve, pk=eleve_pk, etablissement=etab)
+    # Contrôle d'accès centralisé (personnel autorisé + anti-IDOR famille)
+    refus = verifier_acces_bulletin(request, eleve)
+    if refus:
+        return refus
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
     inscription = eleve.get_inscription_active()
     

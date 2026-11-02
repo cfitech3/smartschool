@@ -1,5 +1,6 @@
 import logging
-import requests
+import urllib.parse
+import urllib.request
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -23,12 +24,11 @@ def send_whatsapp_message(telephone, message):
     provider = getattr(settings, 'WHATSAPP_API_PROVIDER', 'dummy')
 
     if provider == 'dummy':
-        # Mode développement : on imprime juste dans la console
-        print("\n" + "="*50)
-        print(f" 🟢 WHATSAPP SIMULÉ POUR : {phone_clean}")
-        print(f"MESSAGE:\n{message}")
-        print("="*50 + "\n")
-        logger.info(f"WhatsApp simulé envoyé à {phone_clean}")
+        # Mode développement : journalisation compatible avec tous les encodages console (Windows cp1252 inclus)
+        logger.info("==================================================")
+        logger.info(" [WHATSAPP SIMULE] DESTINATAIRE : %s", phone_clean)
+        logger.info("MESSAGE:\n%s", message)
+        logger.info("==================================================")
         return True
 
     elif provider == 'ultramsg':
@@ -48,12 +48,23 @@ def send_whatsapp_message(telephone, message):
             "body": message
         }
         try:
-            response = requests.post(endpoint, data=payload, timeout=10)
-            if response.status_code == 200:
+            try:
+                import requests
+                response = requests.post(endpoint, data=payload, timeout=10)
+                status_code = response.status_code
+                resp_text = response.text
+            except ImportError:
+                data = urllib.parse.urlencode(payload).encode('utf-8')
+                req = urllib.request.Request(endpoint, data=data, method='POST')
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    status_code = resp.status
+                    resp_text = resp.read().decode('utf-8', errors='replace')
+
+            if status_code == 200:
                 logger.info(f"WhatsApp UltraMsg envoyé à {phone_clean}")
                 return True
             else:
-                logger.error(f"Erreur UltraMsg: {response.text}")
+                logger.error(f"Erreur UltraMsg: {resp_text}")
                 return False
         except Exception as e:
             logger.error(f"Erreur connexion UltraMsg: {e}")

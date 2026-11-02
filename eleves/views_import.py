@@ -94,6 +94,8 @@ def import_eleves_excel(request):
         return redirect('dashboard')
 
     etab  = request.etablissement
+    if not etab:
+        return redirect('dashboard')
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
 
     if not annee:
@@ -110,12 +112,16 @@ def import_eleves_excel(request):
         messages.error(request, "Aucun fichier sélectionné.")
         return redirect('import_eleves_excel')
 
-    if not fichier.name.endswith(('.xlsx', '.xls')):
+    if not fichier.name.lower().endswith(('.xlsx', '.xls')):
         messages.error(request, "Format non supporté — utilisez .xlsx")
         return redirect('import_eleves_excel')
 
+    if fichier.size > 5 * 1024 * 1024:
+        messages.error(request, "Le fichier Excel dépasse la taille maximale autorisée (5 Mo).")
+        return redirect('import_eleves_excel')
+
     try:
-        wb = openpyxl.load_workbook(fichier, data_only=True)
+        wb = openpyxl.load_workbook(fichier, read_only=True, data_only=True)
     except Exception as ex:
         messages.error(request, f"Fichier illisible : {ex}")
         return redirect('import_eleves_excel')
@@ -124,7 +130,7 @@ def import_eleves_excel(request):
     nb_crees = nb_ignore = 0
     erreurs = []
 
-    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2, max_row=2002, values_only=True), start=2):
         if not any(row):
             continue
 
@@ -156,6 +162,7 @@ def import_eleves_excel(request):
                 raise ValueError(f"{nom} {prenom} déjà importé")
 
             with transaction.atomic():
+                from accounts.views_comptes import _generer_mot_de_passe
                 # Tuteur
                 tuteur = None
                 if nom_tut and tel_tut:
@@ -165,7 +172,7 @@ def import_eleves_excel(request):
                     if not tuteur:
                         u_tut = User.objects.create_user(
                             username=_unique_username(f"p{_slug(nom_tut)}{_slug(pre_tut)}"),
-                            password=tel_tut[-8:] if len(tel_tut) >= 8 else 'pass1234',
+                            password=_generer_mot_de_passe(12),
                             first_name=pre_tut, last_name=nom_tut,
                             role='parent', etablissement=etab, is_active=True,
                         )
@@ -176,17 +183,14 @@ def import_eleves_excel(request):
                             user_compte=u_tut,
                         )
 
-                # Matricule unique
-                nb_total = Eleve.objects.filter(etablissement=etab).count()
-                matricule = f"{etab.code}-{annee.date_debut.year}-{nb_total+1:04d}"
-                while Eleve.objects.filter(matricule=matricule).exists():
-                    nb_total += 1
-                    matricule = f"{etab.code}-{annee.date_debut.year}-{nb_total:04d}"
+                # Matricule unique atomique (format cohérent CODE-ANNEE-XXXX)
+                annee_str = annee.libelle[-4:] if annee else str(timezone.now().year)
+                matricule = Eleve._generer_matricule_atomique(etab, annee_str)
 
-                # Compte élève
+                # Compte élève (mot de passe aléatoire sécurisé de 12 caractères)
                 u_eleve = User.objects.create_user(
                     username=_unique_username(matricule.lower().replace('-', '')),
-                    password=dob.strftime('%d%m%Y') if dob else 'eleve1234',
+                    password=_generer_mot_de_passe(12),
                     first_name=prenom, last_name=nom,
                     role='eleve', etablissement=etab, is_active=True,
                 )

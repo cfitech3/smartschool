@@ -8,11 +8,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Enseignant, AffectationMatiere, AnneeScolaire
-from accounts.permissions import role_required
+from accounts.permissions import role_required, require_etab
 
 
 @login_required
 @role_required('comptable', 'admin', 'super_admin')
+@require_etab
 def enseignants_comptable(request):
     """Liste des enseignants avec salaires — vue comptable."""
     etab = request.etablissement
@@ -29,7 +30,7 @@ def enseignants_comptable(request):
 
     from django.db.models import Sum
     total_masse_salariale = enseignants.filter(
-        salaire__isnull=False
+        statut='actif', salaire__isnull=False
     ).aggregate(t=Sum('salaire'))['t'] or 0
 
     return render(request, 'etablissements/comptable/liste_enseignants.html', {
@@ -42,6 +43,7 @@ def enseignants_comptable(request):
 
 @login_required
 @role_required('comptable', 'admin', 'super_admin')
+@require_etab
 def detail_enseignant_comptable(request, pk):
     """Détail enseignant avec affectations — lecture seule + modifier salaire."""
     etab = request.etablissement
@@ -55,14 +57,18 @@ def detail_enseignant_comptable(request, pk):
         salaire_str = request.POST.get('salaire', '').strip()
         try:
             if salaire_str:
-                ens.salaire = int(salaire_str.replace(' ', '').replace(',', ''))
+                val = int(salaire_str.replace(' ', '').replace(',', ''))
+                if val < 0:
+                    messages.error(request, "Le salaire ne peut pas être négatif.")
+                    return redirect('detail_enseignant_comptable', pk=pk)
+                ens.salaire = val
             else:
                 ens.salaire = None
             ens.save()
             messages.success(
                 request,
                 f" Salaire de {ens.nom_complet} mis à jour : "
-                f"{int(ens.salaire):,} FCFA/mois" if ens.salaire else " Salaire supprimé."
+                f"{int(ens.salaire):,} FCFA/mois" if ens.salaire is not None else " Salaire supprimé."
             )
         except ValueError:
             messages.error(request, "Montant invalide.")

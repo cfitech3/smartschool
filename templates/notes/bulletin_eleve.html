@@ -137,14 +137,14 @@
         {% if not modele or modele.col_moy_classe %}<td></td>{% endif %}
         {% if not modele or modele.col_moy_compo %}<td></td>{% endif %}
         {% if not modele or modele.col_moyenne_finale %}<td class="conduite-note">{% if l.note_conduite is not None %}{{ l.note_conduite|floatformat:1 }}/18{% else %}—{% endif %}</td>{% endif %}
-        {% if not modele or modele.col_coefficient %}<td style="text-align:center;">{{ l.matiere.coefficient }}</td>{% endif %}
+        {% if not modele or modele.col_coefficient %}<td style="text-align:center;">{{ l.coef|default:l.matiere.coefficient }}</td>{% endif %}
         {% if not modele or modele.col_moy_coeffic %}<td class="moy-cell">{% if l.moy_coeffic is not None %}{{ l.moy_coeffic|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
         {% if not modele or modele.col_appreciation %}<td style="text-align:center;font-size:10px;">{{ l.appreciation|default:"—" }}</td>{% endif %}
       {% else %}
         {% if not modele or modele.col_moy_classe %}<td style="text-align:center;">{% if l.moy_classe is not None %}{{ l.moy_classe|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
         {% if not modele or modele.col_moy_compo %}<td style="text-align:center;">{% if l.moy_compo is not None %}{{ l.moy_compo|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
         {% if not modele or modele.col_moyenne_finale %}<td class="moy-cell {% if l.moyenne_finale is not None %}{% if l.moyenne_finale >= 10 %}ok{% else %}ko{% endif %}{% endif %}">{% if l.moyenne_finale is not None %}{{ l.moyenne_finale|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
-        {% if not modele or modele.col_coefficient %}<td style="text-align:center;">{{ l.matiere.coefficient }}</td>{% endif %}
+        {% if not modele or modele.col_coefficient %}<td style="text-align:center;">{{ l.coef|default:l.matiere.coefficient }}</td>{% endif %}
         {% if not modele or modele.col_moy_coeffic %}<td class="moy-cell">{% if l.moy_coeffic is not None %}{{ l.moy_coeffic|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
         {% if not modele or modele.col_appreciation %}<td style="text-align:center;font-size:10px;">{{ l.appreciation|default:"—" }}</td>{% endif %}
       {% endif %}
@@ -158,8 +158,8 @@
   <div class="resume">
     <div class="resume-box">
       <span class="lbl">Moyenne Générale</span>
-      <span class="val" style="color:{% if moy_generale and moy_generale >= 10 %}#2E7D32{% elif moy_generale %}#C62828{% else %}#555{% endif %};">{% if moy_generale %}{{ moy_generale|floatformat:2 }}/20{% else %}—{% endif %}</span>
-      {% if moy_generale %}
+      <span class="val" style="color:{% if moy_generale is not None and moy_generale >= 10 %}#2E7D32{% elif moy_generale is not None %}#C62828{% else %}#555{% endif %};">{% if moy_generale is not None %}{{ moy_generale|floatformat:2 }}/20{% else %}—{% endif %}</span>
+      {% if moy_generale is not None %}
       <div style="margin-top:6px;">
         {% if moy_generale >= 16 %}<span class="mention-badge mention-tb"><i class="bi bi-star-fill text-warning"></i> Très Bien</span>
         {% elif moy_generale >= 14 %}<span class="mention-badge mention-b"><i class="bi bi-hand-thumbs-up-fill"></i> Bien</span>

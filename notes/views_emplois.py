@@ -1,6 +1,7 @@
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.contrib import messages
 from .models import EmploiDuTemps, Matiere
 from etablissements.models import Classe, AnneeScolaire, Enseignant
@@ -19,21 +20,24 @@ def req(fn):
 @req
 def emploi_du_temps(request):
     etab=request.etablissement; annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
-    classes=get_classes_actives(etab, annee, user=request.user) if annee else []
+    classes=get_classes_actives(etab, annee, user=request.user) if annee else Classe.objects.none()
     matieres=Matiere.objects.filter(etablissement=etab); enseignants=Enseignant.objects.filter(etablissement=etab).select_related("user")
-    classe_id=request.GET.get("classe"); classe=get_object_or_404(Classe,pk=classe_id,etablissement=etab) if classe_id else None
-    creneaux={}
+    classe_id=request.GET.get("classe"); classe=get_object_or_404(classes,pk=classe_id) if classe_id else None
+    creneaux=[]
     if classe:
-        edts=EmploiDuTemps.objects.filter(etablissement=etab,classe=classe).select_related("matiere","enseignant").order_by("jour","heure_debut")
-        for j in JOURS_ORDRE: creneaux[j]=[e for e in edts if e.jour==j]
+        creneaux=list(EmploiDuTemps.objects.filter(etablissement=etab,classe=classe).select_related("matiere","enseignant").order_by("jour","heure_debut"))
     if request.method=="POST" and classe:
+        if request.user.role not in ("admin", "super_admin", "secretariat"):
+            messages.error(request, "Seule l'administration peut modifier l'emploi du temps.")
+            return redirect(f"/notes/emplois/?classe={classe_id}")
         jour=request.POST.get("jour"); mat_id=request.POST.get("matiere"); ens_id=request.POST.get("enseignant") or None
         hd=request.POST.get("heure_debut"); hf=request.POST.get("heure_fin"); salle=request.POST.get("salle","")
         if jour and mat_id and hd and hf:
+            matiere_obj = get_object_or_404(Matiere, pk=mat_id, etablissement=etab)
             ens_user=None
             if ens_id:
                 try: ens_user=Enseignant.objects.get(pk=ens_id,etablissement=etab).user
-                except: pass
+                except Enseignant.DoesNotExist: pass
             
             # P3.3: Validation de chevauchement
             if hd >= hf:
@@ -56,14 +60,18 @@ def emploi_du_temps(request):
                 elif chevauchement_prof:
                     messages.error(request, "Erreur : L'enseignant est déjà occupé sur ce créneau horaire.")
                 else:
-                    EmploiDuTemps.objects.create(etablissement=etab,classe=classe,matiere_id=mat_id,enseignant=ens_user,jour=jour,heure_debut=hd,heure_fin=hf,salle=salle)
+                    EmploiDuTemps.objects.create(etablissement=etab,classe=classe,matiere=matiere_obj,enseignant=ens_user,jour=jour,heure_debut=hd,heure_fin=hf,salle=salle)
                     messages.success(request,"Creneau ajoute.")
         return redirect(f"/notes/emplois/?classe={classe_id}")
     return render(request,"notes/emploi_du_temps.html",{"classes":classes,"classe":classe,"matieres":matieres,"enseignants":enseignants,"creneaux":creneaux,"jours":EmploiDuTemps.JOURS,"jours_ordre":JOURS_ORDRE,"heures":HEURES,"classe_id":classe_id})
 
 @login_required
+@require_POST
 @req
 def supprimer_creneau(request,pk):
+    if request.user.role not in ("admin", "super_admin", "secretariat"):
+        messages.error(request, "Seule l'administration peut supprimer un créneau.")
+        return redirect("emploi_du_temps")
     etab=request.etablissement; c=get_object_or_404(EmploiDuTemps,pk=pk,etablissement=etab)
     cid=c.classe.pk; c.delete(); messages.success(request,"Creneau supprime.")
     return redirect(f"/notes/emplois/?classe={cid}")

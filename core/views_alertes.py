@@ -96,9 +96,11 @@ def get_alertes_etablissement(etab, annee, user):
                 'icone': '',
             })
 
-        # Classes sans appel aujourd'hui (après 8h)
+        # Classes sans appel aujourd'hui (après 8h, hors jours non ouvrés)
+        from eleves.models import JourNonOuvre
+        est_ferie, _ = JourNonOuvre.est_jour_non_ouvre(etab, today)
         heure = timezone.now().hour
-        if heure >= 8:
+        if heure >= 8 and not est_ferie:
             toutes = Classe.objects.filter(etablissement=etab)
             if annee:
                 toutes = toutes.filter(annee=annee)
@@ -164,10 +166,11 @@ def get_alertes_etablissement(etab, annee, user):
         if periode_active and periode_active.date_fin:
             jours_restants = (periode_active.date_fin - today).days
             if 0 < jours_restants <= 7:
-                # Compter les enseignants qui n'ont pas saisi leurs notes
-                enseignants = EmploiDuTemps.objects.filter(
-                    classe__etablissement=etab
-                ).values_list('enseignant_id', flat=True).distinct()
+                # Compter les enseignants qui n'ont pas saisi leurs notes (année active uniquement)
+                edt_qs = EmploiDuTemps.objects.filter(classe__etablissement=etab)
+                if annee:
+                    edt_qs = edt_qs.filter(classe__annee=annee)
+                enseignants = edt_qs.values_list('enseignant_id', flat=True).distinct()
                 notes_saisies = NotePeriode.objects.filter(
                     periode=periode_active
                 ).values_list('saisi_par_id', flat=True).distinct()

@@ -18,6 +18,16 @@
 <td><div style="display:flex;gap:6px;"><a href="{% url 'detail_eleve' e.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-eye-fill"></i> Voir</a><a href="{% url 'enregistrer_paiement' %}?eleve={{ e.pk }}" class="btn btn-primary btn-sm"><i class="bi bi-credit-card"></i></a></div></td>
 </tr>{% endwith %}{% endfor %}
 </tbody></table></div>{% endif %}
+{% if resultats.enseignants %}
+<div class="card" style="margin-bottom:16px;"><div class="card-header"><span class="card-title"><i class="bi bi-person-workspace"></i> Enseignants</span></div>
+<table class="table-modern"><thead><tr><th>Enseignant</th><th>Spécialité</th><th>Téléphone</th><th>Statut</th></tr></thead><tbody>
+{% for ens in resultats.enseignants %}<tr>
+<td style="font-weight:600;">{{ ens.nom_complet }}</td>
+<td>{{ ens.specialite|default:"—" }}</td>
+<td>{{ ens.user.telephone|default:"—" }}</td>
+<td><span class="badge {% if ens.statut == 'actif' %}badge-success{% else %}badge-warning{% endif %}">{{ ens.get_statut_display }}</span></td>
+</tr>{% endfor %}
+</tbody></table></div>{% endif %}
 {% if resultats.paiements %}
 <div class="card" style="margin-bottom:16px;"><div class="card-header"><span class="card-title"><i class="bi bi-credit-card"></i> Paiements</span></div>
 <table class="table-modern"><thead><tr><th>Reference</th><th>Eleve</th><th>Montant</th><th>Date</th><th></th></tr></thead><tbody>

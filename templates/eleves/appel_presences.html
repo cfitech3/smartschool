@@ -212,6 +212,7 @@
       {% endif %}
     </div>
   </form>
+  {% endif %}{# fin else jour_non_ouvre #}
 
 {% else %}
 <div class="card">
@@ -324,7 +325,7 @@ function toggleNonTraites() {
     btn.style.background = filtreActif ? 'var(--primary)' : '';
     btn.style.color = filtreActif ? '#fff' : '';
     btn.style.borderColor = filtreActif ? 'var(--primary)' : '';
-    btn.textContent = filtreActif ? '<i class="bi bi-eye-fill"></i>️ Tous' : '<i class="bi bi-search"></i> Non traités';
+    btn.innerHTML = filtreActif ? '<i class="bi bi-eye-fill"></i>️ Tous' : '<i class="bi bi-search"></i> Non traités';
   }
 }
 
@@ -343,5 +344,4 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
-{% endif %}{# fin else jour_non_ouvre #}
 {% endblock %}

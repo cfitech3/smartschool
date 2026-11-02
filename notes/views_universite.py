@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from decimal import Decimal
-from accounts.permissions import permission_required
+from accounts.permissions import permission_required, is_etab_superieur, verifier_acces_bulletin
 from etablissements.models import Classe, AnneeScolaire, UEUniversite
 from notes.models import NoteUE, Periode
 from eleves.models import Eleve
@@ -22,20 +22,29 @@ def req(fn):
 @req
 def saisie_notes_ue(request):
     etab    = request.etablissement
+    # Notes UE (LMD) : réservées aux établissements d'enseignement supérieur
+    if not is_etab_superieur(etab):
+        messages.error(request, "La saisie des notes UE est réservée aux établissements d'enseignement supérieur.")
+        return redirect('saisie_notes_mali')
     annee   = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    # Classes université uniquement
-    classes = Classe.objects.filter(
-        etablissement=etab, annee=annee,
+    # Classes université uniquement (filtrées selon les divisions/affectations de l'utilisateur)
+    classes = get_classes_actives(etab, annee, user=request.user).filter(
         niveau__cycle__type_cycle='universite'
-    ).select_related('niveau', 'niveau__cycle').order_by('niveau__ordre', 'nom')
+    ).select_related('niveau', 'niveau__cycle').order_by('niveau__ordre', 'nom') if annee else Classe.objects.none()
+    if request.user.is_enseignant and annee:
+        from etablissements.models import AffectationMatiere
+        classes_aff_ids = AffectationMatiere.objects.filter(
+            enseignant__user=request.user, annee=annee
+        ).values_list('classe_id', flat=True)
+        classes = classes.filter(pk__in=classes_aff_ids)
 
     classe_id  = request.GET.get('classe')
     periode_id = request.GET.get('periode')
     semestre   = request.GET.get('semestre', '1')
 
-    classe  = Classe.objects.filter(pk=classe_id, etablissement=etab).first() if classe_id else None
+    classe  = classes.filter(pk=classe_id).first() if classe_id else None
     periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
-    periode = Periode.objects.filter(pk=periode_id, etablissement=etab).first() if periode_id else None
+    periode = Periode.objects.filter(pk=periode_id, etablissement=etab, annee=annee).first() if (periode_id and annee) else None
 
     ues_data = []
     if classe and classe.niveau and classe.niveau.cycle:
@@ -58,6 +67,9 @@ def saisie_notes_ue(request):
             })
 
     if request.method == 'POST' and classe and periode:
+        if not periode.peut_saisir and not request.user.is_admin:
+            messages.error(request, "La saisie est clôturée pour cette période. Contactez l'administration.")
+            return redirect(f"{request.path}?classe={classe_id}&periode={periode_id}&semestre={semestre}")
         cycle_univ = classe.niveau.cycle
         ues = UEUniversite.objects.filter(cycle=cycle_univ, semestre=int(semestre))
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve')
@@ -118,13 +130,11 @@ def releve_notes_lmd(request, eleve_pk, periode_pk):
     etab    = request.etablissement
     eleve   = get_object_or_404(Eleve, pk=eleve_pk, etablissement=etab)
 
-    # Sécurité IDOR Famille — même contrôle que bulletin_eleve (Mali)
-    if request.user.role in ['parent', 'eleve']:
-        from core.views_espace_famille import get_eleves_accessibles
-        eleves_ok = get_eleves_accessibles(request.user).values_list('pk', flat=True)
-        if eleve.pk not in eleves_ok:
-            messages.error(request, "Accès refusé. Ce relevé ne vous appartient pas.")
-            return redirect('dashboard')
+    # Contrôle d'accès centralisé — même règle que les bulletins
+    # (personnel autorisé + anti-IDOR famille ; enseignants refusés)
+    refus = verifier_acces_bulletin(request, eleve)
+    if refus:
+        return refus
 
     periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
     annee   = periode.annee
@@ -136,30 +146,36 @@ def releve_notes_lmd(request, eleve_pk, periode_pk):
         eleve=eleve, periode=periode
     ).select_related('ue').order_by('ue__semestre', 'ue__code')
 
-    # Regrouper par semestre
+    # Regrouper par semestre (pondération par crédits ECTS ue.credits)
     semestres = {}
     total_credits_obtenus = 0
     total_credits_requis  = 0
-    total_points = 0
+    total_points = 0.0
+    total_credits_notes = 0
 
     for n in notes_ue:
         s = n.ue.semestre
         if s not in semestres:
-            semestres[s] = {'ues': [], 'credits_obtenus': 0, 'credits_requis': 0, 'points': 0}
+            semestres[s] = {'ues': [], 'credits_obtenus': 0, 'credits_requis': 0, 'points': 0.0, 'credits_notes': 0, 'moyenne': None}
         semestres[s]['ues'].append(n)
         semestres[s]['credits_requis']  += n.ue.credits
         if n.credits_valides:
             semestres[s]['credits_obtenus'] += n.ue.credits
             total_credits_obtenus += n.ue.credits
         total_credits_requis += n.ue.credits
-        if n.note_retenue:
-            pts = float(n.note_retenue) * n.ue.coefficient
+        if n.note_retenue is not None:
+            pts = float(n.note_retenue) * n.ue.credits
             semestres[s]['points'] += pts
+            semestres[s]['credits_notes'] += n.ue.credits
             total_points += pts
+            total_credits_notes += n.ue.credits
 
-    # Moyenne générale
-    total_coef = sum(n.ue.coefficient for n in notes_ue)
-    moy_generale = round(total_points / total_coef, 2) if total_coef > 0 else None
+    for s_data in semestres.values():
+        if s_data['credits_notes'] > 0:
+            s_data['moyenne'] = round(s_data['points'] / s_data['credits_notes'], 2)
+
+    # Moyenne générale pondérée par les crédits ECTS (ue.credits)
+    moy_generale = round(total_points / total_credits_notes, 2) if total_credits_notes > 0 else None
 
     # Mention générale
     mention = ''

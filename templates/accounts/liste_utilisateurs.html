@@ -92,9 +92,9 @@
         <input type="text" name="username" id="inp-username" class="form-control" placeholder="Ex: bdiallo, secretaire1" required>
         <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Sera utilisé pour se connecter</div>
       </div>
-      <div class="form-group"><label class="form-label">Mot de passe</label>
-        <input type="text" name="password" class="form-control" value="admin123" placeholder="admin123">
-        <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Minimum 6 caractères</div>
+      <div class="form-group"><label class="form-label">Mot de passe *</label>
+        <input type="password" name="password" class="form-control" minlength="12" placeholder="Min. 12 caractères (Majuscule, minuscule, chiffre)" required>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Minimum 12 caractères avec majuscule, minuscule et chiffre</div>
       </div>
       <div style="display:flex;gap:10px;margin-top:6px;">
         <button type="submit" class="btn btn-primary" style="flex:1;">Créer</button>
@@ -114,7 +114,7 @@
     <div id="mdp-nom" style="font-weight:700;margin-bottom:12px;color:var(--primary);"></div>
     <form method="post">{% csrf_token %}<input type="hidden" name="action" value="changer_mdp">
       <input type="hidden" name="user_pk" id="mdp-user-pk">
-      <div class="form-group"><label class="form-label">Nouveau mot de passe *</label><input type="text" name="nouveau_mdp" class="form-control" placeholder="Minimum 6 caractères" minlength="6" required></div>
+      <div class="form-group"><label class="form-label">Nouveau mot de passe *</label><input type="password" name="nouveau_mdp" class="form-control" placeholder="Minimum 12 caractères" minlength="12" required></div>
       <div style="display:flex;gap:10px;"><button type="submit" class="btn btn-primary" style="flex:1;">Enregistrer</button><button type="button" onclick="document.getElementById('modal-mdp').style.display='none'" class="btn btn-outline">Annuler</button></div>
     </form>
   </div>

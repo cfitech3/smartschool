@@ -119,7 +119,11 @@ def modifier_division(request, pk):
             messages.success(request, "Division supprimée.")
             return redirect('liste_divisions')
 
-        div.nom  = request.POST.get('nom', div.nom).strip()
+        nouveau_nom = request.POST.get('nom', div.nom).strip()
+        if Division.objects.filter(etablissement=etab, nom=nouveau_nom).exclude(pk=div.pk).exists():
+            messages.error(request, f"Une division nommée '{nouveau_nom}' existe déjà.")
+            return redirect('modifier_division', pk=div.pk)
+        div.nom  = nouveau_nom
         div.code = request.POST.get('code', div.code).strip().upper()
         div.directeur_nom       = request.POST.get('directeur_nom', '')
         div.entete_ligne1       = request.POST.get('entete_ligne1', '')
@@ -133,18 +137,20 @@ def modifier_division(request, pk):
         div.cycles.set(Cycle.objects.filter(pk__in=cycles_ids, etablissement=etab))
 
         dir_pk = request.POST.get('directeur_user')
+        ancien_dir = div.directeur_user
         if dir_pk:
             try:
                 dir_user = User.objects.get(pk=dir_pk, etablissement=etab)
+                if ancien_dir and ancien_dir.pk != dir_user.pk:
+                    ancien_dir.divisions.remove(div)
                 div.directeur_user = dir_user
                 div.save()
-                # Mettre à jour le lien sur l'user
-                for u in div.utilisateurs.all():
-                    u.divisions.remove(div)
                 dir_user.divisions.add(div)
             except User.DoesNotExist:
                 pass
         else:
+            if ancien_dir:
+                ancien_dir.divisions.remove(div)
             div.directeur_user = None
             div.save()
 

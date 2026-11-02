@@ -34,7 +34,7 @@
       <div class="brand-logo"><i class="bi bi-mortarboard-fill"></i></div>
       <div class="brand-text">
         <div class="brand-name">SmartSchool</div>
-        <div class="brand-sub">{% if request.etablissement %}{{ request.etablissement.nom|truncatechars:22 }}{% else %}ERP Scolaire{% endif %}</div>
+        <div class="brand-sub">{% if request.user.role == 'super_admin' %}Super Administrateur{% elif request.etablissement %}{{ request.etablissement.nom|truncatechars:22 }}{% else %}ERP Scolaire{% endif %}</div>
       </div>
     </a>
 
@@ -55,7 +55,10 @@
           <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
           <div class="user-role">{{ request.user.get_role_display }}</div>
         </div>
-        <a href="{% url 'logout' %}" style="color:var(--text-muted);font-size:16px;text-decoration:none;" title="Déconnexion"><i class="bi bi-box-arrow-right"></i></a>
+        <form method="post" action="{% url 'logout' %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;padding:0;" title="Déconnexion"><i class="bi bi-box-arrow-right"></i></button>
+        </form>
       </div>
     </div>
   </aside>

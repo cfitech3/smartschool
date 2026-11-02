@@ -4,7 +4,7 @@ from django.utils.translation import gettext as _
 
 # Caractères qui, en tête de cellule, sont interprétés comme des formules
 # par Excel/LibreOffice (=WEBSERVICE, +CMD, @SUM...).
-_FORMULE_PREFIXES = ('=', '+', '-', '@', '\t', '\r')
+_FORMULE_PREFIXES = ('=', '+', '-', '@', '\t', '\r', '\n')
 
 
 def safe_excel_value(value):
@@ -14,8 +14,10 @@ def safe_excel_value(value):
     (nom, tuteur...) et réexportée ne doit pas pouvoir s'exécuter comme
     formule à l'ouverture du fichier par le comptable ou le directeur.
     """
-    if isinstance(value, str) and value.startswith(_FORMULE_PREFIXES):
-        return "'" + value
+    if isinstance(value, str):
+        stripped = value.lstrip()
+        if stripped.startswith(_FORMULE_PREFIXES) or value.startswith(_FORMULE_PREFIXES):
+            return "'" + value
     return value
 
 
@@ -51,6 +53,6 @@ class ComplexPasswordValidator:
 
     def get_help_text(self):
         return _(
-            "Votre mot de passe doit contenir au moins 8 caractères, dont une majuscule, "
+            "Votre mot de passe doit contenir au moins 12 caractères, dont une majuscule, "
             "une minuscule, un chiffre et un caractère spécial."
         )

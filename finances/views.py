@@ -4,6 +4,7 @@ from core.cycle_filter import get_cycles_actifs_ids, get_eleves_actifs
 from accounts.permissions import permission_required, role_required
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Sum, Q
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
@@ -75,6 +76,9 @@ def enregistrer_paiement(request):
     eleve_id=request.GET.get("eleve")
     eleve_pre=get_object_or_404(Eleve,pk=eleve_id,etablissement=etab) if eleve_id else None
     if request.method=="POST":
+        if not annee:
+            messages.error(request, "Aucune année scolaire active. Veuillez activer une année scolaire avant d'enregistrer un paiement.")
+            return redirect("liste_paiements")
         eid=request.POST.get("eleve"); fid=request.POST.get("type_frais")
         montant=request.POST.get("montant","").replace(" ",""); mode=request.POST.get("mode_paiement","especes")
         try:
@@ -88,6 +92,26 @@ def enregistrer_paiement(request):
             p=Paiement.objects.create(etablissement=etab,eleve=eleve,annee=annee,type_frais=tf,
                 montant=val_montant,mode_paiement=mode,statut="valide", periode_payee=periode_payee,
                 encaisse_par=request.user,notes=request.POST.get("notes",""))
+            # Synchronisation avec les échéances si elles existent
+            from .models import Echeance
+            echeances_qs = Echeance.objects.filter(
+                etablissement=etab, eleve=eleve, annee=annee, type_frais=tf
+            ).order_by('numero')
+            if echeances_qs.exists():
+                matched_ech = echeances_qs.filter(
+                    statut__in=['a_payer', 'retard'], libelle__iexact=periode_payee.strip()
+                ).first() if periode_payee.strip() else None
+                if matched_ech and val_montant >= Decimal(str(matched_ech.montant)):
+                    matched_ech.marquer_payee(p)
+                else:
+                    total_paye_tf = Paiement.objects.filter(
+                        etablissement=etab, eleve=eleve, annee=annee, type_frais=tf, statut='valide'
+                    ).aggregate(t=Sum('montant'))['t'] or Decimal('0')
+                    cumul = Decimal('0')
+                    for ech in echeances_qs:
+                        cumul += Decimal(str(ech.montant))
+                        if ech.statut in ('a_payer', 'retard') and total_paye_tf >= cumul:
+                            ech.marquer_payee(p)
             messages.success(request,f"Paiement {p.montant:,.0f} FCFA enregistre. Ref: {p.reference}")
             if request.POST.get("imprimer_recu"): return redirect("recu_paiement",pk=p.pk)
             return redirect("liste_paiements")
@@ -122,13 +146,16 @@ def recu_paiement(request,pk):
     etab=request.etablissement
     paiement=get_object_or_404(Paiement,pk=pk,etablissement=etab)
     
-    # Sécurité IDOR Famille
+    # Sécurité RBAC + IDOR Famille
     if request.user.role in ['parent', 'eleve']:
         from core.views_espace_famille import get_eleves_accessibles
         eleves_ok = get_eleves_accessibles(request.user).values_list('pk', flat=True)
         if paiement.eleve.pk not in eleves_ok:
             messages.error(request, "Accès refusé. Ce reçu ne vous appartient pas.")
             return redirect('dashboard')
+    elif request.user.role not in ['admin', 'super_admin', 'comptable']:
+        messages.error(request, "Accès refusé. Vous n'avez pas l'autorisation de consulter les reçus financiers.")
+        return redirect('dashboard')
             
     modele=ModeleDocument.objects.filter(etablissement=etab,type_document="recu",is_actif=True).first()
     return render(request,"finances/recu.html",{"paiement":paiement,"etablissement":etab,"modele":modele})
@@ -147,8 +174,8 @@ def rapport_financier(request):
     if not annee:
         return render(request,"finances/rapport.html",{"mois_data":[],"par_type":[],"eleves_en_retard":[],"total_annee":0,"annee":None,"today":today})
 
-    eleves_actifs_ids = list(get_eleves_actifs(etab, annee, user=request.user).values_list('pk', flat=True))
-    base_paiements = Paiement.objects.filter(etablissement=etab, statut="valide", eleve_id__in=eleves_actifs_ids)
+    # Ne pas filtrer par eleves_actifs_ids afin de conserver l'intégrité comptable des paiements encaissés
+    base_paiements = Paiement.objects.filter(etablissement=etab, statut="valide")
     
     mois_data=[]
     for i in range(11,-1,-1):
@@ -178,6 +205,14 @@ def rapport_financier(request):
 def situation_eleve(request,pk):
     etab=request.etablissement
     eleve=get_object_or_404(Eleve,pk=pk,etablissement=etab)
+    if request.user.role in ['parent', 'eleve']:
+        from core.views_espace_famille import get_eleves_accessibles
+        if not get_eleves_accessibles(request.user).filter(pk=eleve.pk).exists():
+            messages.error(request, "Accès refusé. Cette fiche financière ne vous appartient pas.")
+            return redirect('dashboard')
+    elif request.user.role not in ['admin', 'super_admin', 'comptable']:
+        messages.error(request, "Accès refusé. Vous n'avez pas l'autorisation de consulter la situation financière d'un élève.")
+        return redirect('dashboard')
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     paiements=eleve.paiements.filter(annee=annee).select_related("type_frais").order_by("-date_paiement") if annee else []
     total_paye = paiements.filter(statut="valide").aggregate(t=Sum("montant"))["t"] or Decimal('0')
@@ -212,6 +247,9 @@ def ajouter_reduction(request):
     eleve_pre=get_object_or_404(Eleve,pk=eleve_id,etablissement=etab) if eleve_id else None
 
     if request.method=="POST":
+        if not annee:
+            messages.error(request, "Aucune année scolaire active.")
+            return redirect("liste_paiements")
         eid=request.POST.get("eleve"); fid=request.POST.get("type_frais")
         montant=request.POST.get("montant","").replace(" ","")
         try:
@@ -261,6 +299,12 @@ def annuler_paiement(request, pk):
                         e.paiement = None
                         e.date_paiement = None
                         e.save()
+                    from etablissements.models import JournalAction
+                    JournalAction.log(
+                        request, 'autre', cible=paiement.reference,
+                        etablissement=etab,
+                        detail=f"Annulation paiement {paiement.montant} FCFA ({paiement.eleve.nom_complet}) — Motif: {motif}"
+                    )
                         
                 messages.success(request, f"Paiement {paiement.reference} annulé avec succès. Les échéances ont été remises en attente.")
                 

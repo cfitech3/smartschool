@@ -8,6 +8,7 @@ urlpatterns = [
     path('<int:pk>/', views.detail_eleve, name='detail_eleve'),
     path('<int:pk>/modifier/', views_modifier.modifier_eleve_complet, name='modifier_eleve'),
     path('<int:pk>/supprimer/', views.supprimer_eleve, name='supprimer_eleve'),
+    path('<int:pk>/restaurer/', views.restaurer_eleve, name='restaurer_eleve'),
     # Import
     path('import/', views_import.import_eleves_excel, name='import_eleves_excel'),
     path('import/modele/', views_import.telecharger_modele_excel, name='telecharger_modele_excel'),

@@ -14,7 +14,7 @@ from notes.models import LogModificationNote
 logger = logging.getLogger(__name__)
 
 
-def _build_sidebar_json(user, badge_values):
+def _build_sidebar_json(user, badge_values, etablissement=None):
     """
     Construit la liste de menu pour le rôle de cet utilisateur et la sérialise
     en JSON.  Les URL names Django sont résolus en chemins réels via reverse().
@@ -22,15 +22,30 @@ def _build_sidebar_json(user, badge_values):
 
     Cette fonction est la SOURCE UNIQUE DE VÉRITÉ pour les menus de navigation.
     Ne plus modifier le bloc 'const MENUS' dans base.html.
+
+    Règle de filtrage selon le type d'établissement :
+    - nav_notes_ue  → visible uniquement pour les établissements supérieurs
+    - nav_bulletins → visible uniquement pour les établissements non-supérieurs
     """
-    from accounts.permissions import SIDEBAR_ITEMS
+    from accounts.permissions import SIDEBAR_ITEMS, is_etab_superieur
     items_raw = SIDEBAR_ITEMS.get(user.role, [])
     items_resolved = []
+
+    # Déterminer si c'est un établissement supérieur (même règle que les vues)
+    is_superieur = is_etab_superieur(etablissement)
 
     for item in items_raw:
         if 'section' in item:
             items_resolved.append({'section': item['section']})
             continue
+
+        item_key = item.get('key', '')
+
+        # Filtrage selon le type d'établissement
+        if item_key == 'nav_notes_ue' and not is_superieur:
+            continue  # Notes Université → supérieur seulement
+        if item_key in ('nav_notes', 'nav_bulletins') and is_superieur:
+            continue  # Bulletins → non-supérieur seulement
 
         resolved = {
             'icon': item.get('icon', ''),
@@ -110,6 +125,30 @@ def global_context(request):
                     }
                 cache.set(cache_key_notifs, notifs, 300)
             context.update(notifs)
+        elif request.user.role in ('secretariat', 'comptable', 'surveillant', 'enseignant'):
+            try:
+                from django.db.models import Q
+                from notes.models import Reclamation, MessageFamille
+                msgs_qs = MessageFamille.objects.filter(etablissement_id=etab_id, statut='non_lu')
+                if request.user.role == 'enseignant':
+                    msgs_qs = msgs_qs.filter(destinataire_user=request.user)
+                else:
+                    msgs_qs = msgs_qs.filter(
+                        Q(destinataire_user=request.user) |
+                        Q(destinataire_role='administration') |
+                        Q(destinataire_role=request.user.role)
+                    )
+                notifs = {
+                    'notifs_non_lues': 0,
+                    'nb_reclamations_attente': (
+                        Reclamation.objects.filter(eleve__etablissement_id=etab_id, statut='en_attente').count()
+                        if request.user.role == 'secretariat' else 0
+                    ),
+                    'nb_messages_non_lus': msgs_qs.count(),
+                }
+                context.update(notifs)
+            except Exception:
+                logger.exception("Erreur calcul compteurs notifications staff")
 
     if request.user.role == 'super_admin':
         cache_key_etabs = "tous_etablissements_actifs"
@@ -126,6 +165,8 @@ def global_context(request):
     # ── Menu sidebar sérialisé en JSON (source unique de vérité) ─────────────
     # Famille/élève : pas de sidebar standard
     if not (request.user.is_parent or request.user.is_eleve_user):
-        context['sidebar_menu_json'] = _build_sidebar_json(request.user, notifs)
+        context['sidebar_menu_json'] = _build_sidebar_json(
+            request.user, notifs, etablissement=getattr(request, 'etablissement', None)
+        )
 
     return context

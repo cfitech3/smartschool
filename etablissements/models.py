@@ -410,16 +410,24 @@ class Division(models.Model):
 
     @property
     def nb_classes(self):
-        cycles_ids = self.cycles.values_list('pk', flat=True)
-        return Classe.objects.filter(
+        if hasattr(self, '_nb_classes_cache'):
+            return self._nb_classes_cache
+        cycles_ids = list(self.cycles.values_list('pk', flat=True))
+        annee_active = AnneeScolaire.objects.filter(etablissement=self.etablissement, is_active=True).first()
+        qs = Classe.objects.filter(
             etablissement=self.etablissement,
             niveau__cycle__in=cycles_ids
-        ).count()
+        )
+        if annee_active:
+            qs = qs.filter(annee=annee_active)
+        return qs.count()
 
     @property
     def nb_eleves(self):
+        if hasattr(self, '_nb_eleves_cache'):
+            return self._nb_eleves_cache
         from eleves.models import Inscription
-        cycles_ids = self.cycles.values_list('pk', flat=True)
+        cycles_ids = list(self.cycles.values_list('pk', flat=True))
         return Inscription.objects.filter(
             classe__etablissement=self.etablissement,
             classe__niveau__cycle__in=cycles_ids,

@@ -7,6 +7,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from django.conf import settings
 from django.utils.html import strip_tags
+from xml.sax.saxutils import escape as xml_escape
 
 def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lignes, moy_generale, total_coeffic, total_coef, rang, effectif, appre_directeur, modele=None, is_premier_cycle=False, moy_premier=None):
     """Génère le bulletin en PDF avec ReportLab."""
@@ -75,14 +76,14 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
         texte_propre = strip_tags(entete_brut)
         for ligne in texte_propre.split('\n'):
             if ligne.strip():
-                elements.append(Paragraph(ligne.strip(), subtitle_style))
+                elements.append(Paragraph(xml_escape(ligne.strip()), subtitle_style))
     else:
         # Nom de l'établissement
-        elements.append(Paragraph(etab.nom.upper(), title_style))
+        elements.append(Paragraph(xml_escape(etab.nom.upper()), title_style))
         try:
-            if etab.parametres.adresse:
-                elements.append(Paragraph(etab.parametres.adresse, subtitle_style))
-        except:
+            if etab.adresse:
+                elements.append(Paragraph(xml_escape(etab.adresse), subtitle_style))
+        except Exception:
             pass
         
     elements.append(Spacer(1, 0.5*cm))
@@ -90,17 +91,17 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
     # Titre du bulletin
     titre_periode = periode.libelle.upper() if periode else "PÉRIODE"
     titre_bulletin = f"BULLETIN DE NOTES — {titre_periode} — {annee.libelle if annee else ''}"
-    elements.append(Paragraph(titre_bulletin, subtitle_style))
+    elements.append(Paragraph(xml_escape(titre_bulletin), subtitle_style))
     elements.append(Spacer(1, 0.5*cm))
     
     # 2. Informations de l'élève
     data_info = [
         [
-            Paragraph(f"<b>Élève :</b> {eleve.nom} {eleve.prenom}", info_style),
-            Paragraph(f"<b>Classe :</b> {inscription.classe.nom if inscription else '—'}", info_style)
+            Paragraph(f"<b>Élève :</b> {xml_escape(eleve.nom)} {xml_escape(eleve.prenom)}", info_style),
+            Paragraph(f"<b>Classe :</b> {xml_escape(inscription.classe.nom if inscription else '—')}", info_style)
         ],
         [
-            Paragraph(f"<b>Matricule :</b> {eleve.matricule}", info_style),
+            Paragraph(f"<b>Matricule :</b> {xml_escape(eleve.matricule or '')}", info_style),
             Paragraph(f"<b>Effectif de la classe :</b> {effectif}", info_style)
         ]
     ]
@@ -200,13 +201,13 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
         texte_pied_propre = strip_tags(pied_brut)
         for ligne in texte_pied_propre.split('\n'):
             if ligne.strip():
-                elements.append(Paragraph(f"<i>{ligne.strip()}</i>", info_style))
+                elements.append(Paragraph(f"<i>{xml_escape(ligne.strip())}</i>", info_style))
     else:
         try:
             if etab.parametres.pied_bulletin:
                 elements.append(Spacer(1, 1*cm))
-                elements.append(Paragraph(f"<i>{etab.parametres.pied_bulletin}</i>", info_style))
-        except:
+                elements.append(Paragraph(f"<i>{xml_escape(etab.parametres.pied_bulletin)}</i>", info_style))
+        except Exception:
             pass
     
     # Génération

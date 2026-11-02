@@ -56,13 +56,26 @@ def espace_eleve_detail(request, eleve_pk):
     eleve = get_eleve_ou_403(request, eleve_pk)
     etab = eleve.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
-    periode_active = periodes.filter(is_active=True).first() if periodes else None
+    periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else Periode.objects.none()
+    periode_active = periodes.filter(is_active=True).first()
     inscription = eleve.get_inscription_active()
+    cycle = inscription.classe.niveau.cycle if (inscription and inscription.classe.niveau and inscription.classe.niveau.cycle) else None
 
-    # Resume notes (periode active)
+    # Resume notes (periode active ou LMD)
     moy_generale = None
-    if periode_active:
+    if cycle and cycle.type_cycle == 'universite' and annee:
+        from notes.models import NoteUE
+        notes_ue = NoteUE.objects.filter(eleve=eleve, periode__annee=annee).select_related('ue')
+        total_pts = 0.0
+        total_cred = 0
+        for n in notes_ue:
+            if n.note_retenue is not None:
+                c = n.ue.credits or 1
+                total_pts += float(n.note_retenue) * c
+                total_cred += c
+        if total_cred > 0:
+            moy_generale = round(total_pts / total_cred, 2)
+    elif periode_active:
         matieres = Matiere.objects.filter(etablissement=etab)
         _, moy_generale, _, _ = calculer_bulletin(eleve, periode_active, matieres)
 
@@ -93,11 +106,42 @@ def espace_notes(request, eleve_pk):
     inscription = eleve.get_inscription_active()
     cycle = None
     is_premier_cycle = False
+    is_universite = False
     if inscription and inscription.classe.niveau and inscription.classe.niveau.cycle:
         cycle = inscription.classe.niveau.cycle
         is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+        is_universite = (cycle.type_cycle == 'universite')
 
-    if is_premier_cycle:
+    if is_universite:
+        from notes.models import NoteUE
+        notes_ue = NoteUE.objects.filter(
+            eleve=eleve, periode__annee=annee
+        ).select_related('ue').order_by('ue__semestre', 'ue__code') if annee else []
+        lignes = []
+        total_pts = 0.0
+        total_cred = 0
+        for n in notes_ue:
+            cred = n.ue.credits or 1
+            moy_ue = n.note_retenue
+            if moy_ue is not None:
+                total_pts += float(moy_ue) * cred
+                total_cred += cred
+            lignes.append({
+                'matiere': type('UEMat', (), {'nom': f"{n.ue.code} — {n.ue.nom}", 'coefficient': cred, 'is_conduite': False})(),
+                'note_classe': n.note,
+                'note_compo': n.note_rattrapage,
+                'moyenne_finale': moy_ue,
+                'coefficient': cred,
+                'appreciation': n.mention if moy_ue is not None else '—',
+                'note_id': None,
+                'a_reclamation': False,
+            })
+        moy_gen = round(total_pts / total_cred, 2) if total_cred > 0 else None
+        return render(request, 'core/famille/notes.html', {
+            'eleve': eleve, 'periodes': Periode.objects.none(), 'periode': None,
+            'lignes': lignes, 'moy_generale': moy_gen, 'is_premier_cycle': False, 'is_universite': True,
+        })
+    elif is_premier_cycle:
         nb_compos = cycle.nb_compositions_trimestre if cycle else 3
         numeros = list(range(1, nb_compos + 1))
         try:
@@ -105,22 +149,24 @@ def espace_notes(request, eleve_pk):
         except ValueError:
             numero = 1
 
-        from notes.services import calculer_bulletin_composition
-        matieres = Matiere.objects.filter(etablissement=etab)
-        lignes, moy_gen, _, _ = calculer_bulletin_composition(eleve, annee, numero, matieres)
-        
-        # Adaptation pour le template notes.html
-        for l in lignes:
-            l['note_id'] = None
-            l['a_reclamation'] = False
-            l['moyenne_finale'] = l['note']
+        lignes, moy_gen = [], None
+        if annee:
+            from notes.services import calculer_bulletin_composition
+            matieres = Matiere.objects.filter(etablissement=etab)
+            lignes, moy_gen, _, _ = calculer_bulletin_composition(eleve, annee, numero, matieres)
+            
+            # Adaptation pour le template notes.html
+            for l in lignes:
+                l['note_id'] = None
+                l['a_reclamation'] = False
+                l['moyenne_finale'] = l['note']
             
         return render(request, 'core/famille/notes.html', {
             'eleve': eleve, 'annee': annee, 'numeros': numeros, 'numero': numero,
             'lignes': lignes, 'moy_generale': moy_gen, 'is_premier_cycle': True
         })
     else:
-        periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else []
+        periodes = Periode.objects.filter(etablissement=etab, annee=annee) if annee else Periode.objects.none()
         periode_id = request.GET.get('periode')
         periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab) if periode_id else periodes.filter(is_active=True).first()
 
@@ -161,14 +207,30 @@ def espace_bulletin(request, eleve_pk, periode_pk):
     
     inscription = eleve.get_inscription_active()
     is_premier_cycle = False
+    is_universite = False
     if inscription and inscription.classe.niveau and inscription.classe.niveau.cycle:
         cycle = inscription.classe.niveau.cycle
         is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+        is_universite = (cycle.type_cycle == 'universite')
 
-    if is_premier_cycle:
+    if is_universite:
+        from notes.views_universite import releve_notes_lmd
+        etab = eleve.etablissement
+        annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
+        per = Periode.objects.filter(pk=periode_pk, etablissement=etab).first()
+        if not per and annee:
+            per = Periode.objects.filter(etablissement=etab, annee=annee, is_active=True).first() or Periode.objects.filter(etablissement=etab, annee=annee).first()
+        if not per:
+            messages.error(request, "Aucune période académique disponible pour générer le relevé LMD.")
+            return redirect('espace_notes', eleve_pk=eleve.pk)
+        return releve_notes_lmd(request, eleve_pk=eleve.pk, periode_pk=per.pk)
+    elif is_premier_cycle:
         from notes.views_notes import bulletin_composition
         etab = eleve.etablissement
         annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
+        if not annee:
+            messages.error(request, "Aucune année scolaire active.")
+            return redirect('espace_notes', eleve_pk=eleve.pk)
         # Le paramètre periode_pk fait office de numero pour le 1er cycle
         return bulletin_composition(request, eleve_pk=eleve.pk, annee_pk=annee.pk, numero=periode_pk)
     else:
@@ -230,25 +292,34 @@ def espace_paiements(request, eleve_pk):
     total_paye = paiements.aggregate(t=Sum('montant'))['t'] or 0 if paiements else 0
 
     # Frais attendus vs payes (frais obligatoires)
-    types_obligatoires = TypeFrais.objects.filter(etablissement=etab, is_obligatoire=True)
-    frais_attendus = []
-    
-    from finances.models import Echeance
+    from django.db.models import Q
+    from finances.models import Echeance, ReductionFrais
     from django.utils import timezone
     today = timezone.now().date()
-    
+
+    types_obligatoires = TypeFrais.objects.filter(etablissement=etab, is_obligatoire=True)
+    if annee:
+        types_obligatoires = types_obligatoires.filter(Q(annee=annee) | Q(annee__isnull=True))
+    reductions_map = {
+        r.type_frais_id: r.montant
+        for r in ReductionFrais.objects.filter(eleve=eleve, annee=annee)
+    } if annee else {}
+
+    frais_attendus = []
     nb_retards = 0
     for tf in types_obligatoires:
         paye = paiements.filter(type_frais=tf).aggregate(t=Sum('montant'))['t'] or 0 if paiements else 0
-        attendu = tf.montant_defaut
+        reduction = reductions_map.get(tf.pk, 0)
+        attendu = max(0, tf.montant_defaut - reduction)
+        reste_du = max(0, attendu - paye)
         
         # P3.3: Vérifier s'il y a de vraies tranches en retard pour ce type de frais
         echeances_retard = Echeance.objects.filter(
             eleve=eleve, annee=annee, type_frais=tf,
             statut__in=['a_payer', 'retard'], date_limite__lt=today
-        ).count()
+        ).count() if annee else 0
         
-        en_retard = (echeances_retard > 0)
+        en_retard = (echeances_retard > 0 and reste_du > 0)
         if en_retard:
             nb_retards += 1
             
@@ -256,7 +327,7 @@ def espace_paiements(request, eleve_pk):
             'type': tf,
             'attendu': attendu,
             'paye': paye,
-            'solde': paye - attendu,
+            'solde': reste_du,
             'en_retard': en_retard,
         })
 
@@ -410,8 +481,9 @@ def envoyer_message(request, eleve_pk):
                         'user_pk': aff.enseignant.user.pk,
                     })
         else:
-            # Directeur, Comptable, Surveillant — chercher le compte réel
-            user = User.objects.filter(etablissement=etab, role=role_val, is_active=True).first()
+            # Directeur (rôle 'admin' en base), Comptable, Surveillant — chercher le compte réel
+            db_role = 'admin' if role_val == 'directeur' else role_val
+            user = User.objects.filter(etablissement=etab, role=db_role, is_active=True).first()
             if user:
                 icons = {'directeur': '', 'comptable': '', 'surveillant': ''}
                 destinataires_disponibles.append({
@@ -441,7 +513,7 @@ def envoyer_message(request, eleve_pk):
             dest_user = None
             if user_pk:
                 try:
-                    dest_user = User.objects.get(pk=int(user_pk))
+                    dest_user = User.objects.get(pk=int(user_pk), etablissement=etab)
                 except (User.DoesNotExist, ValueError):
                     pass
 
@@ -469,7 +541,7 @@ def envoyer_message(request, eleve_pk):
 @login_required
 def admin_messages(request):
     """Liste des messages recus par l'administration, filtrée selon le rôle."""
-    if not (request.user.is_admin or request.user.is_surveillant or request.user.is_comptable or request.user.is_secretariat):
+    if not (request.user.is_admin or request.user.is_surveillant or request.user.is_comptable or request.user.is_secretariat or request.user.is_enseignant):
         return redirect('dashboard')
 
     from notes.models import MessageFamille
@@ -479,14 +551,17 @@ def admin_messages(request):
 
     # Construire le queryset de base selon le rôle de l'utilisateur connecté.
     # L'admin voit tous les messages de l'établissement.
-    # Les autres rôles (surveillant, comptable) ne voient que les messages
+    # Les autres rôles (surveillant, comptable, enseignant) ne voient que les messages
     # qui leur sont adressés directement ou diffusés à toute l'administration.
     if request.user.is_admin:
         msgs = MessageFamille.objects.filter(etablissement=etab)
+    elif request.user.is_enseignant:
+        msgs = MessageFamille.objects.filter(etablissement=etab, destinataire_user=request.user)
     else:
         msgs = MessageFamille.objects.filter(etablissement=etab).filter(
             Q(destinataire_user=request.user) |
-            Q(destinataire_role='administration')
+            Q(destinataire_role='administration') |
+            Q(destinataire_role=request.user.role)
         )
 
     # Appliquer l'ordre et le filtre de statut sur le queryset restreint
@@ -506,10 +581,23 @@ def admin_messages(request):
 @login_required
 def admin_repondre_message(request, pk):
     """Lire et repondre a un message."""
+    if not (request.user.is_admin or request.user.is_surveillant or request.user.is_comptable or request.user.is_secretariat or request.user.is_enseignant):
+        messages.error(request, "Accès réservé au personnel de l'établissement.")
+        return redirect('dashboard')
+
     from notes.models import MessageFamille
+    from django.db.models import Q
     from django.utils import timezone
     etab = request.etablissement
-    msg = get_object_or_404(MessageFamille, pk=pk, etablissement=etab)
+    if request.user.is_admin:
+        msg = get_object_or_404(MessageFamille, pk=pk, etablissement=etab)
+    else:
+        msg = get_object_or_404(
+            MessageFamille.objects.filter(etablissement=etab).filter(
+                Q(destinataire_user=request.user) | Q(destinataire_role='administration')
+            ),
+            pk=pk,
+        )
 
     # Marquer comme lu
     if msg.statut == 'non_lu':
@@ -531,12 +619,13 @@ def admin_repondre_message(request, pk):
                 from core.whatsapp import send_whatsapp_message
                 
                 # 1. Notification Interne
+                lien_notif = f"/espace/{msg.eleve_id}/messages/" if msg.eleve_id else "/espace/"
                 Notification.objects.create(
                     destinataire=msg.expediteur,
                     type_notif=Notification.TYPE_MESSAGE,
                     titre="Nouvelle réponse de l'administration",
                     message=f"L'administration a répondu à votre message : '{msg.sujet}'",
-                    lien="/famille/messages/"  # Lien vers la boite de réception parent
+                    lien=lien_notif
                 )
                 
                 # 2. Notification WhatsApp (si le parent a un numéro)

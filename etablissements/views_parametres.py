@@ -25,6 +25,11 @@ def parametres(request):
             etab.couleur_principale=request.POST.get("couleur_principale","#1565C0")
             etab.couleur_secondaire=request.POST.get("couleur_secondaire","#0D47A1")
             if request.FILES.get("logo"):
+                from etablissements.views import _valider_photo
+                err_logo = _valider_photo(request.FILES["logo"])
+                if err_logo:
+                    messages.error(request, err_logo)
+                    return redirect("parametres")
                 etab.logo=request.FILES["logo"]
             elif request.POST.get("supprimer_logo") and etab.logo:
                 import os
@@ -45,9 +50,12 @@ def parametres(request):
                 _,c=AnneeScolaire.objects.get_or_create(etablissement=etab,libelle=lib,defaults={"date_debut":dd,"date_fin":df})
                 messages.success(request,f"Annee {lib} creee." if c else "Annee deja existante.")
         elif action=="activer_annee":
+            from django.db import transaction
             aid=request.POST.get("annee_id")
-            AnneeScolaire.objects.filter(etablissement=etab).update(is_active=False)
-            AnneeScolaire.objects.filter(pk=aid,etablissement=etab).update(is_active=True)
+            annee_cible = get_object_or_404(AnneeScolaire, pk=aid, etablissement=etab)
+            with transaction.atomic():
+                AnneeScolaire.objects.filter(etablissement=etab).update(is_active=False)
+                AnneeScolaire.objects.filter(pk=annee_cible.pk, etablissement=etab).update(is_active=True)
             # WARN 5 : Invalider le cache de l'année active immédiatement
             from django.core.cache import cache
             cache.delete(f"annee_active_{etab.pk}")
@@ -93,6 +101,7 @@ def parametres(request):
                             TypeFrais.objects.create(
                                 etablissement=etab, annee=nouvelle_annee, nom=tf.nom,
                                 montant_defaut=tf.montant_defaut, is_obligatoire=tf.is_obligatoire,
+                                periodicite=tf.periodicite, nombre_tranches=tf.nombre_tranches,
                                 description=tf.description
                             )
                         
@@ -102,7 +111,8 @@ def parametres(request):
                         Classe.objects.create(
                             etablissement=etab, annee=nouvelle_annee, niveau=classe.niveau,
                             nom=classe.nom, capacite_max=classe.capacite_max,
-                            salle=classe.salle,
+                            salle=classe.salle, serie=classe.serie, division=classe.division,
+                            filiere=classe.filiere, semestre_actif=classe.semestre_actif,
                         )
                         nb_classes += 1
 

@@ -25,7 +25,7 @@ PERMISSIONS = {
         'label': 'Secrétariat',
         'modules': [
             'dashboard', 'eleves', 'classes', 'enseignants',
-            'presences', 'emplois', 'documents', 'modeles',
+            'bulletins', 'presences', 'emplois', 'documents', 'modeles',
             'reclamations', 'messages',
         ],
     },
@@ -39,7 +39,7 @@ PERMISSIONS = {
     'enseignant': {
         'label': 'Enseignant',
         'modules': [
-            'dashboard', 'notes', 'bulletins', 'emplois',
+            'dashboard', 'notes', 'emplois',
         ],
         'restrictions': {
             'notes': 'ses_matieres',     # seulement ses matières
@@ -85,9 +85,10 @@ SIDEBAR_ITEMS = {
         {'icon': '<i class="bi bi-calendar-event"></i>️', 'label': 'Emplois du temps', 'url': 'emploi_du_temps', 'key': 'nav_emplois'},
         {'section': 'Notes'},
         {'icon': '<i class="bi bi-journal-text"></i>', 'label': 'Saisie notes', 'url': 'saisie_notes_mali', 'key': 'nav_notes'},
+        {'icon': '<i class="bi bi-bank"></i>', 'label': 'Notes Université', 'url': 'saisie_notes_ue', 'key': 'nav_notes_ue'},
         {'icon': '<i class="bi bi-file-earmark-text"></i>', 'label': 'Bulletins', 'url': 'bulletins_classe_mali', 'key': 'nav_bulletins'},
         {'icon': '<i class="bi bi-calendar3"></i>', 'label': 'Périodes', 'url': 'liste_periodes', 'key': 'nav_periodes'},
-        {'icon': '<i class="bi bi-bank"></i>️', 'label': 'Notes Université', 'url': 'saisie_notes_ue', 'key': 'nav_notes_ue'},
+
         {'section': 'Finances'},
         {'icon': '<i class="bi bi-credit-card"></i>', 'label': 'Paiements', 'url': 'liste_paiements', 'key': 'nav_paiements'},
         {'icon': '<i class="bi bi-graph-up"></i>', 'label': 'Rapport financier', 'url': 'rapport_financier', 'key': 'nav_rapports'},
@@ -112,6 +113,7 @@ SIDEBAR_ITEMS = {
         {'icon': '<i class="bi bi-person"></i>‍<i class="bi bi-buildings-fill"></i>', 'label': 'Enseignants', 'url': 'liste_enseignants', 'key': 'nav_enseignants'},
         {'icon': '<i class="bi bi-clipboard"></i>', 'label': 'Présences', 'url': 'appel_presences', 'key': 'nav_presences'},
         {'icon': '<i class="bi bi-calendar-event"></i>️', 'label': 'Emplois du temps', 'url': 'emploi_du_temps', 'key': 'nav_emplois'},
+        {'icon': '<i class="bi bi-file-earmark-text"></i>', 'label': 'Bulletins', 'url': 'bulletins_classe_mali', 'key': 'nav_bulletins'},
         {'section': 'Documents'},
         {'icon': '<i class="bi bi-folder2-open"></i>️', 'label': 'Générer docs', 'url': 'liste_documents', 'key': 'nav_documents'},
         {'section': 'Communication'},
@@ -133,7 +135,7 @@ SIDEBAR_ITEMS = {
         {'icon': '<i class="bi bi-house-door-fill"></i>', 'label': 'Tableau de bord', 'url': 'dashboard', 'key': 'nav_dashboard'},
         {'section': 'Mon travail'},
         {'icon': '<i class="bi bi-journal-text"></i>', 'label': 'Saisie notes', 'url': 'saisie_notes_mali', 'key': 'nav_notes'},
-        {'icon': '<i class="bi bi-file-earmark-text"></i>', 'label': 'Bulletins', 'url': 'bulletins_classe_mali', 'key': 'nav_bulletins'},
+        {'icon': '<i class="bi bi-bank"></i>', 'label': 'Notes Université', 'url': 'saisie_notes_ue', 'key': 'nav_notes_ue'},
         {'icon': '<i class="bi bi-calendar-event"></i>️', 'label': 'Mon emploi du temps', 'url': 'emploi_du_temps', 'key': 'nav_emplois'},
     ],
     'surveillant': [
@@ -147,6 +149,51 @@ SIDEBAR_ITEMS = {
         {'icon': '<i class="bi bi-calendar-event"></i>️', 'label': 'Emplois du temps', 'url': 'emploi_du_temps', 'key': 'nav_emplois'},
     ],
 }
+
+
+# ── Type d'établissement ──────────────────────────────────────
+
+# Types d'établissements considérés comme « enseignement supérieur »
+TYPES_SUPERIEURS = ('universite', 'centre', 'institut')
+
+
+def is_etab_superieur(etablissement):
+    """True si l'établissement relève de l'enseignement supérieur (notes UE / LMD)."""
+    return etablissement is not None and etablissement.type in TYPES_SUPERIEURS
+
+
+# ── Accès aux bulletins / relevés ─────────────────────────────
+
+# Rôles du personnel autorisés à consulter les bulletins de n'importe quel élève
+ROLES_BULLETINS_PERSONNEL = ('super_admin', 'admin', 'secretariat')
+
+
+def verifier_acces_bulletin(request, eleve):
+    """
+    Contrôle centralisé d'accès au bulletin / relevé d'un élève.
+    - admin, super_admin, secrétariat : accès à tous les élèves de l'établissement
+    - parent / élève : uniquement les élèves rattachés (anti-IDOR)
+    - tous les autres rôles (enseignant, comptable, surveillant...) : refusé
+    Retourne None si l'accès est autorisé, sinon une réponse de redirection.
+    """
+    from django.shortcuts import redirect
+    from django.contrib import messages as dj_messages
+    role = request.user.role
+    if role == 'super_admin':
+        return None
+    if role in ROLES_BULLETINS_PERSONNEL and eleve.etablissement_id != getattr(getattr(request, 'etablissement', None), 'pk', None):
+        dj_messages.error(request, "Accès refusé. Cet élève n'appartient pas à votre établissement.")
+        return redirect('dashboard')
+    if role in ROLES_BULLETINS_PERSONNEL:
+        return None
+    if role in ('parent', 'eleve'):
+        from core.views_espace_famille import get_eleves_accessibles
+        if get_eleves_accessibles(request.user).filter(pk=eleve.pk).exists():
+            return None
+        dj_messages.error(request, "Accès refusé. Ce bulletin ne vous appartient pas.")
+        return redirect('dashboard')
+    dj_messages.error(request, "Accès refusé. Vous n'avez pas accès aux bulletins.")
+    return redirect('dashboard')
 
 
 def get_sidebar_items(user):
@@ -186,7 +233,9 @@ def role_required(*roles):
         def wrapper(request, *args, **kwargs):
             if not request.user.is_authenticated:
                 return redirect('login')
-            if request.user.role not in roles and request.user.role not in ('super_admin', 'admin'):
+            # Sécurité : seul le super_admin bénéficie d'un accès implicite.
+            # Le rôle 'admin' (Directeur) doit être listé explicitement dans `roles`.
+            if request.user.role not in roles and request.user.role != 'super_admin':
                 dj_messages.error(request, "Accès refusé. Vous n'avez pas les droits nécessaires.")
                 return redirect('dashboard')
             return fn(request, *args, **kwargs)
@@ -211,3 +260,29 @@ def permission_required(module):
             return fn(request, *args, **kwargs)
         return wrapper
     return decorator
+
+
+def require_etab(fn):
+    """Décorateur centralisé : vérifie que request.etablissement est défini."""
+    from functools import wraps
+    from django.shortcuts import redirect
+
+    @wraps(fn)
+    def wrapper(request, *args, **kwargs):
+        if not getattr(request, 'etablissement', None):
+            return redirect('dashboard')
+        return fn(request, *args, **kwargs)
+    return wrapper
+
+
+def admin_etab_required(fn):
+    """Décorateur centralisé : vérifie que l'utilisateur est admin d'établissement et a un établissement actif."""
+    from functools import wraps
+    from django.shortcuts import redirect
+
+    @wraps(fn)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated or not request.user.is_admin or not getattr(request, 'etablissement', None):
+            return redirect('dashboard')
+        return fn(request, *args, **kwargs)
+    return wrapper

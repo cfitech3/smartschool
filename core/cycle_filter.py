@@ -79,14 +79,15 @@ def get_eleves_actifs(etab, annee=None, user=None) -> QuerySet:
 
     Toujours : Eleve.is_active=True (élève non radié).
     """
+    cycles_ids = get_cycles_actifs_ids_pour_user(etab, user)
     qs = Eleve.objects.filter(etablissement=etab, is_active=True)
     if annee:
         return qs.filter(
             inscriptions__annee=annee,
+            inscriptions__classe__niveau__cycle__in=cycles_ids,
             inscriptions__is_active=True,
         ).distinct()
     else:
-        cycles_ids = get_cycles_actifs_ids_pour_user(etab, user)
         return qs.filter(
             inscriptions__classe__niveau__cycle__in=cycles_ids,
             inscriptions__is_active=True,

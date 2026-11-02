@@ -103,12 +103,12 @@
         <div style="font-size:11px;color:var(--text-muted);">{{ r.eleve.matricule }}</div>
       </td>
       <td style="text-align:center;">
-        <span style="font-size:20px;font-weight:800;color:{% if r.moyenne and r.moyenne >= 10 and not is_premier_cycle %}var(--success){% elif r.moyenne and is_premier_cycle and r.moyenne >= 5 %}var(--success){% elif r.moyenne %}var(--danger){% else %}var(--text-muted){% endif %};">
-          {% if r.moyenne %}{{ r.moyenne|floatformat:2 }}{% if is_premier_cycle %}/10{% else %}/20{% endif %}{% else %}—{% endif %}
+        <span style="font-size:20px;font-weight:800;color:{% if r.moyenne is not None and r.moyenne >= 10 and not is_premier_cycle %}var(--success){% elif r.moyenne is not None and is_premier_cycle and r.moyenne >= 5 %}var(--success){% elif r.moyenne is not None %}var(--danger){% else %}var(--text-muted){% endif %};">
+          {% if r.moyenne is not None %}{{ r.moyenne|floatformat:2 }}{% if is_premier_cycle %}/10{% else %}/20{% endif %}{% else %}—{% endif %}
         </span>
       </td>
       <td style="text-align:center;">
-        {% if r.moyenne %}
+        {% if r.moyenne is not None %}
           {% if is_premier_cycle %}
             {% if r.moyenne >= 8 %}<span class="badge badge-success"><i class="bi bi-star-fill text-warning"></i> Très Bien</span>
             {% elif r.moyenne >= 6.5 %}<span class="badge badge-info"><i class="bi bi-hand-thumbs-up-fill"></i> Bien</span>
@@ -124,7 +124,7 @@
         {% else %}—{% endif %}
       </td>
       <td style="text-align:center;">
-        {% if r.moyenne %}<span class="badge badge-success" title="Notes saisies"><i class="bi bi-check-circle-fill text-success"></i></span>
+        {% if r.moyenne is not None %}<span class="badge badge-success" title="Notes saisies"><i class="bi bi-check-circle-fill text-success"></i></span>
         {% else %}<span class="badge badge-warning" title="Aucune note"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Incomplet</span>{% endif %}
       </td>
       <td>
@@ -168,7 +168,7 @@
 // ─── Données depuis Django ───
 const resultats = [
   {% for r in resultats %}
-  { nom:"{{ r.eleve.nom }} {{ r.eleve.prenom }}", moy:{% if r.moyenne %}{{ r.moyenne }}{% else %}null{% endif %}, rang:{{ r.rang|default:0 }} },
+  { nom:"{{ r.eleve.nom|escapejs }} {{ r.eleve.prenom|escapejs }}", moy:{% if r.moyenne is not None %}{{ r.moyenne }}{% else %}null{% endif %}, rang:{{ r.rang|default:0 }} },
   {% endfor %}
 ];
 

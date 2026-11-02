@@ -13,10 +13,11 @@
     <td><span class="badge badge-info">{{ p.get_type_display }}</span></td>
     <td style="font-size:12.5px;">{{ p.date_debut|date:"d/m/Y" }}</td>
     <td style="font-size:12.5px;">{{ p.date_fin|date:"d/m/Y" }}</td>
-    <td>{% if p.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge" style="background:var(--bg);color:var(--text-muted);">Inactive</span>{% endif %}</td>
-    <td><div style="display:flex;gap:6px;">
+    <td>{% if p.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge" style="background:var(--bg);color:var(--text-muted);">Inactive</span>{% endif %} {% if p.saisie_cloturee %}<span class="badge badge-danger"><i class="bi bi-lock-fill"></i> Clôturée</span>{% endif %}</td>
+    <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
       <a href="{% url 'modifier_periode' p.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-pencil-fill"></i>️</a>
       {% if not p.is_active %}<form method="post" action="{% url 'modifier_periode' p.pk %}">{% csrf_token %}<input type="hidden" name="action" value="activer"><button type="submit" class="btn btn-outline btn-sm" style="color:var(--success);"><i class="bi bi-lightning-fill"></i> Activer</button></form>{% endif %}
+      <form method="post" action="{% url 'modifier_periode' p.pk %}">{% csrf_token %}<input type="hidden" name="action" value="toggle_cloture"><button type="submit" class="btn btn-outline btn-sm" style="color:{% if p.saisie_cloturee %}var(--success){% else %}var(--danger){% endif %};">{% if p.saisie_cloturee %}<i class="bi bi-unlock-fill"></i> Réouvrir saisie{% else %}<i class="bi bi-lock-fill"></i> Clôturer saisie{% endif %}</button></form>
     </div></td>
   </tr>{% endif %}{% endfor %}</tbody>
   </table>

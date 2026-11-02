@@ -23,7 +23,11 @@ def ajouter_matiere(request):
     etab=request.etablissement
     if request.method=="POST":
         nom=request.POST.get("nom","").strip(); code=request.POST.get("code","").strip().upper()
-        coef=int(request.POST.get("coefficient",1)); is_c=bool(request.POST.get("is_conduite"))
+        try:
+            coef=max(1, int(request.POST.get("coefficient",1)))
+        except (ValueError, TypeError):
+            coef=1
+        is_c=bool(request.POST.get("is_conduite"))
         if not nom: messages.error(request,"Nom obligatoire.")
         elif Matiere.objects.filter(etablissement=etab,nom=nom).exists(): messages.error(request,f"{nom} existe deja.")
         else:
@@ -37,8 +41,16 @@ def modifier_matiere(request,pk):
     etab=request.etablissement; m=get_object_or_404(Matiere,pk=pk,etablissement=etab)
     if request.method=="POST":
         if request.POST.get("action")=="supprimer": m.delete(); messages.success(request,"Matiere supprimee."); return redirect("liste_matieres")
-        m.nom=request.POST.get("nom",m.nom).strip(); m.code=request.POST.get("code","").strip().upper()
-        m.coefficient=int(request.POST.get("coefficient",1)); m.is_conduite=bool(request.POST.get("is_conduite"))
+        nouveau_nom=request.POST.get("nom",m.nom).strip()
+        if Matiere.objects.filter(etablissement=etab, nom=nouveau_nom).exclude(pk=m.pk).exists():
+            messages.error(request, f"Une matière nommée '{nouveau_nom}' existe déjà.")
+            return redirect("liste_matieres")
+        m.nom=nouveau_nom; m.code=request.POST.get("code","").strip().upper()
+        try:
+            m.coefficient=max(1, int(request.POST.get("coefficient",1)))
+        except (ValueError, TypeError):
+            pass
+        m.is_conduite=bool(request.POST.get("is_conduite"))
         m.save(); messages.success(request,"Matiere mise a jour."); return redirect("liste_matieres")
     return render(request,"notes/config/form_matiere.html",{"mode":"modifier","matiere":m})
 
@@ -78,6 +90,15 @@ def modifier_periode(request,pk):
         if request.POST.get("action")=="activer":
             Periode.objects.filter(etablissement=etab,annee=p.annee).update(is_active=False)
             p.is_active=True; p.save(); messages.success(request,f"{p.libelle} activee."); return redirect("liste_periodes")
+        if request.POST.get("action")=="toggle_cloture":
+            from django.utils import timezone
+            p.saisie_cloturee = not p.saisie_cloturee
+            p.date_cloture = timezone.now() if p.saisie_cloturee else None
+            p.cloture_par = request.user if p.saisie_cloturee else None
+            p.save(update_fields=["saisie_cloturee", "date_cloture", "cloture_par"])
+            etat = "clôturée (saisie verrouillée)" if p.saisie_cloturee else "réouverte à la saisie"
+            messages.success(request, f"Période {p.libelle} {etat}.")
+            return redirect("liste_periodes")
         p.libelle=request.POST.get("libelle",p.libelle); p.type=request.POST.get("type","trimestre")
         p.numero=int(request.POST.get("numero",p.numero))
         dd=request.POST.get("date_debut"); df=request.POST.get("date_fin")

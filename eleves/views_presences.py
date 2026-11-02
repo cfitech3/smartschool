@@ -27,7 +27,16 @@ def req(fn):
 def appel_presences(request):
     etab = request.etablissement
     annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
-    classes = get_classes_actives(etab, annee, user=request.user) if annee else []
+    if annee:
+        classes = get_classes_actives(etab, annee, user=request.user)
+        if request.user.is_enseignant:
+            from notes.models import AffectationMatiere
+            classes_ens_ids = AffectationMatiere.objects.filter(
+                enseignant__user=request.user, annee=annee, is_active=True
+            ).values_list('classe_id', flat=True)
+            classes = classes.filter(pk__in=classes_ens_ids)
+    else:
+        classes = Classe.objects.none()
     classe_id = request.GET.get("classe")
     date_str = request.GET.get("date", timezone.now().date().isoformat())
     try:
@@ -43,7 +52,7 @@ def appel_presences(request):
 
     # Vérifier si le jour est non ouvré (dimanche ou déclaré)
     if classe_id:
-        classe = get_object_or_404(Classe, pk=classe_id, etablissement=etab)
+        classe = get_object_or_404(classes, pk=classe_id)
         jour_non_ouvre, motif_non_ouvre = JourNonOuvre.est_jour_non_ouvre(etab, date_appel, classe)
 
     if classe_id and not jour_non_ouvre:
@@ -60,7 +69,7 @@ def appel_presences(request):
             })
 
     if request.method == "POST" and classe_id and not jour_non_ouvre:
-        classe = get_object_or_404(Classe, pk=classe_id, etablissement=etab)
+        classe = get_object_or_404(classes, pk=classe_id)
         saved = 0
         for insc in classe.inscriptions.filter(is_active=True).select_related("eleve"):
             st = request.POST.get(f"statut_{insc.eleve.pk}", "present")
@@ -220,6 +229,14 @@ def historique_presences(request):
 def fiche_absences_eleve(request, eleve_pk):
     etab = request.etablissement
     eleve = get_object_or_404(Eleve, pk=eleve_pk, etablissement=etab)
+    if request.user.role in ('parent', 'eleve'):
+        from core.views_espace_famille import get_eleves_accessibles
+        if not get_eleves_accessibles(request.user).filter(pk=eleve.pk).exists():
+            messages.error(request, "Accès refusé. Cette fiche d'absences ne vous appartient pas.")
+            return redirect("dashboard")
+    elif request.user.role not in ('admin', 'super_admin', 'secretariat', 'surveillant', 'enseignant'):
+        messages.error(request, "Accès refusé.")
+        return redirect("dashboard")
     presences = Presence.objects.filter(eleve=eleve).order_by("-date")
     stats = {
         "total": presences.count(),

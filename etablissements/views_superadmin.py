@@ -133,15 +133,19 @@ def gestion_comptes_etab(request, pk):
         user_cible = get_object_or_404(User, pk=u_pk, etablissement=etab)
 
         if action == 'reset_mdp':
+            from django.contrib.auth.password_validation import validate_password
+            from django.core.exceptions import ValidationError
             nouveau_mdp = request.POST.get('nouveau_mdp', '').strip()
-            if len(nouveau_mdp) < 6:
-                messages.error(request, "Le mot de passe doit faire au moins 6 caractères.")
-            else:
+            try:
+                validate_password(nouveau_mdp, user=user_cible)
                 user_cible.set_password(nouveau_mdp)
                 user_cible.save()
                 JournalAction.log(request, 'reset_mdp', cible=user_cible.username,
                                   etablissement=etab, detail='Reset mdp super admin')
                 messages.success(request, f" Mot de passe réinitialisé pour {user_cible.get_full_name() or user_cible.username}.")
+            except ValidationError as e:
+                for err in e.messages:
+                    messages.error(request, err)
 
         elif action == 'bloquer':
             user_cible.is_active = False
@@ -157,6 +161,7 @@ def gestion_comptes_etab(request, pk):
 
         elif action == 'supprimer':
             nom = user_cible.get_full_name() or user_cible.username
+            JournalAction.log(request, 'supprimer_compte', cible=user_cible.username, etablissement=etab, detail=f"Suppression du compte {nom}")
             user_cible.delete()
             messages.success(request, f"️ Compte de {nom} supprimé.")
 
@@ -174,10 +179,14 @@ def gestion_comptes_etab(request, pk):
 @login_required
 @superadmin_required
 def toggle_etablissement(request, pk):
-    """Active ou désactive un établissement en un clic."""
+    """Active ou désactive un établissement en un clic (POST requis)."""
+    if request.method != 'POST':
+        return redirect('liste_etablissements')
+    from django.core.cache import cache
     etab = get_object_or_404(Etablissement, pk=pk)
     etab.is_active = not etab.is_active
     etab.save()
+    cache.delete("tous_etablissements_actifs")
     statut = "réactivé " if etab.is_active else "suspendu "
     type_log = 'reactiver_etab' if etab.is_active else 'suspendre_etab'
     JournalAction.log(request, type_log, cible=etab.nom, etablissement=etab,
@@ -215,8 +224,13 @@ def creer_etablissement(request):
                 couleur_secondaire=couleur_secondaire,
             )
             if request.FILES.get('logo'):
-                etab.logo = request.FILES['logo']
-                etab.save()
+                from etablissements.views import _valider_photo
+                err_logo = _valider_photo(request.FILES['logo'])
+                if err_logo:
+                    messages.warning(request, f"Logo ignoré : {err_logo}")
+                else:
+                    etab.logo = request.FILES['logo']
+                    etab.save()
 
             # ── Configuration pédagogique automatique ────────────────────
             # Chaque type de cycle a ses réglages standard maliens préremplis.
@@ -225,7 +239,7 @@ def creer_etablissement(request):
             REGLAGES_CYCLE = {
                 'premier_cycle': {
                     'nom': '1er Cycle Fondamental', 'mode_calcul': 'compo',
-                    'note_passage': 10, 'diplome_prepare': "Certificat de fin d'études du 1er cycle",
+                    'note_passage': 5, 'diplome_prepare': "Certificat de fin d'études du 1er cycle",
                 },
                 'second_cycle': {
                     'nom': '2ème Cycle Fondamental', 'mode_calcul': 'compo',
@@ -260,6 +274,8 @@ def creer_etablissement(request):
             )
             CycleActif.objects.create(etablissement=etab, cycle=cycle, is_active=True, ordre=1)
 
+            from django.core.cache import cache
+            cache.delete("tous_etablissements_actifs")
             JournalAction.log(request, 'creer_etab', cible=nom, etablissement=etab,
                               detail=f'Code portail: {code} | Cycle: {reglages["nom"]}')
             messages.success(request, f"Établissement '{nom}' créé ! Portail : /auth/portail/{code}/")
@@ -278,15 +294,23 @@ def modifier_etablissement(request, pk):
     etab = get_object_or_404(Etablissement, pk=pk)
 
     if request.method == 'POST':
+        from django.core.cache import cache
         action = request.POST.get('action')
         if action == 'supprimer':
             nom = etab.nom
+            JournalAction.log(request, 'autre', cible=nom, detail=f"Suppression de l'établissement {nom}")
             etab.delete()
+            cache.delete("tous_etablissements_actifs")
             messages.success(request, f"Établissement '{nom}' supprimé.")
             return redirect('liste_etablissements')
 
+        nouveau_code = request.POST.get('code', etab.code).strip().upper()
+        if Etablissement.objects.filter(code=nouveau_code).exclude(pk=etab.pk).exists():
+            messages.error(request, f"Un autre établissement utilise déjà le code '{nouveau_code}'.")
+            return redirect('modifier_etablissement', pk=etab.pk)
+
         etab.nom = request.POST.get('nom', etab.nom).strip()
-        etab.code = request.POST.get('code', etab.code).strip().upper()
+        etab.code = nouveau_code
         etab.type = request.POST.get('type', etab.type)
         etab.adresse = request.POST.get('adresse', etab.adresse)
         etab.telephone = request.POST.get('telephone', etab.telephone)
@@ -297,8 +321,15 @@ def modifier_etablissement(request, pk):
         etab.couleur_secondaire = request.POST.get('couleur_secondaire', etab.couleur_secondaire)
         etab.is_active = 'is_active' in request.POST
         if request.FILES.get('logo'):
+            from etablissements.views import _valider_photo
+            err_logo = _valider_photo(request.FILES['logo'])
+            if err_logo:
+                messages.error(request, err_logo)
+                return redirect('modifier_etablissement', pk=etab.pk)
             etab.logo = request.FILES['logo']
         etab.save()
+        cache.delete("tous_etablissements_actifs")
+        JournalAction.log(request, 'autre', cible=etab.nom, etablissement=etab, detail="Modification de l'établissement")
         messages.success(request, f"'{etab.nom}' mis à jour.")
         return redirect('liste_etablissements')
 

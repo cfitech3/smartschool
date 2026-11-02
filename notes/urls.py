@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, views_notes, views_universite, views_emplois, views_config, views_surveillant, views_bulletin_mali
+from . import views_notes, views_universite, views_emplois, views_config, views_surveillant, views_bulletin_mali
 
 urlpatterns = [
     # Notes

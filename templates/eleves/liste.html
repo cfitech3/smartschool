@@ -12,7 +12,8 @@
   <div style="flex:2;min-width:180px;"><label class="form-label" style="margin-bottom:4px;">Recherche</label><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Nom, prenom, matricule..."></div>
   <div style="flex:1;min-width:140px;"><label class="form-label" style="margin-bottom:4px;">Classe</label><select name="classe" class="form-control"><option value="">Toutes</option>{% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}</select></div>
   <div style="flex:1;min-width:100px;"><label class="form-label" style="margin-bottom:4px;">Sexe</label><select name="sexe" class="form-control"><option value="">Tous</option><option value="M"{% if sexe == "M" %} selected{% endif %}>Masculin</option><option value="F"{% if sexe == "F" %} selected{% endif %}>Feminin</option></select></div>
-  <div style="display:flex;gap:6px;"><button type="submit" class="btn btn-primary">Filtrer</button>{% if q or classe_id or sexe %}<a href="{% url 'liste_eleves' %}" class="btn btn-outline"><i class="bi bi-x"></i></a>{% endif %}</div>
+  <div style="flex:1;min-width:110px;"><label class="form-label" style="margin-bottom:4px;">Statut</label><select name="statut" class="form-control"><option value="actifs"{% if statut_filtre != "archives" %} selected{% endif %}>Actifs</option><option value="archives"{% if statut_filtre == "archives" %} selected{% endif %}>Archivés</option></select></div>
+  <div style="display:flex;gap:6px;"><button type="submit" class="btn btn-primary">Filtrer</button>{% if q or classe_id or sexe or statut_filtre == "archives" %}<a href="{% url 'liste_eleves' %}" class="btn btn-outline"><i class="bi bi-x"></i></a>{% endif %}</div>
 </form></div></div>
 <div class="card">
 {% if eleves %}
@@ -25,9 +26,9 @@
   <td><code style="font-size:11.5px;background:var(--bg);padding:2px 7px;border-radius:4px;">{{ eleve.matricule }}</code></td>
   <td>{% if insc %}<a href="{% url 'detail_classe' insc.classe.pk %}" style="text-decoration:none;"><span class="badge badge-primary">{{ insc.classe.nom }}</span></a>{% else %}<span style="color:var(--text-muted);font-size:12px;">Non affecte</span>{% endif %}</td>
   <td>{% if eleve.tuteur %}<div style="font-size:12.5px;">{{ eleve.tuteur.nom }} {{ eleve.tuteur.prenom }}</div><div style="font-size:11px;color:var(--text-muted);">{{ eleve.tuteur.telephone }}</div>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
-  <td style="font-size:13px;">{{ eleve.age }} ans</td>
-  <td>{% if insc %}{% if insc.statut == 'actif' %}<span class="badge badge-success">Actif</span>{% else %}<span class="badge badge-warning">{{ insc.get_statut_display }}</span>{% endif %}{% else %}<span class="badge badge-warning">Non inscrit</span>{% endif %}</td>
-  <td style="text-align:right;"><div style="display:flex;gap:5px;justify-content:flex-end;"><a href="{% url 'detail_eleve' eleve.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-eye-fill"></i></a><a href="{% url 'modifier_eleve' eleve.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-pencil-fill"></i>️</a><a href="{% url 'fiche_absences_eleve' eleve.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-clipboard"></i></a></div></td>
+  <td style="font-size:13px;">{% if eleve.age is not None %}{{ eleve.age }} ans{% else %}—{% endif %}</td>
+  <td>{% if not eleve.is_active %}<span class="badge badge-danger">Archivé</span>{% elif insc %}{% if insc.statut == 'actif' %}<span class="badge badge-success">Actif</span>{% else %}<span class="badge badge-warning">{{ insc.get_statut_display }}</span>{% endif %}{% else %}<span class="badge badge-warning">Non inscrit</span>{% endif %}</td>
+  <td style="text-align:right;"><div style="display:flex;gap:5px;justify-content:flex-end;">{% if not eleve.is_active %}<form method="post" action="{% url 'restaurer_eleve' eleve.pk %}" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-primary btn-sm" title="Restaurer"><i class="bi bi-arrow-counterclockwise"></i> Restaurer</button></form>{% endif %}<a href="{% url 'detail_eleve' eleve.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-eye-fill"></i></a><a href="{% url 'modifier_eleve' eleve.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-pencil-fill"></i>️</a><a href="{% url 'fiche_absences_eleve' eleve.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-clipboard"></i></a></div></td>
 </tr>
 {% endwith %}{% endfor %}
 </tbody></table>

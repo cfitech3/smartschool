@@ -1,7 +1,33 @@
 from decimal import Decimal
 from .models import NotePeriode
 
-def calculer_bulletin(eleve, periode, matieres, index_notes=None):
+
+def get_coefficients_map(classe, matieres):
+    """
+    Retourne un dict {matiere_pk: coefficient_effectif} en 1 à 2 requêtes SQL.
+    Priorité : MatiereSerieCoef (si série lycée) -> MatiereCycle (si cycle) -> Matiere.coefficient.
+    """
+    coefs = {m.pk: m.coefficient for m in matieres}
+    if not classe:
+        return coefs
+    try:
+        from etablissements.models import MatiereCycle, MatiereSerieCoef
+        if classe.niveau_id and classe.niveau and classe.niveau.cycle_id:
+            for mat_id, c in MatiereCycle.objects.filter(
+                cycle_id=classe.niveau.cycle_id, matiere__in=matieres
+            ).values_list('matiere_id', 'coefficient'):
+                coefs[mat_id] = c
+        if classe.serie_id:
+            for mat_id, c in MatiereSerieCoef.objects.filter(
+                serie_id=classe.serie_id, matiere__in=matieres
+            ).values_list('matiere_id', 'coefficient'):
+                coefs[mat_id] = c
+    except Exception:
+        pass
+    return coefs
+
+
+def calculer_bulletin(eleve, periode, matieres, index_notes=None, classe=None, coefs_map=None):
     """
     Calcule le bulletin (commun ou malien).
     Si index_notes (dict {(eleve_id, matiere_id): note}) est fourni,
@@ -11,21 +37,31 @@ def calculer_bulletin(eleve, periode, matieres, index_notes=None):
     lignes = []
     total_coeffic = Decimal('0')
     total_coef = 0
+    if coefs_map is None and classe is not None:
+        coefs_map = get_coefficients_map(classe, matieres)
 
     for mat in matieres:
         if index_notes is not None:
             note = index_notes.get((eleve.pk, mat.pk))
         else:
-            note = NotePeriode.objects.filter(eleve=eleve, matiere=mat, periode=periode).first()
+            note = NotePeriode.objects.filter(eleve=eleve, matiere=mat, periode=periode).select_related('classe__niveau').first()
+        if coefs_map is not None:
+            coef = coefs_map.get(mat.pk, mat.coefficient)
+        elif note is not None:
+            coef = note.coefficient_effectif
+        else:
+            coef = mat.coefficient
         if note:
+            note._coef_cache = coef
             moy_finale = note.moyenne_finale
-            moy_coeff  = note.moy_coeffic
+            moy_coeff  = round(moy_finale * coef, 2) if moy_finale is not None else None
             appre      = note.appreciation
             if moy_coeff is not None:
                 total_coeffic += Decimal(str(moy_coeff))
-                total_coef += mat.coefficient
+                total_coef += coef
             lignes.append({
                 'matiere': mat,
+                'coef': coef,
                 'moy_classe': float(note.moy_classe) if note.moy_classe is not None else None,
                 'moy_compo': float(note.moy_compo) if note.moy_compo is not None else None,
                 'note_conduite': float(note.note_conduite) if note.note_conduite is not None else None,
@@ -38,6 +74,7 @@ def calculer_bulletin(eleve, periode, matieres, index_notes=None):
         else:
             lignes.append({
                 'matiere': mat,
+                'coef': coef,
                 'moy_classe': None, 'moy_compo': None, 'note_conduite': None,
                 'moyenne_finale': None, 'moy_coeffic': None, 'appreciation': '',
                 'note_max_classe': 20.0, 'note_max_compo': 40.0,
