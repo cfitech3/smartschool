@@ -10,16 +10,8 @@ from .pdf_generator import generer_bulletin_pdf
 from etablissements.models import Classe, AnneeScolaire, ModeleDocument
 from eleves.models import Eleve, Inscription
 from decimal import Decimal, ROUND_HALF_UP
+from accounts.permissions import require_etab
 from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_eleves_actifs, get_inscriptions_actives
-
-
-def require_etab(fn):
-    def wrapper(request, *args, **kwargs):
-        if not request.etablissement:
-            return redirect('dashboard')
-        return fn(request, *args, **kwargs)
-    wrapper.__name__ = fn.__name__
-    return wrapper
 
 
 
@@ -41,13 +33,22 @@ def telecharger_bulletin_pdf_mali(request, eleve_pk, periode_pk):
     inscription = eleve.get_inscription_active()
     
     is_premier_cycle = False
+    is_universite = False
     if inscription and inscription.classe.niveau and inscription.classe.niveau.cycle:
         cycle = inscription.classe.niveau.cycle
         is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+        is_universite = cycle.is_universite
+
+    if is_universite:
+        from notes.views_universite import releve_notes_lmd
+        return releve_notes_lmd(request, eleve_pk=eleve.pk, periode_pk=periode_pk)
 
     classe_pour_matieres = inscription.classe if inscription else None
     
     if is_premier_cycle:
+        if not annee:
+            messages.error(request, "Aucune année scolaire active.")
+            return redirect('dashboard')
         # Pour le 1er cycle, periode_pk est en fait le numero de composition
         numero = periode_pk
         matieres = get_matieres_pour_eleve(eleve, annee, classe_pour_matieres)
@@ -63,7 +64,9 @@ def telecharger_bulletin_pdf_mali(request, eleve_pk, periode_pk):
     else:
         periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
         matieres = get_matieres_pour_eleve(eleve, periode, classe_pour_matieres)
-        lignes, moy_generale, total_coeffic, total_coef = calculer_bulletin(eleve, periode, matieres)
+        lignes, moy_generale, total_coeffic, total_coef = calculer_bulletin(
+            eleve, periode, matieres, classe=classe_pour_matieres
+        )
 
     rang = None
     moy_premier = None
@@ -90,15 +93,17 @@ def telecharger_bulletin_pdf_mali(request, eleve_pk, periode_pk):
             if rangs_classe:
                 pk_premier = next((pk for pk, r in rangs_classe.items() if r == 1), None)
                 if pk_premier is not None:
-                    _, moy_premier, _, _ = calculer_bulletin(Eleve.objects.get(pk=pk_premier), periode, matieres)
+                    _, moy_premier, _, _ = calculer_bulletin(Eleve.objects.get(pk=pk_premier), periode, matieres, classe=classe)
 
     appre_directeur = ''
     if moy_generale is not None:
         if is_premier_cycle:
             if moy_generale >= 8: appre_directeur = 'Excellent Travail'
-            elif moy_generale >= 6.5: appre_directeur = 'Bon Travail'
+            elif moy_generale >= 7: appre_directeur = 'Bon Travail'
+            elif moy_generale >= 6: appre_directeur = 'Travail Assez Bien'
             elif moy_generale >= 5: appre_directeur = 'Travail Passable'
-            else: appre_directeur = 'Travail Insuffisant'
+            elif moy_generale >= 3: appre_directeur = 'Travail Insuffisant'
+            else: appre_directeur = 'Travail Très Insuffisant'
         else:
             if moy_generale >= 16: appre_directeur = 'Excellent Travail'
             elif moy_generale >= 14: appre_directeur = 'Bon Travail'
@@ -112,7 +117,15 @@ def telecharger_bulletin_pdf_mali(request, eleve_pk, periode_pk):
     response['Content-Disposition'] = f'attachment; filename="Bulletin_{eleve.nom}_{eleve.prenom}_{periode_label}.pdf"'
     
     modele = ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()
+    from core.verification_qr import construire_contexte_qr
+    qr_ctx = construire_contexte_qr(
+        request, 'compo' if is_premier_cycle else 'bulletin', eleve, annee=annee, periode=periode,
+        extra={
+            'num': numero if is_premier_cycle else None,
+            'moy': round(float(moy_generale), 2) if moy_generale is not None else None,
+        }
+    )
 
-    generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lignes, moy_generale, total_coeffic, total_coef, rang, effectif, appre_directeur, modele, is_premier_cycle=is_premier_cycle, moy_premier=moy_premier)
+    generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lignes, moy_generale, total_coeffic, total_coef, rang, effectif, appre_directeur, modele, is_premier_cycle=is_premier_cycle, moy_premier=moy_premier, qr_url=qr_ctx.get('qr_url'), qr_code_court=qr_ctx.get('qr_code_court'))
     
     return response

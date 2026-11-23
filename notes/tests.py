@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests -- Module Notes
 ======================
 Couvre :
@@ -210,3 +210,30 @@ class TestPeutModifierNote(TestCase):
         ok, msg = peut_modifier_note(self.surveillant, self._note_fr())
         self.assertFalse(ok)
         self.assertIn("conduite", msg.lower())
+
+
+class TestSanitizeHTMLFragment(TestCase):
+    """Régression P0 : le sanitizer HTML par liste blanche doit bloquer les contournements XSS."""
+
+    def test_bloque_vecteurs_xss_et_conserve_balises_sures(self):
+        from notes.templatetags.dict_extras import sanitize_html_fragment
+
+        payloads = [
+            '<p>Bonjour</p><script>alert(1)</script>',
+            '<scr<script></script>ipt>alert(1)</script>',
+            '<svg><animate onbegin=alert(1)></svg>',
+            '<img src=x onerror&#61;alert(1)>',
+            '<a href="javascript:alert(1)">cliquez</a>',
+            '<div style="background:url(javascript:alert(1))">test</div>',
+        ]
+        for raw in payloads:
+            cleaned = sanitize_html_fragment(raw)
+            self.assertNotIn('<script', cleaned.lower())
+            self.assertNotIn('<svg', cleaned.lower())
+            self.assertNotIn('<img', cleaned.lower())
+            self.assertNotIn('onerror', cleaned.lower())
+            self.assertNotIn('onbegin', cleaned.lower())
+            self.assertNotIn('javascript:', cleaned.lower())
+
+        safe_html = '<p class="titre"><strong>Attestation</strong> de scolarité</p>'
+        self.assertEqual(sanitize_html_fragment(safe_html), safe_html)

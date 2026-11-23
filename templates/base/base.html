@@ -139,10 +139,12 @@ const SMARTSCHOOL_CONTEXT = {
   reclamations: {{ nb_reclamations_attente|default:0 }},
 };
 
+{{ sidebar_menu_json|default:'[]'|json_script:"sidebar-menu-data" }}
+<script>
 // <i class="bi bi-exclamation-triangle-fill text-warning"></i>️ SOURCE UNIQUE DE VÉRITÉ pour les menus : accounts/permissions.py
 // Ce JSON est généré par core/context_processors.py via reverse() Django.
 // Ne pas éditer ici. Modifier SIDEBAR_ITEMS dans accounts/permissions.py.
-const SIDEBAR_ITEMS = {{ sidebar_menu_json|default:'[]'|safe }};
+const SIDEBAR_ITEMS = JSON.parse(JSON.parse(document.getElementById('sidebar-menu-data').textContent || '"[]"'));
 
 function buildSidebar() {
   const nav = document.getElementById('sidebar-nav');

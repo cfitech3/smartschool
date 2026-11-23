@@ -2,61 +2,238 @@
 {% block title %}Emplois du temps{% endblock %}
 {% block topbar_title %}Emplois du temps{% endblock %}
 {% block nav_emplois %}active{% endblock %}
-{% block extra_css %}<style>.edt-table{width:100%;border-collapse:collapse;min-width:700px;}.edt-table th{background:var(--primary);color:#fff;padding:9px 8px;font-size:12px;text-align:center;}.edt-table td{border:1px solid var(--border);padding:3px;vertical-align:top;min-height:54px;}.edt-table td:first-child{background:var(--bg);font-size:11.5px;font-weight:700;color:var(--text-muted);text-align:center;padding:8px 6px;width:70px;}.creneau{background:rgba(21,101,192,0.08);border-left:3px solid var(--primary);border-radius:4px;padding:5px 7px;margin:2px;font-size:11px;position:relative;}.creneau .mat{font-weight:700;color:var(--primary);}.creneau .ens,.creneau .salle{color:var(--text-muted);font-size:10px;}.creneau .del{position:absolute;top:3px;right:4px;background:none;border:none;cursor:pointer;color:var(--danger);opacity:0;font-size:12px;}.creneau:hover .del{opacity:1;}</style>{% endblock %}
+{% block extra_css %}<style>
+  .edt-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 700px;
+  }
+
+  .edt-table th {
+    background: var(--primary);
+    color: #fff;
+    padding: 9px 8px;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .edt-table td {
+    border: 1px solid var(--border);
+    padding: 3px;
+    vertical-align: top;
+    min-height: 54px;
+  }
+
+  .edt-table td:first-child {
+    background: var(--bg);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 8px 6px;
+    width: 70px;
+  }
+
+  .creneau {
+    background: rgba(21, 101, 192, 0.08);
+    border-left: 3px solid var(--primary);
+    border-radius: 4px;
+    padding: 5px 7px;
+    margin: 2px;
+    font-size: 11px;
+    position: relative;
+  }
+
+  .creneau .mat {
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .creneau .ens,
+  .creneau .salle {
+    color: var(--text-muted);
+    font-size: 10px;
+  }
+
+  .creneau .del {
+    position: absolute;
+    top: 3px;
+    right: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--danger);
+    opacity: 0;
+    font-size: 12px;
+  }
+
+  .creneau:hover .del {
+    opacity: 1;
+  }
+</style>{% endblock %}
 {% block content %}
-<div class="page-header"><h1><i class="bi bi-calendar-event"></i>️ Emplois du temps</h1>{% if classe and request.user.role in 'admin,super_admin,secretariat' %}<button class="btn btn-primary" onclick="document.getElementById('modal').style.display='flex'">+ Creneau</button>{% endif %}</div>
-<div class="card" style="margin-bottom:14px;"><div class="card-body" style="padding:12px 16px;">
-<form method="get" style="display:flex;gap:10px;align-items:flex-end;">
-  <div style="flex:1;max-width:280px;"><label class="form-label" style="margin-bottom:4px;">Classe</label>
-    <select name="classe" class="form-control" onchange="this.form.submit()">
-      <option value="">-- Selectionner --</option>
-      {% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }} — {{ c.niveau.nom }}</option>{% endfor %}
-    </select>
+<div class="page-header">
+  <h1><i class="bi bi-calendar-event"></i> Emplois du temps</h1>
+  {% if classe and request.user.is_admin_ou_secretariat %}
+  <button class="btn btn-primary" onclick="ouvrirModalEdt()">+ Créneau</button>
+  {% endif %}
+</div>
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-body" style="padding:12px 16px;">
+    <form method="get" style="display:flex;gap:10px;align-items:flex-end;">
+      <div style="flex:1;max-width:280px;"><label class="form-label" style="margin-bottom:4px;">Classe</label>
+        <select name="classe" class="form-control" onchange="this.form.submit()">
+          <option value="">-- Sélectionner --</option>
+          {% for c in classes %}
+          <option value="{{ c.pk }}" {% if classe_id == c.pk|stringformat:"s" %}selected{% endif %}>
+            {{ c.nom }} — {{ c.niveau.nom }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
   </div>
-</form></div></div>
+</div>
 {% if classe %}
 <div class="card" style="overflow-x:auto;">
   <div class="card-header"><span class="card-title">{{ classe.nom }} — Semaine type</span></div>
   <table class="edt-table">
-    <thead><tr><th>Horaire</th>{% for jv,jl in jours %}<th>{{ jl }}</th>{% endfor %}</tr></thead>
+    <thead>
+      <tr>
+        <th>Horaire</th>{% for jv,jl in jours %}<th>{{ jl }}</th>{% endfor %}
+      </tr>
+    </thead>
     <tbody>
-    {% for heure in heures %}
-    <tr><td>{{ heure }}</td>
-      {% for jv,jl in jours %}
-      <td>{% for c in creneaux|dictsort:"heure_debut" %}{% if c.jour == jv and c.heure_debut == heure %}
-        <div class="creneau">
-          <div class="mat">{{ c.matiere.nom }}</div>
-          {% if c.enseignant %}<div class="ens">{{ c.enseignant.get_full_name }}</div>{% endif %}
-          {% if c.salle %}<div class="salle"><i class="bi bi-pin-map-fill"></i>{{ c.salle }}</div>{% endif %}
-          <div style="font-size:10px;color:var(--text-muted);">→ {{ c.heure_fin }}</div>
-          {% if request.user.role in 'admin,super_admin,secretariat' %}
-          <form method="post" action="{% url 'supprimer_creneau' c.pk %}" style="display:inline;">{% csrf_token %}
-            <button type="submit" class="del" onclick="return confirm('Supprimer ?')"><i class="bi bi-x"></i></button>
-          </form>
-          {% endif %}
-        </div>
-      {% endif %}{% endfor %}</td>
+      {% for heure in heures %}
+      <tr>
+        <td>{{ heure }}</td>
+        {% for jv,jl in jours %}
+        <td>{% for c in creneaux|dictsort:"heure_debut" %}{% if c.jour == jv and c.heure_debut == heure %}
+          <div class="creneau">
+            <div class="mat">{{ c.matiere.nom }}</div>
+            {% if c.enseignant %}<div class="ens">{{ c.enseignant.get_full_name }}</div>{% endif %}
+            {% if c.salle %}<div class="salle"><i class="bi bi-pin-map-fill"></i> {{ c.salle }}</div>{% endif %}
+            <div style="font-size:10px;color:var(--text-muted);">→ {{ c.heure_fin }}</div>
+            {% if request.user.is_admin_ou_secretariat %}
+            <form method="post" action="{% url 'supprimer_creneau' c.pk %}" style="display:inline;">{% csrf_token %}
+              <button type="submit" class="del" onclick="return confirm('Supprimer ?')"><i class="bi bi-x"></i></button>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}{% endfor %}
+        </td>
+        {% endfor %}
+      </tr>
       {% endfor %}
-    </tr>
-    {% endfor %}
     </tbody>
   </table>
 </div>
-<!-- Modal -->
-<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
-  <div style="background:var(--card-bg);border-radius:var(--radius);padding:28px;width:100%;max-width:460px;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;"><h3 style="font-size:16px;font-weight:800;">Ajouter un creneau</h3><button onclick="document.getElementById('modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);"><i class="bi bi-x"></i></button></div>
-    <form method="post">{% csrf_token %}
-      <div class="form-group"><label class="form-label">Jour *</label><select name="jour" class="form-control" required>{% for v,l in jours %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
-      <div class="form-group"><label class="form-label">Matiere *</label><select name="matiere" class="form-control" required><option value="">-- Choisir --</option>{% for m in matieres %}<option value="{{ m.pk }}">{{ m.nom }} (coef.{{ m.coefficient }})</option>{% endfor %}</select></div>
-      <div class="grid-2" style="margin-bottom:14px;"><div><label class="form-label">Debut *</label><select name="heure_debut" class="form-control" required>{% for h in heures %}<option value="{{ h }}"{% if h == "08:00" %} selected{% endif %}>{{ h }}</option>{% endfor %}</select></div><div><label class="form-label">Fin *</label><select name="heure_fin" class="form-control" required>{% for h in heures %}<option value="{{ h }}"{% if h == "10:00" %} selected{% endif %}>{{ h }}</option>{% endfor %}</select></div></div>
-      <div class="form-group"><label class="form-label">Enseignant</label><select name="enseignant" class="form-control"><option value="">-- Optionnel --</option>{% for e in enseignants %}<option value="{{ e.pk }}">{{ e.nom_complet }}</option>{% endfor %}</select></div>
-      <div class="form-group"><label class="form-label">Salle</label><input type="text" name="salle" class="form-control" placeholder="Ex: Salle 01"></div>
-      <div style="display:flex;gap:10px;"><button type="submit" class="btn btn-primary" style="flex:1;">Ajouter</button><button type="button" onclick="document.getElementById('modal').style.display='none'" class="btn btn-outline">Annuler</button></div>
+<!-- Modal avec détection temps réel des conflits (Classe, Enseignant, Salle) -->
+<div id="modal"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+  <div
+    style="background:var(--card-bg);border-radius:var(--radius);padding:28px;width:100%;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h3 style="font-size:16px;font-weight:800;">Ajouter un créneau</h3><button type="button"
+        onclick="document.getElementById('modal').style.display='none'"
+        style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);"><i
+          class="bi bi-x"></i></button>
+    </div>
+    <form method="post" id="form-edt">{% csrf_token %}
+      <div class="form-group"><label class="form-label">Jour *</label>
+        <select name="jour" id="edt-jour" class="form-control" required>
+          {% for v,l in jours %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Matière *</label>
+        <select name="matiere" class="form-control" required>
+          <option value="">-- Choisir --</option>
+          {% for m in matieres %}<option value="{{ m.pk }}">{{ m.nom }} (coef.{{ m.coefficient }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="grid-2" style="margin-bottom:14px;">
+        <div><label class="form-label">Début *</label>
+          <select name="heure_debut" id="edt-hd" class="form-control" required>
+            {% for h in heures %}
+            <option value="{{ h }}" {% if h == "08:00" %}selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div><label class="form-label">Fin *</label>
+          <select name="heure_fin" id="edt-hf" class="form-control" required>
+            {% for h in heures %}
+            <option value="{{ h }}" {% if h == "10:00" %}selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Enseignant</label>
+        <select name="enseignant" id="edt-ens" class="form-control">
+          <option value="">-- Optionnel --</option>
+          {% for e in enseignants %}<option value="{{ e.pk }}">{{ e.nom_complet }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Salle</label><input type="text" name="salle" id="edt-salle"
+          class="form-control" placeholder="Ex: Salle 01, Amphi A..."></div>
+
+      <div id="edt-statut"
+        style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;margin-bottom:14px;line-height:1.45;">
+      </div>
+
+      <div style="display:flex;gap:10px;"><button type="submit" id="edt-submit" class="btn btn-primary"
+          style="flex:1;">Ajouter</button><button type="button"
+          onclick="document.getElementById('modal').style.display='none'" class="btn btn-outline">Annuler</button></div>
     </form>
   </div>
 </div>
+<script>
+  function ouvrirModalEdt() {
+    document.getElementById('modal').style.display = 'flex';
+    verifierConflitEdt();
+  }
+  function verifierConflitEdt() {
+    const jour = document.getElementById('edt-jour').value;
+    const hd = document.getElementById('edt-hd').value;
+    const hf = document.getElementById('edt-hf').value;
+    const ens = document.getElementById('edt-ens').value;
+    const salle = document.getElementById('edt-salle').value;
+    const box = document.getElementById('edt-statut');
+    const btn = document.getElementById('edt-submit');
+    const params = new URLSearchParams({
+      classe: '{{ classe.pk }}', jour: jour, heure_debut: hd, heure_fin: hf, enseignant: ens, salle: salle
+    });
+    fetch("{% url 'verifier_conflit_emploi' %}?" + params.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.json())
+      .then(data => {
+        box.style.display = 'block';
+        if (data.ok) {
+          box.style.background = '#e8f5e9';
+          box.style.color = '#1b5e20';
+          box.style.border = '1px solid #a5d6a7';
+          box.innerHTML = '<i class="bi bi-check-circle-fill"></i> Créneau libre (Classe, Enseignant et Salle disponibles).';
+          btn.disabled = false;
+        } else {
+          box.style.background = '#ffebee';
+          box.style.color = '#b71c1c';
+          box.style.border = '1px solid #ef9a9a';
+          box.innerHTML = data.conflits.map(c => '<div><i class="bi bi-exclamation-triangle-fill"></i> ' + c + '</div>').join('');
+          btn.disabled = true;
+        }
+      }).catch(() => { });
+  }
+  ['edt-jour', 'edt-hd', 'edt-hf', 'edt-ens'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', verifierConflitEdt);
+  });
+  const salleInp = document.getElementById('edt-salle');
+  if (salleInp) salleInp.addEventListener('input', verifierConflitEdt);
+</script>
 {% else %}
-<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-calendar-event"></i>️</div><div style="font-size:16px;font-weight:700;">Selectionnez une classe</div></div></div>
+<div class="card">
+  <div style="text-align:center;padding:60px;color:var(--text-muted);">
+    <div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-calendar-event"></i></div>
+    <div style="font-size:16px;font-weight:700;">Sélectionnez une classe</div>
+  </div>
+</div>
 {% endif %}
 {% endblock %}

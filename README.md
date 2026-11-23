@@ -12,9 +12,10 @@ Application de gestion scolaire multi-établissements (ERP) robuste, sécurisée
 
 ## 🛠 Prérequis
 
-- Python 3.9+
+- Python 3.9+ (testé avec 3.12 / 3.14)
 - PostgreSQL (fortement recommandé en production)
-- Wkhtmltopdf (requis pour la génération des bulletins/reçus au format PDF)
+- ReportLab (inclus dans `requirements.txt` pour la génération des bulletins et reçus PDF)
+- Docker & Docker Compose (optionnel, configuration prête à l'emploi dans `Dockerfile` et `docker-compose.yml`)
 
 ## 💻 Déploiement en Production
 

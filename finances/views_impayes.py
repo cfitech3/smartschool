@@ -37,10 +37,12 @@ def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val
     if not eleves_qs:
         return []
 
-    # Types de frais à vérifier
+    # Types de frais à vérifier (uniquement obligatoires sauf sélection explicite)
     types = TypeFrais.objects.filter(etablissement=etab)
     if type_frais:
         types = types.filter(pk=type_frais.pk)
+    else:
+        types = types.filter(is_obligatoire=True)
     if annee:
         types = types.filter(Q(annee=annee) | Q(annee__isnull=True))
 
@@ -55,7 +57,8 @@ def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val
     )
     if annee:
         reductions_qs = reductions_qs.filter(annee=annee)
-    reductions_map = {(r.eleve_id, r.type_frais_id): float(r.montant) for r in reductions_qs}
+    from decimal import Decimal
+    reductions_map = {(r.eleve_id, r.type_frais_id): Decimal(str(r.montant)) for r in reductions_qs}
 
     # Inscriptions actives par élève (1 requête)
     inscriptions_map = {
@@ -65,13 +68,14 @@ def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val
         ).select_related('classe')
     }
 
-    # Paiements du mois par élève (1 requête)
-    paiements_mois_map = {}
-    for eid, tfid in Paiement.objects.filter(
-        eleve_id__in=eleves_ids, etablissement=etab, statut='valide',
-        date_paiement__month=mois, date_paiement__year=annee_val,
-    ).values_list('eleve_id', 'type_frais_id'):
-        paiements_mois_map.setdefault(eid, set()).add(tfid)
+    # Paiements du mois par élève et type de frais (1 requête)
+    paiements_mois_map = {
+        (row['eleve_id'], row['type_frais_id']): Decimal(str(row['t'] or 0))
+        for row in Paiement.objects.filter(
+            eleve_id__in=eleves_ids, etablissement=etab, statut='valide',
+            date_paiement__month=mois, date_paiement__year=annee_val,
+        ).values('eleve_id', 'type_frais_id').annotate(t=Sum('montant'))
+    }
 
     # Cumul payé sur l'année par (eleve_id, type_frais_id) (1 requête)
     qs_cumul = Paiement.objects.filter(
@@ -82,7 +86,7 @@ def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val
     else:
         qs_cumul = qs_cumul.filter(date_paiement__year=annee_val)
     cumul_map = {
-        (row['eleve_id'], row['type_frais_id']): float(row['t'] or 0)
+        (row['eleve_id'], row['type_frais_id']): Decimal(str(row['t'] or 0))
         for row in qs_cumul.values('eleve_id', 'type_frais_id').annotate(t=Sum('montant'))
     }
 
@@ -96,28 +100,29 @@ def _get_impayes(etab, annee, classe=None, type_frais=None, mois=None, annee_val
 
     impayes = []
     for eleve in eleves_qs:
-        paiements_mois = paiements_mois_map.get(eleve.pk, set())
         insc = inscriptions_map.get(eleve.pk)
 
         frais_non_payes = []
-        montant_du_eleve = 0.0
+        montant_du_eleve = Decimal('0')
         for tf in types_list:
-            reduc_tf = reductions_map.get((eleve.pk, tf.pk), 0.0)
-            attendu_net = max(0.0, float(tf.montant_defaut) - reduc_tf)
+            reduc_tf = reductions_map.get((eleve.pk, tf.pk), Decimal('0'))
+            attendu_net = max(Decimal('0'), Decimal(str(tf.montant_defaut)) - reduc_tf)
             if attendu_net <= 0:
                 continue
 
             if tf.periodicite in ('unique', 'annuel', 'tranches'):
-                paye_total_tf = cumul_map.get((eleve.pk, tf.pk), 0.0)
+                paye_total_tf = cumul_map.get((eleve.pk, tf.pk), Decimal('0'))
                 solde_tf = attendu_net - paye_total_tf
                 if solde_tf <= 0:
                     continue
                 frais_non_payes.append(tf)
                 montant_du_eleve += solde_tf
             else:
-                if tf.pk not in paiements_mois:
+                paye_mois_tf = paiements_mois_map.get((eleve.pk, tf.pk), Decimal('0'))
+                solde_mois_tf = attendu_net - paye_mois_tf
+                if solde_mois_tf > 0:
                     frais_non_payes.append(tf)
-                    montant_du_eleve += attendu_net
+                    montant_du_eleve += solde_mois_tf
 
         if frais_non_payes:
             impayes.append({

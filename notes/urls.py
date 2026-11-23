@@ -1,10 +1,13 @@
 from django.urls import path
-from . import views_notes, views_universite, views_emplois, views_config, views_surveillant, views_bulletin_mali
+from . import views_notes, views_universite, views_emplois, views_config, views_surveillant, views_bulletin_mali, views_export, views_import_excel
 
 urlpatterns = [
     # Notes
     path('saisie/', views_notes.saisie_notes_mali, name='saisie_notes_mali'),
+    path('saisie/modele-excel/', views_import_excel.telecharger_modele_saisie_excel, name='telecharger_modele_saisie_excel'),
+    path('saisie/importer-excel/', views_import_excel.importer_notes_excel, name='importer_notes_excel'),
     path('releve/', views_notes.releve_notes_classe, name='releve_notes_classe'),
+    path('export/', views_export.export_notes_view, name='export_notes'),
     path('bulletins/', views_notes.bulletins_classe_mali, name='bulletins_classe_mali'),
     path('bulletin/<int:eleve_pk>/<int:periode_pk>/', views_notes.bulletin_eleve, name='bulletin_eleve'),
     path('bulletin/<int:eleve_pk>/<int:periode_pk>/<int:modele_pk>/', views_notes.bulletin_eleve, name='bulletin_eleve_modele'),
@@ -17,6 +20,7 @@ urlpatterns = [
     path('absences/', views_surveillant.rapport_absences, name='rapport_absences'),
     # Emplois du temps
     path('emplois/', views_emplois.emploi_du_temps, name='emploi_du_temps'),
+    path('emplois/verifier-conflit/', views_emplois.verifier_conflit_emploi, name='verifier_conflit_emploi'),
     path('emplois/supprimer/<int:pk>/', views_emplois.supprimer_creneau, name='supprimer_creneau'),
     # Config
     path('matieres/', views_config.liste_matieres, name='liste_matieres'),

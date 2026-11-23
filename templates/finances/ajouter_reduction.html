@@ -1,42 +1,179 @@
 {% extends "base/base.html" %}
-{% block title %}Ajouter une réduction{% endblock %}
-{% block topbar_title %}Ajouter une réduction / bourse{% endblock %}
+{% block title %}{% if instance %}Modifier{% else %}Ajouter{% endif %} une bourse / réduction{% endblock %}
+{% block topbar_title %}Bourses &amp; Réductions{% endblock %}
 {% block nav_paiements %}active{% endblock %}
 {% block content %}
 <div class="page-header">
   <div style="display:flex;align-items:center;gap:12px;">
-    <a href="javascript:history.back()" class="btn btn-outline btn-sm">← Retour</a>
-    <h1><i class="bi bi-gift-fill"></i> Ajouter une réduction</h1>
+    <a href="{% if eleve_pre %}{% url 'situation_eleve' eleve_pre.pk %}{% else %}{% url 'liste_bourses' %}{% endif %}" class="btn btn-outline btn-sm">← Retour</a>
+    <div>
+      <h1><i class="bi bi-gift-fill"></i> {% if instance %}Modifier la{% else %}Accorder une{% endif %} bourse / réduction</h1>
+      <div class="page-subtitle">{% if annee %}{{ annee.libelle }} — {% endif %}Le tarif standard de la classe reste inchangé ; seul le net à payer de l'élève est ajusté.</div>
+    </div>
+  </div>
+  <a href="{% url 'liste_bourses' %}" class="btn btn-outline"><i class="bi bi-list-ul"></i> Toutes les bourses</a>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,640px) minmax(0,1fr);gap:16px;align-items:start;" class="bourse-grid">
+<form method="post" id="form-bourse">{% csrf_token %}
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header"><span class="card-title">Bénéficiaire &amp; frais concerné</span></div>
+  <div class="card-body">
+    <div class="form-group"><label class="form-label">Élève *</label>
+      <select name="eleve" id="sel-eleve" class="form-control" required>
+        <option value="">-- Choisir un élève --</option>
+        {% for e in eleves %}<option value="{{ e.pk }}"{% if eleve_pre and e.pk == eleve_pre.pk %} selected{% endif %}>{{ e.nom_complet }} — {{ e.matricule }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Type de frais *</label>
+      <select name="type_frais" id="sel-frais" class="form-control" required>
+        <option value="" data-montant="0">-- Choisir --</option>
+        {% for tf in types_frais %}<option value="{{ tf.pk }}" data-montant="{{ tf.montant_defaut|floatformat:0 }}"{% if instance and instance.type_frais_id == tf.pk %} selected{% endif %}>{{ tf.nom }} (Tarif standard : {{ tf.montant_defaut|floatformat:0 }} F)</option>{% endfor %}
+      </select>
+    </div>
   </div>
 </div>
-<div style="max-width:600px;">
-<form method="post">{% csrf_token %}
+
 <div class="card" style="margin-bottom:14px;">
-  <div class="card-header"><span class="card-title">Détails de la réduction</span></div>
+  <div class="card-header"><span class="card-title">Nature &amp; calcul de la réduction</span></div>
   <div class="card-body">
-  <div class="form-group"><label class="form-label">Elève *</label>
-    <select name="eleve" class="form-control" required>
-      <option value="">-- Choisir un élève --</option>
-      {% for e in eleves %}<option value="{{ e.pk }}"{% if eleve_pre and e.pk == eleve_pre.pk %} selected{% endif %}>{{ e.nom_complet }} — {{ e.matricule }}</option>{% endfor %}
-    </select>
+    <div class="form-group"><label class="form-label">Catégorie *</label>
+      <select name="categorie" id="sel-cat" class="form-control" required>
+        {% for code, lib in categories %}<option value="{{ code }}"{% if instance and instance.categorie == code %} selected{% endif %}>{{ lib }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Mode de calcul *</label>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;">
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="radio" name="mode_calcul" value="pourcentage"{% if not instance or instance.mode_calcul == 'pourcentage' %} checked{% endif %}> Pourcentage (%)</label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="radio" name="mode_calcul" value="fixe"{% if instance and instance.mode_calcul == 'fixe' %} checked{% endif %}> Montant fixe (FCFA)</label>
+      </div>
+    </div>
+    <div class="form-group" id="grp-pct"><label class="form-label">Pourcentage de remise *</label>
+      <input type="number" name="valeur_pourcentage" id="inp-pct" class="form-control" min="0.01" max="100" step="0.01" placeholder="Ex : 50" value="{% if instance and instance.valeur_pourcentage %}{{ instance.valeur_pourcentage|floatformat:'-2' }}{% endif %}">
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+        <button type="button" class="btn btn-outline btn-sm pct-btn" data-v="10">10 %</button>
+        <button type="button" class="btn btn-outline btn-sm pct-btn" data-v="15">15 %</button>
+        <button type="button" class="btn btn-outline btn-sm pct-btn" data-v="25">25 %</button>
+        <button type="button" class="btn btn-outline btn-sm pct-btn" data-v="50">50 % (demi-bourse)</button>
+        <button type="button" class="btn btn-outline btn-sm pct-btn" data-v="100">100 % (exonération)</button>
+      </div>
+    </div>
+    <div class="form-group" id="grp-fixe"><label class="form-label">Montant de la réduction (FCFA) *</label>
+      <input type="number" name="montant" id="inp-fixe" class="form-control" min="1" placeholder="Ex : 25000" value="{% if instance and instance.mode_calcul == 'fixe' %}{{ instance.montant|floatformat:0 }}{% endif %}">
+    </div>
+
+    <div id="apercu" style="display:none;background:var(--bg-secondary,#f5f7fb);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:14px;">
+      <div style="display:flex;justify-content:space-between;"><span>Tarif standard</span><strong id="ap-base">0 F</strong></div>
+      <div style="display:flex;justify-content:space-between;color:var(--success);"><span>Réduction accordée</span><strong id="ap-red">0 F</strong></div>
+      <div style="display:flex;justify-content:space-between;border-top:1px dashed #ccc;margin-top:6px;padding-top:6px;font-size:15px;"><span>Net à payer par l'élève</span><strong id="ap-net" style="color:var(--primary);">0 F</strong></div>
+      <div id="ap-warn" style="display:none;color:var(--danger);font-size:12px;margin-top:6px;"></div>
+    </div>
+
+    <div class="form-group" id="grp-tiers"><label class="form-label">Organisme payeur / tiers (optionnel)</label>
+      <input type="text" name="organisme_tiers" class="form-control" maxlength="150" placeholder="Ex : État malien, ONG Plan Mali, Mairie de la Commune IV..." value="{{ instance.organisme_tiers|default:'' }}">
+    </div>
+    <div class="form-group"><label class="form-label">Motif / référence de la décision</label>
+      <input type="text" name="motif" class="form-control" maxlength="200" placeholder="Ex : Décision n°12/DIR du 05/10, major de promotion..." value="{{ instance.motif|default:'' }}">
+    </div>
   </div>
-  <div class="form-group"><label class="form-label">Type de frais *</label>
-    <select name="type_frais" class="form-control" required>
-      <option value="">-- Choisir --</option>
-      {% for tf in types_frais %}<option value="{{ tf.pk }}">{{ tf.nom }} (Base: {{ tf.montant_defaut|floatformat:0 }} F)</option>{% endfor %}
-    </select>
-  </div>
-  <div class="form-group"><label class="form-label">Montant de la réduction (FCFA) *</label>
-    <input type="number" name="montant" class="form-control" min="1" placeholder="Ex: 25000" required>
-  </div>
-  <div class="form-group"><label class="form-label">Motif (Optionnel)</label>
-    <input type="text" name="motif" class="form-control" placeholder="Bourse d'excellence, Famille nombreuse...">
-  </div>
-</div></div>
-<div class="card"><div class="card-body" style="display:flex;gap:10px;">
-  <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle-fill text-success"></i> Enregistrer</button>
-  <a href="javascript:history.back()" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
+</div>
+
+<div class="card"><div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+  <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle-fill"></i> Enregistrer et recalculer les échéances</button>
+  <a href="{% if eleve_pre %}{% url 'situation_eleve' eleve_pre.pk %}{% else %}{% url 'liste_bourses' %}{% endif %}" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
 </div></div>
 </form>
+
+<div>
+  {% if eleve_pre %}
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-header"><span class="card-title"><i class="bi bi-people-fill"></i> Fratrie détectée</span></div>
+    <div class="card-body" style="font-size:14px;">
+      {% if fratrie %}
+        <div style="background:#e8f5e9;color:#1b5e20;border-radius:8px;padding:10px;margin-bottom:10px;">
+          <strong>{{ eleve_pre.nom_complet }}</strong> est le <strong>{{ rang_fratrie }}ᵉ enfant</strong> du même tuteur inscrit cette année.
+        </div>
+        <ul style="margin:0 0 10px 18px;padding:0;">
+          {% for f in fratrie %}<li><a href="{% url 'situation_eleve' f.pk %}">{{ f.nom_complet }}</a> <span style="color:var(--text-muted);">({{ f.matricule }})</span></li>{% endfor %}
+        </ul>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-fratrie"><i class="bi bi-magic"></i> Appliquer une remise fratrie</button>
+      {% else %}
+        <span style="color:var(--text-muted);">Aucun frère / sœur (même tuteur) inscrit activement cette année.</span>
+      {% endif %}
+    </div>
+  </div>
+  {% if reductions_existantes %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">Réductions déjà accordées</span></div>
+    <div class="card-body" style="font-size:13px;">
+      {% for r in reductions_existantes %}
+      <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border,#eee);">
+        <span>{{ r.type_frais.nom }}<br><small style="color:var(--text-muted);">{{ r.get_categorie_display }}</small></span>
+        <span style="text-align:right;"><strong>{{ r.libelle_valeur }}</strong><br><a href="{% url 'ajouter_reduction' %}?pk={{ r.pk }}" style="font-size:12px;">Modifier</a></span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
 </div>
+</div>
+
+<style>@media (max-width:900px){.bourse-grid{grid-template-columns:1fr !important;}}</style>
+<script>
+(function(){
+  const fmt = n => Math.round(n).toLocaleString('fr-FR').replace(/\u202f/g,' ') + ' F';
+  const selFrais = document.getElementById('sel-frais'), selEleve = document.getElementById('sel-eleve');
+  const inpPct = document.getElementById('inp-pct'), inpFixe = document.getElementById('inp-fixe');
+  const radios = document.querySelectorAll('input[name=mode_calcul]');
+  function mode(){ return document.querySelector('input[name=mode_calcul]:checked').value; }
+  function toggle(){
+    const m = mode();
+    document.getElementById('grp-pct').style.display = m==='pourcentage' ? '' : 'none';
+    document.getElementById('grp-fixe').style.display = m==='fixe' ? '' : 'none';
+    inpPct.required = m==='pourcentage'; inpFixe.required = m==='fixe';
+    apercu();
+  }
+  function apercu(){
+    const base = parseFloat(selFrais.selectedOptions[0]?.dataset.montant || 0);
+    const box = document.getElementById('apercu'), warn = document.getElementById('ap-warn');
+    if(!base){ box.style.display='none'; return; }
+    let red = mode()==='pourcentage' ? Math.round(base * (parseFloat(inpPct.value)||0) / 100) : (parseFloat(inpFixe.value)||0);
+    warn.style.display='none';
+    if(red > base){ warn.textContent = 'La réduction dépasse le tarif standard.'; warn.style.display=''; }
+    red = Math.min(red, base);
+    box.style.display='';
+    document.getElementById('ap-base').textContent = fmt(base);
+    document.getElementById('ap-red').textContent = '- ' + fmt(red);
+    document.getElementById('ap-net').textContent = fmt(base - red);
+  }
+  radios.forEach(r => r.addEventListener('change', toggle));
+  [selFrais, inpPct, inpFixe].forEach(el => el.addEventListener('input', apercu));
+  selFrais.addEventListener('change', apercu);
+  document.querySelectorAll('.pct-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelector('input[name=mode_calcul][value=pourcentage]').checked = true;
+    inpPct.value = b.dataset.v;
+    if (b.dataset.v === '100') document.getElementById('sel-cat').value = 'bourse_etat';
+    if (b.dataset.v === '50') document.getElementById('sel-cat').value = 'demi_bourse';
+    toggle();
+  }));
+  const bf = document.getElementById('btn-fratrie');
+  if (bf) bf.addEventListener('click', () => {
+    const rang = {{ rang_fratrie|default:1 }};
+    document.querySelector('input[name=mode_calcul][value=pourcentage]').checked = true;
+    document.getElementById('sel-cat').value = 'fratrie';
+    inpPct.value = rang >= 4 ? 25 : (rang === 3 ? 15 : 10);
+    toggle();
+  });
+  // Recharger la page au changement d'élève pour détecter la fratrie
+  selEleve.addEventListener('change', () => {
+    if (!selEleve.value) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('eleve', selEleve.value);
+    url.searchParams.delete('pk');
+    window.location.href = url.toString();
+  });
+  toggle();
+})();
+</script>
 {% endblock %}

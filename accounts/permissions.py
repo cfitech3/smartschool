@@ -87,10 +87,12 @@ SIDEBAR_ITEMS = {
         {'icon': '<i class="bi bi-journal-text"></i>', 'label': 'Saisie notes', 'url': 'saisie_notes_mali', 'key': 'nav_notes'},
         {'icon': '<i class="bi bi-bank"></i>', 'label': 'Notes Université', 'url': 'saisie_notes_ue', 'key': 'nav_notes_ue'},
         {'icon': '<i class="bi bi-file-earmark-text"></i>', 'label': 'Bulletins', 'url': 'bulletins_classe_mali', 'key': 'nav_bulletins'},
+        {'icon': '<i class="bi bi-file-earmark-spreadsheet-fill"></i>', 'label': 'Export & Filtrage', 'url': 'export_notes', 'key': 'nav_export_notes'},
         {'icon': '<i class="bi bi-calendar3"></i>', 'label': 'Périodes', 'url': 'liste_periodes', 'key': 'nav_periodes'},
 
         {'section': 'Finances'},
         {'icon': '<i class="bi bi-credit-card"></i>', 'label': 'Paiements', 'url': 'liste_paiements', 'key': 'nav_paiements'},
+        {'icon': '<i class="bi bi-gift-fill"></i>', 'label': 'Bourses & Réductions', 'url': 'liste_bourses', 'key': 'nav_bourses'},
         {'icon': '<i class="bi bi-graph-up"></i>', 'label': 'Rapport financier', 'url': 'rapport_financier', 'key': 'nav_rapports'},
         {'section': 'Administration'},
         {'icon': '<i class="bi bi-chat-dots-fill"></i>', 'label': 'Messages', 'url': 'admin_messages', 'key': 'nav_admin_messages', 'badge': 'nb_messages_non_lus'},
@@ -114,6 +116,7 @@ SIDEBAR_ITEMS = {
         {'icon': '<i class="bi bi-clipboard"></i>', 'label': 'Présences', 'url': 'appel_presences', 'key': 'nav_presences'},
         {'icon': '<i class="bi bi-calendar-event"></i>️', 'label': 'Emplois du temps', 'url': 'emploi_du_temps', 'key': 'nav_emplois'},
         {'icon': '<i class="bi bi-file-earmark-text"></i>', 'label': 'Bulletins', 'url': 'bulletins_classe_mali', 'key': 'nav_bulletins'},
+        {'icon': '<i class="bi bi-file-earmark-spreadsheet-fill"></i>', 'label': 'Export & Filtrage', 'url': 'export_notes', 'key': 'nav_export_notes'},
         {'section': 'Documents'},
         {'icon': '<i class="bi bi-folder2-open"></i>️', 'label': 'Générer docs', 'url': 'liste_documents', 'key': 'nav_documents'},
         {'section': 'Communication'},
@@ -126,6 +129,7 @@ SIDEBAR_ITEMS = {
         {'section': 'Finances'},
         {'icon': '<i class="bi bi-credit-card"></i>', 'label': 'Paiements', 'url': 'liste_paiements', 'key': 'nav_paiements'},
         {'icon': '<i class="bi bi-cash"></i>', 'label': 'Encaisser', 'url': 'enregistrer_paiement', 'key': 'nav_encaissement'},
+        {'icon': '<i class="bi bi-gift-fill"></i>', 'label': 'Bourses & Réductions', 'url': 'liste_bourses', 'key': 'nav_bourses'},
         {'icon': '<i class="bi bi-graph-up"></i>', 'label': 'Rapport', 'url': 'rapport_financier', 'key': 'nav_rapports'},
         {'section': 'Personnel'},
         {'icon': '<i class="bi bi-person"></i>‍<i class="bi bi-buildings-fill"></i>', 'label': 'Salaires profs', 'url': 'enseignants_comptable', 'key': 'nav_salaires'},
@@ -136,6 +140,7 @@ SIDEBAR_ITEMS = {
         {'section': 'Mon travail'},
         {'icon': '<i class="bi bi-journal-text"></i>', 'label': 'Saisie notes', 'url': 'saisie_notes_mali', 'key': 'nav_notes'},
         {'icon': '<i class="bi bi-bank"></i>', 'label': 'Notes Université', 'url': 'saisie_notes_ue', 'key': 'nav_notes_ue'},
+        {'icon': '<i class="bi bi-file-earmark-spreadsheet-fill"></i>', 'label': 'Export & Filtrage', 'url': 'export_notes', 'key': 'nav_export_notes'},
         {'icon': '<i class="bi bi-calendar-event"></i>️', 'label': 'Mon emploi du temps', 'url': 'emploi_du_temps', 'key': 'nav_emplois'},
     ],
     'surveillant': [
@@ -283,6 +288,21 @@ def admin_etab_required(fn):
     @wraps(fn)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated or not request.user.is_admin or not getattr(request, 'etablissement', None):
+            return redirect('dashboard')
+        return fn(request, *args, **kwargs)
+    return wrapper
+
+
+def superadmin_required(fn):
+    """Décorateur centralisé : restreint l'accès au Super Administrateur."""
+    from functools import wraps
+    from django.shortcuts import redirect
+    from django.contrib import messages as dj_messages
+
+    @wraps(fn)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated or request.user.role != 'super_admin':
+            dj_messages.error(request, "Accès réservé au Super Administrateur.")
             return redirect('dashboard')
         return fn(request, *args, **kwargs)
     return wrapper

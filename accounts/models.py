@@ -62,6 +62,12 @@ class User(AbstractUser):
     def is_eleve_user(self): return self.role == self.ROLE_ELEVE
     @property
     def is_comptable(self): return self.role in [self.ROLE_COMPTABLE, self.ROLE_ADMIN, self.ROLE_SUPER_ADMIN]
+    @property
+    def is_admin_ou_secretariat(self): return self.role in (self.ROLE_SUPER_ADMIN, self.ROLE_ADMIN, self.ROLE_SECRETARIAT)
+    @property
+    def peut_gerer_presences(self): return self.role in (self.ROLE_SUPER_ADMIN, self.ROLE_ADMIN, self.ROLE_SECRETARIAT, self.ROLE_SURVEILLANT)
+    @property
+    def nom_complet(self): return self.get_full_name() or self.username
 
 
 class JournalConnexion(models.Model):

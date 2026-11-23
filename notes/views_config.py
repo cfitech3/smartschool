@@ -3,13 +3,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Matiere, Periode
+from accounts.permissions import admin_etab_required as req
 from etablissements.models import AnneeScolaire
-
-def req(fn):
-    def w(request,*a,**k):
-        if not request.user.is_admin or not request.etablissement: return redirect("dashboard")
-        return fn(request,*a,**k)
-    w.__name__=fn.__name__; return w
 
 @login_required
 @req
@@ -40,7 +35,13 @@ def ajouter_matiere(request):
 def modifier_matiere(request,pk):
     etab=request.etablissement; m=get_object_or_404(Matiere,pk=pk,etablissement=etab)
     if request.method=="POST":
-        if request.POST.get("action")=="supprimer": m.delete(); messages.success(request,"Matiere supprimee."); return redirect("liste_matieres")
+        if request.POST.get("action")=="supprimer":
+            from .models import NotePeriode, Composition
+            nb_notes = NotePeriode.objects.filter(matiere=m).count() + Composition.objects.filter(matiere=m).count()
+            if nb_notes > 0:
+                messages.error(request, f"Impossible de supprimer la matière « {m.nom} » : {nb_notes} note(s) y sont rattachées.")
+                return redirect("liste_matieres")
+            m.delete(); messages.success(request,"Matiere supprimee."); return redirect("liste_matieres")
         nouveau_nom=request.POST.get("nom",m.nom).strip()
         if Matiere.objects.filter(etablissement=etab, nom=nouveau_nom).exclude(pk=m.pk).exists():
             messages.error(request, f"Une matière nommée '{nouveau_nom}' existe déjà.")
@@ -67,9 +68,13 @@ def ajouter_periode(request):
     etab=request.etablissement; annees=AnneeScolaire.objects.filter(etablissement=etab).order_by("-libelle")
     if request.method=="POST":
         aid=request.POST.get("annee"); lib=request.POST.get("libelle","").strip()
-        tp=request.POST.get("type","trimestre"); num=int(request.POST.get("numero",1))
+        tp=request.POST.get("type","trimestre")
+        try:
+            num=max(1, int(request.POST.get("numero",1)))
+        except (ValueError, TypeError):
+            num=1
         dd=request.POST.get("date_debut"); df=request.POST.get("date_fin"); ia=bool(request.POST.get("is_active"))
-        if not lib or not aid: messages.error(request,"Champs obligatoires manquants.")
+        if not lib or not aid or not dd or not df: messages.error(request,"Champs obligatoires manquants.")
         else:
             annee=get_object_or_404(AnneeScolaire,pk=aid,etablissement=etab)
             if Periode.objects.filter(etablissement=etab,annee=annee,numero=num).exists():
@@ -86,7 +91,17 @@ def modifier_periode(request,pk):
     etab=request.etablissement; p=get_object_or_404(Periode,pk=pk,etablissement=etab)
     annees=AnneeScolaire.objects.filter(etablissement=etab).order_by("-libelle")
     if request.method=="POST":
-        if request.POST.get("action")=="supprimer": p.delete(); messages.success(request,"Periode supprimee."); return redirect("liste_periodes")
+        if request.POST.get("action")=="supprimer":
+            from .models import NotePeriode, NoteUE, Bulletin
+            nb_lies = (
+                NotePeriode.objects.filter(periode=p).count()
+                + NoteUE.objects.filter(periode=p).count()
+                + Bulletin.objects.filter(periode=p).count()
+            )
+            if nb_lies > 0:
+                messages.error(request, f"Impossible de supprimer la période « {p.libelle} » : {nb_lies} note(s) ou bulletin(s) y sont rattachés.")
+                return redirect("liste_periodes")
+            p.delete(); messages.success(request,"Periode supprimee."); return redirect("liste_periodes")
         if request.POST.get("action")=="activer":
             Periode.objects.filter(etablissement=etab,annee=p.annee).update(is_active=False)
             p.is_active=True; p.save(); messages.success(request,f"{p.libelle} activee."); return redirect("liste_periodes")
@@ -99,8 +114,16 @@ def modifier_periode(request,pk):
             etat = "clôturée (saisie verrouillée)" if p.saisie_cloturee else "réouverte à la saisie"
             messages.success(request, f"Période {p.libelle} {etat}.")
             return redirect("liste_periodes")
-        p.libelle=request.POST.get("libelle",p.libelle); p.type=request.POST.get("type","trimestre")
-        p.numero=int(request.POST.get("numero",p.numero))
+        p.libelle=request.POST.get("libelle",p.libelle).strip() or p.libelle
+        p.type=request.POST.get("type","trimestre")
+        try:
+            nouveau_num=max(1, int(request.POST.get("numero",p.numero)))
+        except (ValueError, TypeError):
+            nouveau_num=p.numero
+        if Periode.objects.filter(etablissement=etab, annee=p.annee, numero=nouveau_num).exclude(pk=p.pk).exists():
+            messages.error(request, f"Une période numéro {nouveau_num} existe déjà pour cette année.")
+            return redirect("liste_periodes")
+        p.numero=nouveau_num
         dd=request.POST.get("date_debut"); df=request.POST.get("date_fin")
         if dd: p.date_debut=dd
         if df: p.date_fin=df
@@ -126,10 +149,18 @@ def ajouter_type_frais(request):
     from etablissements.models import AnneeScolaire
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     if request.method=="POST":
-        nom=request.POST.get("nom","").strip(); montant=request.POST.get("montant_defaut",0)
+        from decimal import Decimal, InvalidOperation
+        nom=request.POST.get("nom","").strip()
+        try:
+            montant=max(Decimal("0"), Decimal(str(request.POST.get("montant_defaut",0) or 0)))
+        except (InvalidOperation, ValueError, TypeError):
+            montant=Decimal("0")
         oblig=bool(request.POST.get("is_obligatoire")); desc=request.POST.get("description","")
         periodicite=request.POST.get("periodicite","unique")
-        nb_tranches=int(request.POST.get("nombre_tranches",1) or 1)
+        try:
+            nb_tranches=max(1, int(request.POST.get("nombre_tranches",1) or 1))
+        except (ValueError, TypeError):
+            nb_tranches=1
         if not nom: messages.error(request,"Nom obligatoire.")
         elif TypeFrais.objects.filter(etablissement=etab,nom=nom,annee=annee).exists(): messages.error(request,f"{nom} existe deja pour cette annee.")
         else:
@@ -146,11 +177,25 @@ def modifier_type_frais(request,pk):
     tf=get_object_or_404(TypeFrais,pk=pk,etablissement=etab)
     annee_active=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     if request.method=="POST":
-        if request.POST.get("action")=="supprimer": tf.delete(); messages.success(request,"Supprime."); return redirect("liste_types_frais")
-        tf.nom=request.POST.get("nom",tf.nom); tf.montant_defaut=request.POST.get("montant_defaut",tf.montant_defaut)
+        from decimal import Decimal, InvalidOperation
+        if request.POST.get("action")=="supprimer":
+            from finances.models import Paiement
+            nb_paiements = Paiement.objects.filter(type_frais=tf).count()
+            if nb_paiements > 0:
+                messages.error(request, f"Impossible de supprimer le frais « {tf.nom} » : {nb_paiements} paiement(s) comptabilisé(s) y sont rattachés.")
+                return redirect("liste_types_frais")
+            tf.delete(); messages.success(request,"Supprime."); return redirect("liste_types_frais")
+        tf.nom=request.POST.get("nom",tf.nom).strip() or tf.nom
+        try:
+            tf.montant_defaut=max(Decimal("0"), Decimal(str(request.POST.get("montant_defaut",tf.montant_defaut) or 0)))
+        except (InvalidOperation, ValueError, TypeError):
+            pass
         tf.is_obligatoire=bool(request.POST.get("is_obligatoire")); tf.description=request.POST.get("description","")
         tf.periodicite=request.POST.get("periodicite",tf.periodicite)
-        tf.nombre_tranches=int(request.POST.get("nombre_tranches",tf.nombre_tranches) or 1)
+        try:
+            tf.nombre_tranches=max(1, int(request.POST.get("nombre_tranches",tf.nombre_tranches) or 1))
+        except (ValueError, TypeError):
+            pass
         # Permettre de lier/délier l'année active
         lier_annee=request.POST.get("lier_annee_active")
         if lier_annee=="oui" and annee_active and tf.annee is None:

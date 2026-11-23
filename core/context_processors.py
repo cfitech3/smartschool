@@ -44,12 +44,16 @@ def _build_sidebar_json(user, badge_values, etablissement=None):
         # Filtrage selon le type d'établissement
         if item_key == 'nav_notes_ue' and not is_superieur:
             continue  # Notes Université → supérieur seulement
-        if item_key in ('nav_notes', 'nav_bulletins') and is_superieur:
-            continue  # Bulletins → non-supérieur seulement
+        if item_key == 'nav_notes' and is_superieur:
+            continue  # Saisie notes secondaire → non-supérieur seulement
+
+        label = item.get('label', '')
+        if item_key == 'nav_bulletins' and is_superieur:
+            label = 'Bulletins / Relevés LMD'
 
         resolved = {
             'icon': item.get('icon', ''),
-            'label': item.get('label', ''),
+            'label': label,
         }
 
         # Résolution de l'URL

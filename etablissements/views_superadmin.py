@@ -3,21 +3,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
+from accounts.permissions import superadmin_required
 from .models import Etablissement, AnneeScolaire, JournalAction, ParametresReseau, Cycle, CycleActif
 from accounts.models import User
 from eleves.models import Eleve
 from finances.models import Paiement
 import datetime
-
-
-def superadmin_required(fn):
-    def w(request, *a, **k):
-        if not request.user.is_authenticated or request.user.role != 'super_admin':
-            messages.error(request, "Accès réservé au Super Administrateur.")
-            return redirect('dashboard')
-        return fn(request, *a, **k)
-    w.__name__ = fn.__name__
-    return w
 
 
 # ── CHANTIER 2 : Dashboard super admin enrichi ───────────────────────────────

@@ -40,7 +40,14 @@ def parametres(request):
         elif action=="params":
             params.devise=request.POST.get("devise","FCFA")
             params.type_periode=request.POST.get("type_periode","trimestre")
-            params.note_passage=request.POST.get("note_passage",10)
+            try:
+                np_val = float(str(request.POST.get("note_passage", "10")).replace(",", "."))
+                if not 0 <= np_val <= 20:
+                    raise ValueError
+                params.note_passage = np_val
+            except (TypeError, ValueError):
+                messages.error(request, "Note de passage invalide (entre 0 et 20).")
+                return redirect("parametres")
             params.entete_bulletin=request.POST.get("entete_bulletin","")
             params.pied_bulletin=request.POST.get("pied_bulletin","")
             params.save(); messages.success(request,"Parametres mis a jour.")
@@ -137,7 +144,11 @@ def parametres(request):
             except Exception as e:
                 messages.error(request, f"Erreur lors de la duplication : {e}")
         elif action=="niveau":
-            nom=request.POST.get("nom","").strip(); ordre=request.POST.get("ordre",0)
+            nom=request.POST.get("nom","").strip()
+            try:
+                ordre = int(request.POST.get("ordre") or 0)
+            except (TypeError, ValueError):
+                ordre = 0
             if nom:
                 Niveau.objects.get_or_create(etablissement=etab,nom=nom,defaults={"ordre":ordre})
                 messages.success(request,f"Niveau {nom} ajoute.")

@@ -22,22 +22,21 @@ def _redirection_sure(request):
         return cible
     return 'dashboard'
 
+def _login_rate_limit_state(request):
+    """Retourne (cache_key, attempts) pour le rate-limiting de connexion (IP + username)."""
+    from django.core.cache import cache
+    ip = request.META.get('REMOTE_ADDR') or 'unknown'
+    uname = (request.POST.get('username') or '').strip().lower()
+    cache_key = f'login_attempts_{ip}_{uname}'
+    return cache, cache_key, cache.get(cache_key, 0)
+
+
 def login_view(request):
-    if request.user.is_authenticated: return redirect('dashboard')
+    if request.user.is_authenticated:
+        return redirect('dashboard')
     if request.method == 'POST':
-        # P3.5 : Rate limiting sur le login
-        from django.core.cache import cache
         from django.middleware.csrf import rotate_token
-
-        # IP réelle du client — ne JAMAIS faire confiance à X-Forwarded-For
-        # fourni par le client (contournable). On utilise uniquement REMOTE_ADDR
-        # (adresse TCP vue par Django/Gunicorn). Si un proxy de confiance est en
-        # place, configurer SECURE_PROXY_SSL_HEADER et un middleware dédié.
-        ip = request.META.get('REMOTE_ADDR') or 'unknown'
-        uname = (request.POST.get('username') or '').strip().lower()
-
-        cache_key = f'login_attempts_{ip}_{uname}'
-        attempts = cache.get(cache_key, 0)
+        cache, cache_key, attempts = _login_rate_limit_state(request)
 
         if attempts >= 5:
             messages.error(request, 'Trop de tentatives infructueuses pour ce compte. Veuillez réessayer dans 15 minutes.')
@@ -45,34 +44,30 @@ def login_view(request):
 
         user = authenticate(request, username=request.POST.get('username'), password=request.POST.get('password'))
         if user:
-            cache.delete(cache_key)  # Réinitialiser après succès
+            cache.delete(cache_key)
             login(request, user)
-            rotate_token(request)    # ← Force un nouveau token CSRF après login
+            rotate_token(request)
             return redirect(_redirection_sure(request))
-        else:
-            cache.set(cache_key, attempts + 1, 900)  # Bloquer pendant 15 mins
-            messages.error(request, f'Identifiant ou mot de passe incorrect. ({4 - attempts} essais restants)')
+        cache.set(cache_key, attempts + 1, 900)
+        messages.error(request, f'Identifiant ou mot de passe incorrect. ({4 - attempts} essais restants)')
     return render(request, 'accounts/login.html', {})
 
+
 def login_portail(request, code_etab):
-    if request.user.is_authenticated: return redirect('dashboard')
+    if request.user.is_authenticated:
+        return redirect('dashboard')
     from etablissements.models import Etablissement
     from django.shortcuts import get_object_or_404
     etab = get_object_or_404(Etablissement, code__iexact=code_etab, is_active=True)
-    
+
     if request.method == 'POST':
-        # Same rate limiting logic (par IP + identifiant)
-        from django.core.cache import cache
         from django.middleware.csrf import rotate_token
-        ip = request.META.get('REMOTE_ADDR') or 'unknown'
-        uname = (request.POST.get('username') or '').strip().lower()
-        cache_key = f'login_attempts_{ip}_{uname}'
-        attempts = cache.get(cache_key, 0)
-        
+        cache, cache_key, attempts = _login_rate_limit_state(request)
+
         if attempts >= 5:
             messages.error(request, 'Trop de tentatives infructueuses pour ce compte. Veuillez réessayer dans 15 minutes.')
             return render(request, 'accounts/login.html', {'portail_etab': etab})
-            
+
         user = authenticate(request, username=request.POST.get('username'), password=request.POST.get('password'))
         if user:
             if user.role != 'super_admin' and user.etablissement_id != etab.pk:
@@ -83,10 +78,9 @@ def login_portail(request, code_etab):
             login(request, user)
             rotate_token(request)
             return redirect(_redirection_sure(request))
-        else:
-            cache.set(cache_key, attempts + 1, 900)
-            messages.error(request, f'Identifiant ou mot de passe incorrect. ({4 - attempts} essais restants)')
-            
+        cache.set(cache_key, attempts + 1, 900)
+        messages.error(request, f'Identifiant ou mot de passe incorrect. ({4 - attempts} essais restants)')
+
     return render(request, 'accounts/login.html', {'portail_etab': etab})
 
 @require_POST

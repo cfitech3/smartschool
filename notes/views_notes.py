@@ -1,24 +1,20 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from accounts.permissions import permission_required, role_required, is_etab_superieur, verifier_acces_bulletin
+from accounts.permissions import permission_required, role_required, is_etab_superieur, verifier_acces_bulletin, require_etab
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from .models import Matiere, Periode, NotePeriode, LogModificationNote, Composition
 from django.utils import timezone as dj_timezone
-from .services import calculer_bulletin
+from .services import (
+    calculer_bulletin,
+    enregistrer_log,
+    calculer_rangs_classe,
+    calculer_rangs_classe_composition,
+)
 from etablissements.models import Classe, AnneeScolaire, ModeleDocument, AffectationMatiere
 from eleves.models import Eleve
 from decimal import Decimal
 from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_eleves_actifs, get_inscriptions_actives
-
-
-def require_etab(fn):
-    def wrapper(request, *args, **kwargs):
-        if not request.etablissement:
-            return redirect('dashboard')
-        return fn(request, *args, **kwargs)
-    wrapper.__name__ = fn.__name__
-    return wrapper
 
 
 def peut_modifier_note(user, note_periode=None, matiere=None, classe=None, periode=None):
@@ -62,147 +58,6 @@ def peut_modifier_note(user, note_periode=None, matiere=None, classe=None, perio
     return False, "Acces non autorise."
 
 
-def enregistrer_log(note, user, champ, avant, apres):
-    """Crée un log de modification."""
-    LogModificationNote.objects.create(
-        note_periode=note,
-        modifie_par=user,
-        role_modifiant=user.role,
-        champ_modifie=champ,
-        valeur_avant=str(avant) if avant is not None else '',
-        valeur_apres=str(apres) if apres is not None else '',
-        notif_envoyee=True if user.is_enseignant or user.is_surveillant else False,
-    )
-
-
-def calculer_rangs_classe(classe, periode, matieres):
-    """
-    Calcule les rangs de tous les élèves d'une classe en O(n) — un seul batch SQL.
-
-    Au lieu de recalculer le bulletin de chaque élève individuellement (ce qui
-    génère N × M requêtes SQL pour N élèves et M matières), on charge toutes
-    les notes de la classe/période en une seule requête, puis on calcule
-    les moyennes et le classement entièrement en Python.
-
-    Retourne un dict : {eleve_pk: rang, ...}
-    Exemple : {42: 1, 17: 2, 35: 3, ...}
-    """
-    # Charger toutes les notes de la classe/période en un seul appel DB
-    toutes_notes = (
-        NotePeriode.objects
-        .filter(classe=classe, periode=periode)
-        .select_related('matiere')
-    )
-
-    # Indexer les notes par (eleve_pk, matiere_pk) pour un accès O(1)
-    index_notes = {(n.eleve_id, n.matiere_id): n for n in toutes_notes}
-
-    # Récupérer les élèves inscrits et actifs dans la classe
-    inscriptions = (
-        classe.inscriptions
-        .filter(is_active=True)
-        .select_related('eleve')
-        .only('eleve__id')
-    )
-
-    # Calculer la moyenne générale de chaque élève à partir de l'index
-    from .services import get_coefficients_map
-    coefs_map = get_coefficients_map(classe, matieres)
-    moyennes = []  # liste de (eleve_pk, moyenne_generale)
-    for insc in inscriptions:
-        eleve_pk = insc.eleve_id
-        total_coeffic = Decimal('0')
-        total_coef = 0
-
-        for mat in matieres:
-            note = index_notes.get((eleve_pk, mat.pk))
-            if note is not None:
-                coef = coefs_map.get(mat.pk, mat.coefficient)
-                note._coef_cache = coef
-                moy_finale = note.moyenne_finale
-                if moy_finale is not None:
-                    moy_coeff = round(moy_finale * coef, 2)
-                    total_coeffic += Decimal(str(moy_coeff))
-                    total_coef += coef
-
-        if total_coef > 0:
-            moy_gen = round(float(total_coeffic) / total_coef, 2)
-            moyennes.append((eleve_pk, moy_gen))
-
-    # Trier par moyenne décroissante pour attribuer les rangs (avec gestion des ex-aequo)
-    moyennes.sort(key=lambda x: x[1], reverse=True)
-
-    rangs = {}
-    prev_moy = None
-    prev_rang = 0
-    for idx, (eleve_pk, moy_val) in enumerate(moyennes, start=1):
-        if moy_val != prev_moy:
-            prev_rang = idx
-            prev_moy = moy_val
-        rangs[eleve_pk] = prev_rang
-    return rangs
-
-
-def calculer_rangs_classe_composition(classe, annee, numero, matieres):
-    """
-    Calcule les rangs de tous les élèves d'une classe pour UNE composition
-    du 1er cycle fondamental. Utilise le modèle Composition (/10) au lieu
-    de NotePeriode.
-
-    Retourne un dict : {eleve_pk: rang, ...}
-    """
-    from .models import Composition
-
-    # Charger toutes les compositions de la classe/annee/numero en un seul appel DB
-    toutes_compos = (
-        Composition.objects
-        .filter(classe=classe, annee=annee, numero=numero)
-        .select_related('matiere')
-    )
-
-    # Indexer par (eleve_pk, matiere_pk)
-    index_compos = {(c.eleve_id, c.matiere_id): c for c in toutes_compos}
-
-    # Récupérer les élèves inscrits
-    inscriptions = (
-        classe.inscriptions
-        .filter(is_active=True)
-        .select_related('eleve')
-        .only('eleve__id')
-    )
-
-    moyennes = []
-    for insc in inscriptions:
-        eleve_pk = insc.eleve_id
-        total_coeffic = Decimal('0')
-        total_coef = 0
-
-        for mat in matieres:
-            if mat.is_conduite:
-                continue
-            compo = index_compos.get((eleve_pk, mat.pk))
-            if compo and compo.note is not None:
-                note_sur_10 = round((float(compo.note) / float(compo.note_max)) * 10, 2)
-                total_coeffic += Decimal(str(note_sur_10))
-                total_coef += 1  # coef forcé à 1 pour le 1er cycle
-
-        if total_coef > 0:
-            moy_gen = round(float(total_coeffic) / total_coef, 2)
-            moyennes.append((eleve_pk, moy_gen))
-
-    moyennes.sort(key=lambda x: x[1], reverse=True)
-    rangs = {}
-    prev_moy = None
-    prev_rang = 0
-    for idx, (eleve_pk, moy_val) in enumerate(moyennes, start=1):
-        if moy_val != prev_moy:
-            prev_rang = idx
-            prev_moy = moy_val
-        rangs[eleve_pk] = prev_rang
-    return rangs
-
-
-
 @login_required
 @permission_required('notes')
 @require_etab
@@ -242,8 +97,8 @@ def saisie_notes_mali(request):
     numero_str = request.GET.get('numero')  # pour le 1er cycle
     matiere_id = request.GET.get('matiere')
 
-    classe  = get_object_or_404(classes, pk=classe_id) if (classe_id and classes) else None
-    matiere = get_object_or_404(Matiere, pk=matiere_id, etablissement=etab) if matiere_id else None
+    classe  = get_object_or_404(classes, pk=int(classe_id), etablissement=etab) if (classe_id and str(classe_id).isdigit() and classes) else None
+    matiere = get_object_or_404(Matiere, pk=int(matiere_id), etablissement=etab) if (matiere_id and str(matiere_id).isdigit()) else None
 
     # Détecter le cycle de la classe pour adapter le formulaire
     cycle = None
@@ -272,7 +127,7 @@ def saisie_notes_mali(request):
         periode = None  # pas de Periode pour le 1er cycle
     else:
         numero = None
-        periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab, annee=annee) if (periode_id and annee) else None
+        periode = get_object_or_404(Periode, pk=int(periode_id), etablissement=etab, annee=annee) if (periode_id and str(periode_id).isdigit() and annee) else None
 
     eleves_data = []
     # 1er cycle : charger les élèves si classe + matiere + numero valides
@@ -369,22 +224,22 @@ def saisie_notes_mali(request):
                         touche = True
 
                 # Chaque composition individuelle
-                for numero in compo_numeros:
-                    cc = request.POST.get(f'compo{numero}_{insc.eleve.pk}', '').strip()
+                for comp_num in compo_numeros:
+                    cc = request.POST.get(f'compo{comp_num}_{insc.eleve.pk}', '').strip()
                     if not cc:
                         continue
                     try:
                         val_cc = Decimal(cc.replace(',', '.'))
                     except InvalidOperation:
-                        messages.warning(request, f"Format Compo {numero} invalide pour {insc.eleve.nom_complet}.")
+                        messages.warning(request, f"Format Compo {comp_num} invalide pour {insc.eleve.nom_complet}.")
                         continue
                     if not (0 <= val_cc <= 10):
-                        messages.warning(request, f"Compo {numero} hors plage (0-10) ignorée pour {insc.eleve.nom_complet}.")
+                        messages.warning(request, f"Compo {comp_num} hors plage (0-10) ignorée pour {insc.eleve.nom_complet}.")
                         continue
                     # Lier la composition à l'année scolaire (pas à la période)
                     # et stocker avec note_max=10
                     Composition.objects.update_or_create(
-                        eleve=insc.eleve, matiere=matiere, classe=classe, annee=annee, numero=numero,
+                        eleve=insc.eleve, matiere=matiere, classe=classe, annee=annee, numero=comp_num,
                         defaults={'note': val_cc, 'note_max': 10, 'saisi_par': request.user},
                     )
                     touche = True
@@ -607,12 +462,99 @@ def releve_notes_classe(request):
 
     classe_id  = request.GET.get('classe')
     periode_id = request.GET.get('periode')
-    classe  = get_object_or_404(classes, pk=classe_id) if (classe_id and classes) else None
-    periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab, annee=annee) if (periode_id and annee) else None
+    numero_str = request.GET.get('numero')
+    classe  = get_object_or_404(classes, pk=classe_id, etablissement=etab) if (classe_id and classes) else None
+
+    # Détecter le cycle de la classe (ou de la 1ère classe disponible)
+    cycle = None
+    is_premier_cycle = False
+    is_universite = False
+    nb_compositions = 0
+    compo_numeros = []
+    cible_classe = classe or (classes.first() if hasattr(classes, 'first') else (classes[0] if classes else None))
+    if cible_classe and cible_classe.niveau and cible_classe.niveau.cycle:
+        cycle = cible_classe.niveau.cycle
+        is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+        is_universite = cycle.is_universite
+        if is_premier_cycle:
+            nb_compositions = cycle.nb_compositions_trimestre
+            compo_numeros = list(range(1, nb_compositions + 1))
+
+    if is_premier_cycle:
+        numero = int(numero_str) if (numero_str and numero_str.isdigit()) else (1 if classe else None)
+        periode = None
+    else:
+        numero = None
+        if periode_id and annee:
+            periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab, annee=annee)
+        elif classe and annee:
+            periode = periodes.filter(is_active=True).first() or periodes.first()
+            if periode:
+                periode_id = str(periode.pk)
+        else:
+            periode = None
 
     tableau = []
     matieres = []
-    if classe and periode:
+    if classe and is_premier_cycle and numero and annee:
+        from .services import get_matieres_pour_eleve, calculer_bulletin_composition
+        matieres = list(get_matieres_pour_eleve(None, annee, classe))
+        matieres = [m for m in matieres if not m.is_conduite]
+        inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve').order_by('eleve__nom')
+        resultats = []
+        for insc in inscriptions:
+            lignes, moy, _, _ = calculer_bulletin_composition(insc.eleve, annee, numero, matieres)
+            for l in lignes:
+                l['moyenne_finale'] = l['note']
+            resultats.append({'eleve': insc.eleve, 'moyenne': moy, 'lignes': lignes, 'rang': None})
+        resultats_avec_moy = [r for r in resultats if r['moyenne'] is not None]
+        resultats_avec_moy.sort(key=lambda x: x['moyenne'], reverse=True)
+        prev_moy, prev_rang = None, 0
+        for i, r in enumerate(resultats_avec_moy, 1):
+            if r['moyenne'] != prev_moy:
+                prev_rang = i
+                prev_moy = r['moyenne']
+            r['rang'] = prev_rang
+        tableau = resultats
+    elif classe and is_universite and periode:
+        from .models import NoteUE
+        toutes_notes_ue = list(
+            NoteUE.objects.filter(classe=classe, periode=periode)
+            .select_related('ue')
+            .order_by('ue__semestre', 'ue__code')
+        )
+        ues_seen = {}
+        index_ue = {}
+        for n in toutes_notes_ue:
+            if n.ue_id not in ues_seen:
+                ues_seen[n.ue_id] = type('UECol', (), {'pk': n.ue_id, 'nom': n.ue.code, 'libelle_complet': n.ue.nom, 'credits': n.ue.credits})()
+            index_ue[(n.eleve_id, n.ue_id)] = n
+        matieres = list(ues_seen.values())
+        inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve').order_by('eleve__nom')
+        resultats = []
+        for insc in inscriptions:
+            lignes = []
+            pts, creds = 0.0, 0
+            for ue_col in matieres:
+                n = index_ue.get((insc.eleve_id, ue_col.pk))
+                val = float(n.note_retenue) if (n and n.note_retenue is not None) else None
+                if val is not None:
+                    c = ue_col.credits or 1
+                    pts += val * c
+                    creds += c
+                lignes.append({'matiere': ue_col, 'moyenne_finale': val})
+            moy = round(pts / creds, 2) if creds > 0 else None
+            resultats.append({'eleve': insc.eleve, 'moyenne': moy, 'lignes': lignes, 'rang': None})
+        resultats_avec_moy = [r for r in resultats if r['moyenne'] is not None]
+        resultats_avec_moy.sort(key=lambda x: x['moyenne'], reverse=True)
+        prev_moy, prev_rang = None, 0
+        for i, r in enumerate(resultats_avec_moy, 1):
+            if r['moyenne'] != prev_moy:
+                prev_rang = i
+                prev_moy = r['moyenne']
+            r['rang'] = prev_rang
+        tableau = resultats
+    elif classe and periode:
         from .services import get_matieres_pour_classe, get_coefficients_map
         matieres = get_matieres_pour_classe(classe, periode)
         coefs_map = get_coefficients_map(classe, matieres)
@@ -641,6 +583,10 @@ def releve_notes_classe(request):
         'classe': classe, 'periode': periode,
         'tableau': tableau, 'matieres': matieres,
         'classe_id': classe_id, 'periode_id': periode_id,
+        'is_premier_cycle': is_premier_cycle,
+        'is_universite': is_universite,
+        'numero': numero,
+        'compo_numeros': compo_numeros,
     })
 
 
@@ -661,16 +607,18 @@ def bulletins_classe_mali(request):
     classe_id  = request.GET.get('classe')
     periode_id = request.GET.get('periode')
     numero_str = request.GET.get('numero')  # pour le 1er cycle
-    classe  = get_object_or_404(classes, pk=classe_id) if (classe_id and classes) else None
+    classe  = get_object_or_404(classes, pk=classe_id, etablissement=etab) if (classe_id and classes) else None
 
     # Détecter le cycle de la classe
     cycle = None
     is_premier_cycle = False
+    is_universite = False
     nb_compositions = 0
     compo_numeros = []
     if classe and classe.niveau and classe.niveau.cycle:
         cycle = classe.niveau.cycle
         is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+        is_universite = cycle.is_universite
         if is_premier_cycle:
             nb_compositions = cycle.nb_compositions_trimestre
             compo_numeros = list(range(1, nb_compositions + 1))
@@ -682,22 +630,35 @@ def bulletins_classe_mali(request):
         if premiere_classe and premiere_classe.niveau and premiere_classe.niveau.cycle:
             cycle = premiere_classe.niveau.cycle
             is_premier_cycle = cycle.is_premier_cycle and cycle.utilise_compositions_multiples
+            is_universite = cycle.is_universite
             if is_premier_cycle:
                 nb_compositions = cycle.nb_compositions_trimestre
                 compo_numeros = list(range(1, nb_compositions + 1))
 
-
-    # 1er cycle : utiliser 'numero', autres cycles : utiliser 'periode'
+    # 1er cycle : utiliser 'numero', autres cycles : utiliser 'periode' (avec pré-sélection auto si classe choisie)
     if is_premier_cycle:
-        numero = int(numero_str) if numero_str and numero_str.isdigit() else None
+        numero = int(numero_str) if (numero_str and numero_str.isdigit()) else (1 if classe else None)
         periode = None
     else:
         numero = None
-        periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab, annee=annee) if (periode_id and annee) else None
+        if periode_id and annee:
+            periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab, annee=annee)
+        elif classe and annee:
+            periode = periodes.filter(is_active=True).first() or periodes.first()
+            if periode:
+                periode_id = str(periode.pk)
+        else:
+            periode = None
 
     resultats = []
     moy_premier = None
-    modele_actif = ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()
+    if is_universite:
+        modele_actif = (
+            ModeleDocument.objects.filter(etablissement=etab, type_document='releve_notes', is_actif=True).first()
+            or ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()
+        )
+    else:
+        modele_actif = ModeleDocument.objects.filter(etablissement=etab, type_document='bulletin', is_actif=True).first()
 
     # 1er cycle : afficher si classe + numero valides
     peut_afficher = (
@@ -715,6 +676,47 @@ def bulletins_classe_mali(request):
             for insc in inscriptions:
                 _, moy, _, _ = calculer_bulletin_composition(insc.eleve, annee, numero, matieres)
                 resultats.append({'eleve': insc.eleve, 'moyenne': moy, 'rang': None})
+        elif is_universite and periode:
+            # Université (LMD) : calculer depuis NoteUE pondéré par les crédits ECTS (ue.credits)
+            from .models import NoteUE, UEUniversite
+            from .views_universite import _filtrer_ues_filiere
+            notes_par_eleve = {}
+            for n in NoteUE.objects.filter(classe=classe, periode=periode).select_related('ue'):
+                notes_par_eleve.setdefault(n.eleve_id, []).append(n)
+            cred_programme = 0
+            if classe.niveau and classe.niveau.cycle:
+                semestres_cibles = {n.ue.semestre for notes_el in notes_par_eleve.values() for n in notes_el}
+                ues_qs = UEUniversite.objects.filter(cycle=classe.niveau.cycle)
+                if semestres_cibles:
+                    ues_qs = ues_qs.filter(semestre__in=semestres_cibles)
+                elif getattr(classe, 'semestre_actif', None):
+                    ues_qs = ues_qs.filter(semestre=classe.semestre_actif)
+                ues_classe = _filtrer_ues_filiere(ues_qs, classe)
+                cred_programme = sum((u.credits or 1) for u in ues_classe)
+            for insc in inscriptions:
+                notes_el = notes_par_eleve.get(insc.eleve_id, [])
+                total_pts = 0.0
+                total_cred = 0
+                cred_valides = 0
+                cred_requis = 0
+                for n in notes_el:
+                    c = n.ue.credits or 1
+                    cred_requis += c
+                    if n.credits_valides:
+                        cred_valides += c
+                    if n.note_retenue is not None:
+                        total_pts += float(n.note_retenue) * c
+                        total_cred += c
+                if cred_programme > cred_requis:
+                    cred_requis = cred_programme
+                moy = round(total_pts / total_cred, 2) if total_cred > 0 else None
+                resultats.append({
+                    'eleve': insc.eleve,
+                    'moyenne': moy,
+                    'rang': None,
+                    'credits_valides': cred_valides,
+                    'credits_requis': cred_requis,
+                })
         else:
             # Autres cycles : NotePeriode classique en O(n)
             matieres = get_matieres_pour_classe(classe, periode)
@@ -746,6 +748,7 @@ def bulletins_classe_mali(request):
         'modele_actif': modele_actif,
         'classe_id': classe_id, 'periode_id': periode_id,
         'is_premier_cycle': is_premier_cycle,
+        'is_universite': is_universite,
         'annee': annee,
         'cycle': cycle,
         'numero': numero,
@@ -769,6 +772,11 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
     periode = get_object_or_404(Periode, pk=periode_pk, etablissement=etab)
     annee = periode.annee
     inscription = eleve.get_inscription_active()
+
+    # Si l'élève appartient au cycle Université, déléguer au relevé LMD
+    if inscription and inscription.classe.niveau and inscription.classe.niveau.cycle and inscription.classe.niveau.cycle.is_universite:
+        from .views_universite import releve_notes_lmd
+        return releve_notes_lmd(request, eleve_pk=eleve.pk, periode_pk=periode.pk)
     
     from .services import get_matieres_pour_eleve
     classe_pour_matieres = inscription.classe if inscription else None
@@ -812,7 +820,8 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
         elif moy_gen >= 6:  appre_dir = 'Travail Insuffisant'
         else:               appre_dir = 'Travail Tres Insuffisant'
 
-    return render(request, 'notes/bulletin_eleve.html', {
+    from core.verification_qr import construire_contexte_qr
+    ctx_bulletin = {
         'eleve': eleve, 'annee': annee, 'periode': periode,
         'etab': etab, 'modele': modele, 'inscription': inscription,
         'lignes': lignes, 'moy_generale': moy_gen,
@@ -820,7 +829,12 @@ def bulletin_eleve(request, eleve_pk, periode_pk, modele_pk=None):
         'rang': rang, 'effectif': effectif, 'moy_premier': moy_premier,
         'appre_directeur': appre_dir,
         'today': dj_timezone.now().date(),
-    })
+    }
+    ctx_bulletin.update(construire_contexte_qr(
+        request, 'bulletin', eleve, annee=annee, periode=periode,
+        extra={'moy': round(float(moy_gen), 2) if moy_gen is not None else None}
+    ))
+    return render(request, 'notes/bulletin_eleve.html', ctx_bulletin)
 
 
 @login_required
@@ -887,7 +901,8 @@ def bulletin_composition(request, eleve_pk, annee_pk, numero):
         elif moy_gen >= 3: appre_dir = 'Travail Insuffisant'
         else:              appre_dir = 'Travail Tres Insuffisant'
 
-    return render(request, 'notes/bulletin_composition.html', {
+    from core.verification_qr import construire_contexte_qr
+    ctx_compo = {
         'eleve': eleve, 'annee': annee,
         'etab': etab, 'modele': modele, 'inscription': inscription,
         'numero': numero, 'nb_compositions': cycle.nb_compositions_trimestre,
@@ -897,7 +912,12 @@ def bulletin_composition(request, eleve_pk, annee_pk, numero):
         'rang': rang, 'effectif': effectif, 'moy_premier': moy_premier,
         'appre_directeur': appre_dir,
         'today': dj_timezone.now().date(),
-    })
+    }
+    ctx_compo.update(construire_contexte_qr(
+        request, 'compo', eleve, annee=annee,
+        extra={'num': numero, 'moy': round(float(moy_gen), 2) if moy_gen is not None else None}
+    ))
+    return render(request, 'notes/bulletin_composition.html', ctx_compo)
 
 
 @login_required

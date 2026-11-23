@@ -1,0 +1,136 @@
+{% extends "base/base.html" %}
+{% block title %}Échéancier personnalisé — {{ eleve.nom_complet }}{% endblock %}
+{% block topbar_title %}Échéancier personnalisé{% endblock %}
+{% block nav_paiements %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'situation_eleve' eleve.pk %}" class="btn btn-outline btn-sm">← Retour</a>
+    <div>
+      <h1><i class="bi bi-calendar2-week"></i> {{ eleve.nom_complet }}</h1>
+      <div class="page-subtitle">{{ type_frais.nom }} — {{ annee.libelle }} — Rééchelonnement individuel du reste à payer</div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-grid" style="margin-bottom:16px;">
+  <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-tag-fill"></i></div><div class="stat-body"><div class="stat-value">{{ type_frais.montant_defaut|floatformat:0 }}</div><div class="stat-label">Tarif standard</div></div></div>
+  <div class="stat-card"><div class="stat-icon green"><i class="bi bi-gift-fill"></i></div><div class="stat-body"><div class="stat-value">{% if reduction %}{{ reduction.libelle_valeur }}{% else %}—{% endif %}</div><div class="stat-label">Bourse / réduction</div></div></div>
+  <div class="stat-card"><div class="stat-icon red"><i class="bi bi-bullseye"></i></div><div class="stat-body"><div class="stat-value">{{ net }}</div><div class="stat-label">Net à payer</div></div></div>
+  <div class="stat-card"><div class="stat-icon green"><i class="bi bi-check-circle-fill"></i></div><div class="stat-body"><div class="stat-value">{{ paye }}</div><div class="stat-label">Déjà réglé (tranches payées)</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-cash-stack"></i></div><div class="stat-body"><div class="stat-value">{{ reste }}</div><div class="stat-label">Reste à rééchelonner</div></div></div>
+</div>
+
+{% if payees %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title"><i class="bi bi-lock-fill"></i> Tranches déjà payées (verrouillées)</span></div>
+  <table class="table-modern">
+    <thead><tr><th>Tranche</th><th>Montant</th><th>Payée le</th></tr></thead>
+    <tbody>{% for e in payees %}<tr><td>{{ e.libelle }}</td><td>{{ e.montant|floatformat:0 }} F</td><td>{{ e.date_paiement|date:"d/m/Y" }}</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% endif %}
+
+<form method="post" id="form-ech">{% csrf_token %}
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+    <span class="card-title">Nouvelles tranches</span>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <label style="font-size:13px;">Découper en</label>
+      <input type="number" id="nb-auto" min="1" max="24" value="{{ lignes|length }}" class="form-control" style="width:70px;">
+      <label style="font-size:13px;">tranches, 1ʳᵉ échéance le</label>
+      <input type="date" id="date-auto" class="form-control" style="width:160px;">
+      <select id="pas-auto" class="form-control" style="width:130px;"><option value="1">mensuelles</option><option value="2">bimestrielles</option><option value="3">trimestrielles</option></select>
+      <button type="button" class="btn btn-outline btn-sm" id="btn-auto"><i class="bi bi-magic"></i> Répartir</button>
+    </div>
+  </div>
+  <div class="table-scroll-mobile" style="overflow-x:auto;">
+  <table class="table-modern" id="tbl">
+    <thead><tr><th style="width:40px;">#</th><th>Libellé</th><th>Montant (FCFA)</th><th>Date limite</th><th></th></tr></thead>
+    <tbody id="tbody">
+    {% for l in lignes %}
+      <tr>
+        <td class="num">{{ forloop.counter }}</td>
+        <td><input type="text" name="libelle" class="form-control" maxlength="50" value="{{ l.libelle }}"></td>
+        <td><input type="number" name="montant" class="form-control mt" min="0" step="1" value="{{ l.montant }}" required></td>
+        <td><input type="date" name="date_limite" class="form-control" value="{{ l.date_limite }}"></td>
+        <td><button type="button" class="btn btn-outline btn-sm del" style="color:var(--danger);"><i class="bi bi-x-lg"></i></button></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr>
+      <td></td>
+      <td><button type="button" class="btn btn-outline btn-sm" id="btn-add"><i class="bi bi-plus-lg"></i> Ajouter une tranche</button></td>
+      <td colspan="3"><strong>Total : <span id="tot">0</span> / {{ reste }} FCFA</strong> <span id="ecart" style="margin-left:8px;font-weight:700;"></span></td>
+    </tr></tfoot>
+  </table>
+  </div>
+  <div class="card-body">
+    <div class="form-group" style="margin:0;"><label class="form-label">Motif de l'accord (tracé dans le journal)</label>
+      <input type="text" name="motif" class="form-control" maxlength="200" placeholder="Ex : Accord avec le père le 10/11 — difficultés passagères">
+    </div>
+  </div>
+</div>
+<div class="card"><div class="card-body" style="display:flex;gap:10px;">
+  <button type="submit" class="btn btn-primary" id="btn-save"><i class="bi bi-check-circle-fill"></i> Enregistrer l'échéancier</button>
+  <a href="{% url 'situation_eleve' eleve.pk %}" class="btn btn-outline" style="margin-left:auto;">Annuler</a>
+</div></div>
+</form>
+
+<script>
+(function(){
+  const RESTE = {{ reste }}, OFFSET = {{ payees|length }};
+  const tbody = document.getElementById('tbody');
+  function renum(){
+    tbody.querySelectorAll('tr').forEach((tr,i) => tr.querySelector('.num').textContent = i+1);
+    total();
+  }
+  function total(){
+    let t = 0; tbody.querySelectorAll('.mt').forEach(i => t += parseInt(i.value||0));
+    document.getElementById('tot').textContent = t.toLocaleString('fr-FR');
+    const e = document.getElementById('ecart'), d = t - RESTE;
+    if (d === 0){ e.textContent = '✔ équilibré'; e.style.color = 'var(--success)'; }
+    else { e.textContent = (d > 0 ? '+' : '') + d.toLocaleString('fr-FR') + ' F d\'écart'; e.style.color = 'var(--danger)'; }
+    document.getElementById('btn-save').disabled = d !== 0;
+  }
+  function ligne(lib, m, d){
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td class="num"></td>'
+      + '<td><input type="text" name="libelle" class="form-control" maxlength="50"></td>'
+      + '<td><input type="number" name="montant" class="form-control mt" min="0" step="1" required></td>'
+      + '<td><input type="date" name="date_limite" class="form-control"></td>'
+      + '<td><button type="button" class="btn btn-outline btn-sm del" style="color:var(--danger);"><i class="bi bi-x-lg"></i></button></td>';
+    tr.querySelector('[name=libelle]').value = lib;
+    tr.querySelector('[name=montant]').value = m;
+    tr.querySelector('[name=date_limite]').value = d || '';
+    tbody.appendChild(tr);
+  }
+  tbody.addEventListener('input', total);
+  tbody.addEventListener('click', ev => {
+    const b = ev.target.closest('.del'); if (!b) return;
+    if (tbody.querySelectorAll('tr').length > 1){ b.closest('tr').remove(); renum(); }
+  });
+  document.getElementById('btn-add').addEventListener('click', () => {
+    const n = tbody.querySelectorAll('tr').length + 1;
+    ligne('Tranche ' + (OFFSET + n), 0, ''); renum();
+  });
+  document.getElementById('btn-auto').addEventListener('click', () => {
+    const n = Math.max(1, Math.min(24, parseInt(document.getElementById('nb-auto').value || 1)));
+    const d0 = document.getElementById('date-auto').value;
+    const pas = parseInt(document.getElementById('pas-auto').value);
+    const base = Math.floor(RESTE / n);
+    tbody.innerHTML = '';
+    for (let i = 0; i < n; i++){
+      let d = '';
+      if (d0){
+        const dt = new Date(d0 + 'T00:00:00'); dt.setMonth(dt.getMonth() + i * pas);
+        d = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+      }
+      ligne('Tranche ' + (OFFSET + i + 1), i === n-1 ? RESTE - base*(n-1) : base, d);
+    }
+    renum();
+  });
+  renum();
+})();
+</script>
+{% endblock %}

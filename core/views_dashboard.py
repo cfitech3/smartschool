@@ -31,6 +31,13 @@ def dashboard(request):
 
     # ── SUPER ADMIN ──────────────────────────────────────────
     if role == 'super_admin':
+        if request.GET.get('vue') == 'global':
+            request.session['superadmin_vue_locale'] = False
+        elif request.GET.get('vue') == 'local':
+            request.session['superadmin_vue_locale'] = True
+        if request.session.get('superadmin_vue_locale') and etab:
+            annee = AnneeScolaire.objects.filter(etablissement=etab, is_active=True).first()
+            return _dashboard_admin(request, etab, annee, today)
         return _dashboard_super_admin(request, today)
 
     if not etab:
@@ -179,7 +186,7 @@ def _dashboard_admin(request, etab, annee, today):
         from notes.models import MessageFamille
         stats['nb_messages'] = MessageFamille.objects.filter(
             destinataire_role__in=['directeur', 'administration'], statut='non_lu',
-            expediteur__etablissement=etab
+            etablissement=etab
         ).count()
     except ImportError:
         logger.warning("Modèle MessageFamille non disponible")
@@ -244,7 +251,7 @@ def _dashboard_secretariat(request, etab, annee, today):
             eleve__etablissement=etab, statut='en_attente'
         ).count()
         stats['nb_messages'] = MessageFamille.objects.filter(
-            expediteur__etablissement=etab, statut='non_lu'
+            etablissement=etab, statut='non_lu'
         ).count()
     except ImportError:
         logger.warning("Modèles Reclamation/MessageFamille non disponibles (secrétariat)")
@@ -334,13 +341,14 @@ def _dashboard_comptable(request, etab, today):
         date_paiement__month=today.month, date_paiement__year=today.year
     ).values('type_frais__nom').annotate(total=Sum('montant')).order_by('-total')
 
-    alertes = get_alertes_etablissement(etab, None, request.user)
+    alertes = get_alertes_etablissement(etab, annee, request.user)
     # Générer notifications impayés (lazy — une fois par jour max)
     try:
         from finances.views_impayes import creer_notifications_impayes
         creer_notifications_impayes(etab, annee)
     except Exception:
-        pass
+        import logging
+        logging.getLogger(__name__).warning("Échec génération notifications impayés (etab=%s)", getattr(etab, 'pk', None), exc_info=True)
 
     return render(request, 'core/dashboard_comptable.html', {
         'stats': stats, 'paiements_recent': paiements_recent,
@@ -352,18 +360,24 @@ def _dashboard_comptable(request, etab, today):
 # ══════════════════════════════════════════════════════════════
 def _dashboard_enseignant(request, etab, annee, today):
     user = request.user
-    # Classes où ce prof enseigne (via EmploiDuTemps)
+    # Classes où ce prof enseigne (via EmploiDuTemps ou AffectationMatiere)
     edt_prof = EmploiDuTemps.objects.filter(
         enseignant=user, classe__etablissement=etab
     ).select_related('classe', 'matiere', 'classe__niveau')
     if annee:
         edt_prof = edt_prof.filter(classe__annee=annee)
 
-    # Reconstruire les "affectations" depuis l'EDT (classe + matière uniques)
-    from django.db.models import Count as DjCount
-    affectations_qs = edt_prof.values('classe__id','classe__nom','classe__niveau__nom','matiere__id','matiere__nom','matiere__coefficient').distinct()
-    # Construire une liste simple pour le template
-    affectations = list(affectations_qs)
+    # Reconstruire les "affectations" depuis l'EDT (classe + matière uniques), avec repli sur AffectationMatiere
+    affectations = list(
+        edt_prof.values('classe__id', 'classe__nom', 'classe__niveau__nom', 'matiere__id', 'matiere__nom', 'matiere__coefficient').distinct()
+    )
+    if not affectations and annee:
+        from etablissements.models import AffectationMatiere
+        affectations = list(
+            AffectationMatiere.objects.filter(enseignant__user=user, annee=annee)
+            .values('classe__id', 'classe__nom', 'classe__niveau__nom', 'matiere__id', 'matiere__nom', 'matiere__coefficient')
+            .distinct()
+        )
     classes_ids  = list(set(a['classe__id'] for a in affectations))
 
     stats = {}
@@ -373,13 +387,13 @@ def _dashboard_enseignant(request, etab, annee, today):
         classe__in=classes_ids, is_active=True
     ).values('eleve_id').distinct().count() if classes_ids else 0  # Fix: élèves uniques
 
-    # Notes saisies vs à saisir
-    periode = None
-    from notes.models import Periode
+    # Notes saisies vs à saisir (NotePeriode + NoteUE + Composition)
+    from notes.models import Periode, NoteUE, Composition
     periode = Periode.objects.filter(etablissement=etab, is_active=True).first()
-    stats['notes_saisies'] = NotePeriode.objects.filter(
-        saisi_par=user, periode=periode
-    ).count() if periode else 0
+    nb_np = NotePeriode.objects.filter(saisi_par=user, periode=periode).count() if periode else 0
+    nb_ue = NoteUE.objects.filter(saisi_par=user, periode=periode).count() if periode else 0
+    nb_co = Composition.objects.filter(saisi_par=user, annee=annee).count() if annee else 0
+    stats['notes_saisies'] = nb_np + nb_ue + nb_co
 
     # Emploi du temps de ce prof aujourd'hui
     jour_map = {0:'lundi',1:'mardi',2:'mercredi',3:'jeudi',4:'vendredi',5:'samedi',6:'dimanche'}

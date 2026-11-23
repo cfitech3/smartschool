@@ -1,14 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from accounts.permissions import admin_etab_required as req_admin
 from .models import ModeleDocument
-
-def req_admin(fn):
-    def w(request, *a, **k):
-        if not request.user.is_admin or not request.etablissement:
-            return redirect("dashboard")
-        return fn(request, *a, **k)
-    w.__name__ = fn.__name__; return w
 
 def _sauvegarder_modele(request, modele):
     for f in ["nom","ligne1_gauche","ligne2_gauche","ligne3_gauche","ligne1_droite","ligne2_droite","ligne3_droite","nom_etablissement_custom","titre_document","couleur_titre_bg","couleur_titre_texte","couleur_tableau_header","couleur_bordure","police","label_signature_gauche","label_signature_droite","texte_pied_page","couleur_accent_recu","format_recu","contenu_personnalise","entete_personnalise","pied_personnalise"]:
@@ -62,6 +56,8 @@ def creer_modele(request, type_doc=None):
         nom = request.POST.get("nom","").strip()
         td  = request.POST.get("type_document", type_doc or "bulletin")
         if not nom: messages.error(request,"Nom obligatoire.")
+        elif ModeleDocument.objects.filter(etablissement=etab, type_document=td, nom=nom).exists():
+            messages.error(request, f"Un modèle '{nom}' existe déjà pour ce type de document.")
         else:
             modele = ModeleDocument(etablissement=etab, type_document=td, nom=nom)
             _defaults(modele, td, etab); modele.save()
@@ -81,6 +77,12 @@ def modifier_modele(request, pk):
         if request.POST.get("action")=="supprimer":
             modele.delete(); messages.success(request,"Modele supprime.")
             return redirect("liste_modeles")
+        nouv_nom = request.POST.get("nom", modele.nom).strip()
+        if nouv_nom and ModeleDocument.objects.filter(
+            etablissement=etab, type_document=modele.type_document, nom=nouv_nom
+        ).exclude(pk=modele.pk).exists():
+            messages.error(request, f"Un modèle '{nouv_nom}' existe déjà pour ce type de document.")
+            return redirect("modifier_modele", pk=modele.pk)
         _sauvegarder_modele(request, modele)
         messages.success(request, f"'{modele.nom}' mis a jour.")
         return redirect("modifier_modele", pk=modele.pk)
@@ -91,6 +93,8 @@ def modifier_modele(request, pk):
 @login_required
 @req_admin
 def activer_modele(request, pk):
+    if request.method != "POST":
+        return redirect("liste_modeles")
     etab = request.etablissement
     m = get_object_or_404(ModeleDocument, pk=pk, etablissement=etab)
     ModeleDocument.objects.filter(etablissement=etab, type_document=m.type_document).update(is_actif=False)

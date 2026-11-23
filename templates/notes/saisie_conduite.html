@@ -18,7 +18,7 @@
 </form></div></div>
 
 {% if eleves_data %}
-<div class="alert alert-info"><i class="bi bi-lightbulb-fill"></i> La note de conduite est sur <strong>20</strong>. Elle apparaîtra sur le bulletin avec la mention <i class="bi bi-circle-fill text-primary"></i>. La suggestion est calculee automatiquement selon les absences.</div>
+<div class="alert alert-info"><i class="bi bi-lightbulb-fill"></i> La note de conduite est sur <strong>18</strong>. Elle apparaîtra sur le bulletin avec la mention <i class="bi bi-circle-fill text-primary"></i>. La suggestion est calculee automatiquement selon les absences.</div>
 <form method="post">{% csrf_token %}
 <div class="card">
   <div class="card-header">
@@ -32,7 +32,7 @@
       <th style="text-align:center;">Absences</th>
       <th style="text-align:center;">Retards</th>
       <th style="text-align:center;">Suggestion</th>
-      <th style="text-align:center;min-width:140px;">Note conduite /20</th>
+      <th style="text-align:center;min-width:140px;">Note conduite /18</th>
       <th style="text-align:center;">Appreciation</th>
     </tr>
   </thead>
@@ -54,7 +54,7 @@
     </td>
     <td style="text-align:center;"><span class="badge badge-info">{{ item.nb_retards }}</span></td>
     <td style="text-align:center;">
-      <button type="button" onclick="setSuggestion('{{ item.eleve.pk }}', {{ item.conduite_suggeree }})" style="background:rgba(1,87,155,0.1);border:1px solid var(--info);color:var(--info);padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">{{ item.conduite_suggeree }}/20</button>
+      <button type="button" onclick="setSuggestion('{{ item.eleve.pk }}', {{ item.conduite_suggeree }})" style="background:rgba(1,87,155,0.1);border:1px solid var(--info);color:var(--info);padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">{{ item.conduite_suggeree }}/18</button>
     </td>
     <td style="text-align:center;">
       <input type="number" name="nc_{{ item.eleve.pk }}" id="nc_{{ item.eleve.pk }}" class="form-control" style="width:100px;margin:0 auto;text-align:center;font-weight:700;font-size:16px;" min="0" max="18" step="0.5"

@@ -51,7 +51,7 @@ _ALPHABET_MDP = (
 )
 
 
-def _generer_mot_de_passe(longueur=10):
+def _generer_mot_de_passe(longueur=12):
     """
     Génère un mot de passe aléatoire et cryptographiquement sûr.
 
@@ -300,9 +300,12 @@ def liste_utilisateurs(request):
                 messages.success(request, f"Utilisateur '{u.get_full_name()}' créé avec le rôle {u.get_role_display()}.")
 
         elif action == 'changer_mdp':
-            u_pk = request.POST.get('user_pk')
+            u_pk = request.POST.get('user_pk', '')
             nouveau_mdp = request.POST.get('nouveau_mdp', '').strip()
-            u = get_object_or_404(User, pk=u_pk, etablissement=etab)
+            if not str(u_pk).isdigit():
+                messages.error(request, "Utilisateur invalide.")
+                return redirect(request.path)
+            u = get_object_or_404(User, pk=int(u_pk), etablissement=etab)
             if not _peut_gerer_compte(request.user, u):
                 messages.error(request, "Action non autorisée sur ce compte.")
             elif not nouveau_mdp:
@@ -316,17 +319,17 @@ def liste_utilisateurs(request):
                 messages.success(request, f"Mot de passe modifié pour {u.get_full_name()}.")
 
         elif action == 'modifier_user':
-            u_pk      = request.POST.get('user_pk')
+            u_pk      = request.POST.get('user_pk', '')
             prenom    = request.POST.get('prenom', '').strip()
             nom       = request.POST.get('nom', '').strip()
             username  = request.POST.get('username', '').strip()
             role      = request.POST.get('role', '').strip()
-            if not (u_pk and prenom and nom and username and role in ROLES_STAFF):
+            if not (str(u_pk).isdigit() and prenom and nom and username and role in ROLES_STAFF):
                 messages.error(request, "Tous les champs sont obligatoires et le rôle doit être valide.")
             elif not re.match(r'^[\w.@+-]+$', username):
                 messages.error(request, "Identifiant invalide. Utilisez uniquement lettres, chiffres et @/./+/-/_")
             else:
-                u = get_object_or_404(User, pk=u_pk, etablissement=etab)
+                u = get_object_or_404(User, pk=int(u_pk), etablissement=etab)
                 if not _peut_gerer_compte(request.user, u):
                     messages.error(request, "Action non autorisée sur ce compte.")
                 elif u.pk == request.user.pk and role != u.role:
@@ -342,8 +345,11 @@ def liste_utilisateurs(request):
                     messages.success(request, f"Utilisateur '{u.get_full_name()}' modifié avec succès.")
 
         elif action == 'toggle_actif':
-            u_pk = request.POST.get('user_pk')
-            u = get_object_or_404(User, pk=u_pk, etablissement=etab)
+            u_pk = request.POST.get('user_pk', '')
+            if not str(u_pk).isdigit():
+                messages.error(request, "Utilisateur invalide.")
+                return redirect(request.path)
+            u = get_object_or_404(User, pk=int(u_pk), etablissement=etab)
             if u == request.user:
                 messages.error(request, "Vous ne pouvez pas désactiver votre propre compte.")
             elif not _peut_gerer_compte(request.user, u):
@@ -369,6 +375,8 @@ def se_connecter_comme(request, user_pk):
     Mode espionnage : permet au super_admin de se connecter en tant qu'un autre utilisateur.
     L'identifiant original est sauvegardé en session pour permettre le retour.
     """
+    if request.method != 'POST':
+        return redirect('liste_utilisateurs')
     if request.user.role != 'super_admin':
         messages.error(request, "Accès réservé au Super Administrateur.")
         return redirect('liste_utilisateurs')
@@ -385,6 +393,12 @@ def se_connecter_comme(request, user_pk):
 
     original_pk = request.user.pk
     etab_id = request.session.get('etablissement_id')
+
+    from etablissements.models import JournalAction
+    JournalAction.log(
+        request, 'autre', cible=cible.username, etablissement=cible.etablissement,
+        detail=f"Entrée mode espionnage par {request.user.username} sur {cible.username}",
+    )
 
     # auth_login() vide la session lors d'un changement d'utilisateur :
     # on écrit donc la clé d'espionnage APRÈS la connexion.
@@ -416,6 +430,12 @@ def quitter_espionnage(request):
 
     original.backend = 'django.contrib.auth.backends.ModelBackend'
     auth_login(request, original)
+
+    from etablissements.models import JournalAction
+    JournalAction.log(
+        request, 'autre', cible=original.username,
+        detail=f"Sortie mode espionnage vers {original.username}",
+    )
 
     messages.success(request, f"Mode espionnage terminé. Bienvenue à nouveau, {original.get_full_name() or original.username}.")
     return redirect('liste_utilisateurs')

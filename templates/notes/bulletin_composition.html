@@ -151,6 +151,7 @@
     <div class="sign-bloc"><div>{{ modele.label_signature_gauche|default:"Le Directeur" }}</div><div class="sign-ligne">Signature et cachet</div></div>
     <div class="sign-bloc"><div>{{ modele.label_signature_droite|default:"Le Parent ou Tuteur" }}</div><div class="sign-ligne">Signature</div></div>
   </div>
+  {% include "core/_bloc_qr_signature.html" %}
 
   <div class="pied">Bamako, le {{ today|date:"d F Y" }}</div>
 </div>

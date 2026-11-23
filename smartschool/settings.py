@@ -12,6 +12,7 @@ Variables requises en production (DEBUG=False) :
                       Si absente, SQLite est utilisé (dev uniquement, non recommandé en prod)
 """
 import os
+import sys
 from pathlib import Path
 from urllib.parse import urlparse, unquote, parse_qs
 from django.core.exceptions import ImproperlyConfigured
@@ -330,3 +331,7 @@ WHATSAPP_API_PROVIDER = os.environ.get("WHATSAPP_API_PROVIDER", "dummy")
 WHATSAPP_API_URL = os.environ.get("WHATSAPP_API_URL", "")
 WHATSAPP_API_TOKEN = os.environ.get("WHATSAPP_API_TOKEN", "")
 WHATSAPP_INSTANCE_ID = os.environ.get("WHATSAPP_INSTANCE_ID", "")
+
+# ── Optimisation des tests unitaires ──────────────────────────────────────────
+if 'test' in sys.argv:
+    PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']

@@ -7,7 +7,9 @@
 <div class="page-header">
   <a href="{% url 'espace_eleve_detail' eleve.pk %}" class="btn btn-outline btn-sm" style="margin-bottom:10px;">← Retour</a>
   <div><h1><i class="bi bi-journal-text"></i> Notes</h1></div>
-  {% if is_universite %}
+  {% if is_universite and periode %}
+    <a href="{% url 'espace_bulletin' eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-text"></i> Relevé LMD</a>
+  {% elif is_universite %}
     <a href="{% url 'espace_bulletin' eleve.pk 1 %}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-text"></i> Relevé LMD</a>
   {% elif is_premier_cycle %}
     <a href="{% url 'espace_bulletin' eleve.pk numero %}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-text"></i> Bulletin</a>
@@ -16,8 +18,7 @@
   {% endif %}
 </div>
 
-{% if not is_universite %}
-<!-- Sélecteur de période -->
+<!-- Sélecteur de période / composition -->
 <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:12px 16px;">
   <form method="get"><select name="{% if is_premier_cycle %}numero{% else %}periode{% endif %}" class="form-control" onchange="this.form.submit()" style="max-width:260px;">
   {% if is_premier_cycle %}
@@ -29,7 +30,6 @@
   {% endif %}
   </select></form>
 </div></div>
-{% endif %}
 
 {% if lignes %}
 <!-- Bandeau moyenne générale -->

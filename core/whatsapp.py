@@ -41,24 +41,23 @@ def send_whatsapp_message(telephone, message):
             logger.error("Configuration WhatsApp UltraMsg incomplète.")
             return False
 
-        endpoint = f"{url}/{instance_id}/messages/chat"
+        endpoint = f"{url.rstrip('/')}/{instance_id}/messages/chat"
+        parsed = urllib.parse.urlparse(endpoint)
+        allowed_schemes = ('https', 'http') if getattr(settings, 'DEBUG', False) else ('https',)
+        if parsed.scheme not in allowed_schemes or not parsed.netloc:
+            logger.error("URL WhatsApp UltraMsg invalide ou non sécurisée : %s", endpoint)
+            return False
+
         payload = {
             "token": token,
             "to": phone_clean,
             "body": message
         }
         try:
-            try:
-                import requests
-                response = requests.post(endpoint, data=payload, timeout=10)
-                status_code = response.status_code
-                resp_text = response.text
-            except ImportError:
-                data = urllib.parse.urlencode(payload).encode('utf-8')
-                req = urllib.request.Request(endpoint, data=data, method='POST')
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    status_code = resp.status
-                    resp_text = resp.read().decode('utf-8', errors='replace')
+            import requests
+            response = requests.post(endpoint, data=payload, timeout=10)
+            status_code = response.status_code
+            resp_text = response.text
 
             if status_code == 200:
                 logger.info(f"WhatsApp UltraMsg envoyé à {phone_clean}")

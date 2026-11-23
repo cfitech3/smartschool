@@ -288,3 +288,49 @@ class TestReductionFrais(TestCase):
                 annee=self.annee, type_frais=self.tf,
                 montant=Decimal("10000"),
             )
+
+
+class TestAnnulationPaiementPartielEcheance(TestCase):
+    """Régression P0 : annuler un paiement partiel antérieur doit resynchroniser l'échéance."""
+
+    def setUp(self):
+        from django.urls import reverse
+        self.reverse = reverse
+        self.etab, self.annee, self.tf = _setup_base("PART")
+        self.comptable = _creer_admin(self.etab, "cpt_part")
+        self.eleve = _creer_eleve(self.etab)
+
+    def test_annulation_premier_paiement_partiel_remet_echeance_a_payer(self):
+        from finances.models import Echeance, Paiement
+        ech = Echeance.objects.create(
+            etablissement=self.etab, eleve=self.eleve,
+            annee=self.annee, type_frais=self.tf,
+            numero=1, libelle="Tranche 1", montant=Decimal("50000"),
+            statut="a_payer",
+        )
+        self.client.force_login(self.comptable)
+
+        # Deux paiements partiels de 25 000 F chacun
+        for _ in range(2):
+            resp = self.client.post(self.reverse("enregistrer_paiement"), {
+                "eleve": self.eleve.pk,
+                "type_frais": self.tf.pk,
+                "montant": "25000",
+                "mode_paiement": "especes",
+                "periode_payee": "",
+            })
+            self.assertEqual(resp.status_code, 302)
+
+        ech.refresh_from_db()
+        self.assertEqual(ech.statut, "payee")
+
+        # Annuler le PREMIER paiement (celui auquel ech.paiement ne pointe pas)
+        premier_paiement = Paiement.objects.filter(eleve=self.eleve).order_by("pk").first()
+        resp = self.client.post(self.reverse("annuler_paiement", kwargs={"pk": premier_paiement.pk}), {
+            "motif_annulation": "Double saisie",
+        })
+        self.assertEqual(resp.status_code, 302)
+
+        ech.refresh_from_db()
+        self.assertEqual(ech.statut, "a_payer")
+        self.assertIsNone(ech.paiement)

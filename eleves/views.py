@@ -1,4 +1,4 @@
-from accounts.permissions import permission_required
+from accounts.permissions import permission_required, require_etab as req
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -9,12 +9,6 @@ from .models import Eleve, Tuteur, Inscription
 from etablissements.models import Classe, AnneeScolaire, Niveau
 from .forms import EleveForm, InscriptionForm, TuteurForm
 from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_eleves_actifs, get_inscriptions_actives
-
-def req(fn):
-    def w(request,*a,**k):
-        if not request.etablissement: return redirect("dashboard")
-        return fn(request,*a,**k)
-    w.__name__=fn.__name__; return w
 
 @login_required
 @permission_required('eleves')

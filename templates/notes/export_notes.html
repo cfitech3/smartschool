@@ -1,0 +1,597 @@
+{% extends "base/base.html" %}
+{% block title %}Exportation & Filtrage des Notes{% endblock %}
+{% block topbar_title %}Centre d'Exportation & Filtrage des Notes{% endblock %}
+{% block nav_export_notes %}active{% endblock %}
+{% block extra_css %}
+<style>
+.fiche-officielle {
+  background: var(--card-bg, #fff);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 26px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 10px rgba(15, 41, 66, 0.05);
+}
+.fiche-entete-top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: center;
+  border-bottom: 3px solid var(--primary);
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.fiche-entete-droite {
+  text-align: right;
+}
+.fiche-etab-nom {
+  text-align: center;
+  font-size: 17px;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: var(--primary);
+  letter-spacing: 0.5px;
+}
+.fiche-etab-coords {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.fiche-titre-bandeau {
+  background: linear-gradient(135deg, #0F2942 0%, var(--primary) 100%);
+  color: #fff;
+  text-align: center;
+  padding: 9px 14px;
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  border-radius: 6px;
+  margin: 12px 0 14px;
+}
+.fiche-cartouche {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 18px;
+  padding: 12px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.fiche-cartouche-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fiche-cartouche-lbl {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.fiche-cartouche-val {
+  font-weight: 800;
+  color: var(--text);
+  font-size: 13px;
+}
+.fiche-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding: 16px 24px 8px;
+  border-top: 1px dashed var(--border);
+  font-size: 12.5px;
+}
+.fiche-sign-bloc {
+  text-align: center;
+  min-width: 200px;
+}
+.fiche-sign-ligne {
+  margin-top: 42px;
+  border-top: 1px solid var(--text-muted);
+  padding-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+@media (max-width: 768px) {
+  .fiche-entete-top { grid-template-columns: 1fr; text-align: center; }
+  .fiche-entete-droite { text-align: center; }
+  .fiche-cartouche { grid-template-columns: 1fr; }
+}
+@media print {
+  .no-print, .sidebar, .topbar, .page-header { display: none !important; }
+  .main-content, .content-area { margin: 0 !important; padding: 0 !important; }
+  .fiche-officielle { border: none; box-shadow: none; padding: 0; margin-bottom: 12px; }
+  .card { border: 1px solid #cbd5e1 !important; box-shadow: none !important; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header no-print">
+  <div>
+    <h1><i class="bi bi-file-earmark-spreadsheet-fill"></i> Exportation & Filtrage des Notes</h1>
+    <div class="page-subtitle">
+      {% if annee %}{{ annee.libelle }} — {% endif %}
+      Analyse multicritère par classe, par matière/UE, statut et seuils de moyenne
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" onclick="exporterFormat('xlsx_detail')" class="btn btn-primary">
+      <i class="bi bi-file-earmark-excel-fill"></i> Excel Détaillé (Matière / UE)
+    </button>
+    <button type="button" onclick="exporterFormat('xlsx_multi')" class="btn btn-outline" style="border-color:var(--primary);color:var(--primary);font-weight:700;">
+      <i class="bi bi-collection-fill"></i> Classeur Multi-Feuilles (Délibération)
+    </button>
+    <button type="button" onclick="exporterFormat('csv')" class="btn btn-outline">
+      <i class="bi bi-filetype-csv"></i> CSV
+    </button>
+    <button type="button" onclick="window.print()" class="btn btn-outline">
+      <i class="bi bi-printer-fill"></i> Imprimer la fiche
+    </button>
+  </div>
+</div>
+
+<!-- Panneau de filtres multicritères (masqué à l'impression) -->
+<div class="card no-print" style="margin-bottom:16px;">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <span class="card-title"><i class="bi bi-funnel-fill"></i> Filtres d'analyse et d'exportation</span>
+    <a href="{% url 'export_notes' %}" class="btn btn-outline btn-sm">Réinitialiser</a>
+  </div>
+  <div class="card-body" style="padding:16px;">
+    <form method="get" id="form-export-notes">
+      <input type="hidden" name="format" id="input-format" value="">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+        <!-- Classe -->
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Classe</label>
+          <select name="classe" class="form-control" onchange="SoumettreSansExport()">
+            <option value="">-- Toutes les classes --</option>
+            {% for c in classes %}
+            <option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>
+              {{ c.nom }} — {{ c.niveau.nom }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Période ou Composition -->
+        {% if is_premier_cycle %}
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">N° Composition (/10)</label>
+          <select name="numero" class="form-control" onchange="SoumettreSansExport()">
+            {% for n in compo_numeros %}
+            <option value="{{ n }}"{% if numero == n %} selected{% endif %}>
+              Composition {{ n }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% else %}
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Période / Semestre</label>
+          <select name="periode" class="form-control" onchange="SoumettreSansExport()">
+            {% for p in periodes %}
+            <option value="{{ p.pk }}"{% if periode_id == p.pk|stringformat:"s" %} selected{% endif %}>
+              {{ p.libelle }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <!-- Matière ou UE -->
+        {% if is_universite %}
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Semestre LMD</label>
+          <select name="semestre" class="form-control" onchange="SoumettreSansExport()">
+            <option value="">-- Auto (selon période) --</option>
+            {% for s in semestres_disponibles %}
+            <option value="{{ s }}"{% if semestre_str == s|stringformat:"s" %} selected{% endif %}>
+              Semestre {{ s }} (S{{ s }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Unité d'Enseignement (UE)</label>
+          <select name="ue" class="form-control" onchange="SoumettreSansExport()">
+            <option value="">-- Toutes les UEs --</option>
+            {% for u in ues_disponibles %}
+            <option value="{{ u.pk }}"{% if ue_id == u.pk|stringformat:"s" %} selected{% endif %}>
+              {{ u.code }} — {{ u.nom }} ({{ u.credits }} cr.)
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% else %}
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Matière</label>
+          <select name="matiere" class="form-control" onchange="SoumettreSansExport()">
+            <option value="">-- Toutes les matières --</option>
+            {% for m in matieres_disponibles %}
+            <option value="{{ m.pk }}"{% if matiere_id == m.pk|stringformat:"s" %} selected{% endif %}>
+              {{ m.nom }} (coef. {{ m.coefficient }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <!-- Statut -->
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Statut / Résultat</label>
+          <select name="statut" class="form-control" onchange="SoumettreSansExport()">
+            <option value="">-- Tous les élèves --</option>
+            <option value="admis"{% if statut == 'admis' %} selected{% endif %}>
+              Admis / Validés uniquement
+            </option>
+            <option value="ajourne"{% if statut == 'ajourne' %} selected{% endif %}>
+              Ajournés / Insuffisants
+            </option>
+            <option value="rattrapage"{% if statut == 'rattrapage' %} selected{% endif %}>
+              En rattrapage / Proches moyenne
+            </option>
+            <option value="manquant"{% if statut == 'manquant' %} selected{% endif %}>
+              Notes manquantes (non saisies)
+            </option>
+          </select>
+        </div>
+
+        <!-- Sexe -->
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Sexe</label>
+          <select name="sexe" class="form-control" onchange="SoumettreSansExport()">
+            <option value="">-- Tous --</option>
+            <option value="M"{% if sexe == 'M' %} selected{% endif %}>Masculin (M)</option>
+            <option value="F"{% if sexe == 'F' %} selected{% endif %}>Féminin (F)</option>
+          </select>
+        </div>
+
+        <!-- Seuil min / max -->
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;">
+            <label class="form-label" style="margin-bottom:4px;">Note min</label>
+            <input type="number" step="0.25" min="0" max="20" name="seuil_min"
+                   value="{{ seuil_min_str }}" class="form-control" placeholder="Ex: 10">
+          </div>
+          <div style="flex:1;">
+            <label class="form-label" style="margin-bottom:4px;">Note max</label>
+            <input type="number" step="0.25" min="0" max="20" name="seuil_max"
+                   value="{{ seuil_max_str }}" class="form-control" placeholder="Ex: 20">
+          </div>
+        </div>
+
+        <!-- Tri -->
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Trier par</label>
+          <select name="tri" class="form-control" onchange="SoumettreSansExport()">
+            <option value="nom"{% if tri == 'nom' %} selected{% endif %}>
+              Classe & Ordre alphabétique
+            </option>
+            <option value="note_desc"{% if tri == 'note_desc' %} selected{% endif %}>
+              Note / Moyenne décroissante
+            </option>
+            <option value="note_asc"{% if tri == 'note_asc' %} selected{% endif %}>
+              Note / Moyenne croissante
+            </option>
+            <option value="matiere"{% if tri == 'matiere' %} selected{% endif %}>
+              Par Matière / UE
+            </option>
+            <option value="matricule"{% if tri == 'matricule' %} selected{% endif %}>
+              Par Matricule
+            </option>
+          </select>
+        </div>
+
+        <!-- Recherche texte -->
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Recherche rapide</label>
+          <input type="text" name="q" value="{{ q }}" class="form-control"
+                 placeholder="Nom, matricule, matière...">
+        </div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div style="font-size:12.5px;color:var(--text-muted);">
+          <i class="bi bi-info-circle"></i>
+          Cet en-tête officiel est également intégré en haut de chaque feuille Excel (`.xlsx`) et CSV exportée.
+        </div>
+        <button type="submit" onclick="document.getElementById('input-format').value='';" class="btn btn-primary">
+          <i class="bi bi-search"></i> Actualiser la fiche
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EN-TÊTE INSTITUTIONNEL OFFICIEL DE LA FICHE (Écran + Impression + Excel)
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div class="fiche-officielle">
+  <div class="fiche-entete-top">
+    <!-- Bloc Gauche : Ministère / Tutelle -->
+    <div>
+      <div style="font-weight:800;text-transform:uppercase;color:var(--text);">
+        {{ entete.gauche_1 }}
+      </div>
+      <div style="font-size:11.5px;color:var(--text-muted);">
+        {{ entete.gauche_2 }}
+      </div>
+      <div style="font-weight:700;color:var(--primary);margin-top:2px;">
+        {{ entete.gauche_3 }}
+      </div>
+    </div>
+
+    <!-- Bloc Centre : Logo + Nom Officiel Établissement -->
+    <div style="text-align:center;">
+      {% if etab.logo %}
+      <img src="{{ etab.logo.url }}" alt="Logo"
+           style="max-height:64px;max-width:110px;object-fit:contain;margin-bottom:4px;">
+      {% endif %}
+      <div class="fiche-etab-nom">{{ entete.nom_etab }}</div>
+      {% if entete.slogan %}
+      <div style="font-size:11px;font-style:italic;color:var(--text-muted);">
+        « {{ entete.slogan }} »
+      </div>
+      {% endif %}
+      {% if entete.coordonnees %}
+      <div class="fiche-etab-coords">{{ entete.coordonnees }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Bloc Droite : République / Devise / Année -->
+    <div class="fiche-entete-droite">
+      <div style="font-weight:800;text-transform:uppercase;color:var(--text);">
+        {{ entete.droite_1 }}
+      </div>
+      <div style="font-size:11.5px;font-style:italic;color:var(--text-muted);">
+        {{ entete.droite_2 }}
+      </div>
+      <div style="margin-top:4px;font-weight:800;color:var(--primary);">
+        {% if is_universite %}Année Universitaire{% else %}Année Scolaire{% endif %} :
+        {% if annee %}{{ annee.libelle }}{% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Bandeau Titre Officiel de la Fiche -->
+  <div class="fiche-titre-bandeau">
+    {{ fiche_meta.titre_fiche }}
+  </div>
+
+  <!-- Cartouche d'identification de la Fiche -->
+  <div class="fiche-cartouche">
+    <div class="fiche-cartouche-item">
+      <span class="fiche-cartouche-lbl">Classe & Niveau</span>
+      <span class="fiche-cartouche-val">{{ fiche_meta.classe_label }}</span>
+    </div>
+    <div class="fiche-cartouche-item">
+      <span class="fiche-cartouche-lbl">{% if is_universite %}Unité d'Enseignement (UE){% else %}Matière évaluée{% endif %}</span>
+      <span class="fiche-cartouche-val" style="color:var(--primary);">{{ fiche_meta.matiere_label }}</span>
+    </div>
+    <div class="fiche-cartouche-item">
+      <span class="fiche-cartouche-lbl">Période / Semestre</span>
+      <span class="fiche-cartouche-val">{{ fiche_meta.periode_label }}</span>
+    </div>
+    <div class="fiche-cartouche-item">
+      <span class="fiche-cartouche-lbl">{% if is_universite %}Filière / Parcours{% else %}Série / Cycle{% endif %}</span>
+      <span class="fiche-cartouche-val">{{ fiche_meta.filiere_label }}</span>
+    </div>
+    <div class="fiche-cartouche-item">
+      <span class="fiche-cartouche-lbl">Enseignant / Saisi par</span>
+      <span class="fiche-cartouche-val">{{ fiche_meta.enseignant_label }}</span>
+    </div>
+    <div class="fiche-cartouche-item">
+      <span class="fiche-cartouche-lbl">Filtre de statut</span>
+      <span class="fiche-cartouche-val">{{ fiche_meta.statut_filtre_label }}</span>
+    </div>
+    <div class="fiche-cartouche-item">
+      <span class="fiche-cartouche-lbl">Évaluations (Saisies / Total)</span>
+      <span class="fiche-cartouche-val">
+        {{ stats.nb_saisies }} / {{ stats.nb_total }}
+        {% if stats.nb_manquantes > 0 %}
+        <small style="color:var(--warning);">({{ stats.nb_manquantes }} non saisie{{ stats.nb_manquantes|pluralize }})</small>
+        {% endif %}
+      </span>
+    </div>
+    <div class="fiche-cartouche-item">
+      <span class="fiche-cartouche-lbl">Moyenne & Extrêmes</span>
+      <span class="fiche-cartouche-val">
+        {% if stats.moy_globale is not None %}
+          {{ stats.moy_globale|floatformat:2 }}/{{ stats.echelle }}
+          <small style="font-weight:600;color:var(--text-muted);">
+            (Min: {{ stats.note_min }} | Max: {{ stats.note_max }})
+          </small>
+        {% else %}
+          —
+        {% endif %}
+      </span>
+    </div>
+    <div class="fiche-cartouche-item">
+      <span class="fiche-cartouche-lbl">Taux de réussite / Validation</span>
+      <span class="fiche-cartouche-val" style="color:var(--success);">
+        {{ stats.nb_admis }} Admis / {{ stats.nb_ajournes }} Ajournés ({{ stats.taux_reussite }}%)
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Tableau officiel des notes filtrées -->
+<div class="card">
+  <div class="card-header no-print" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+    <span class="card-title">
+      <i class="bi bi-table"></i>
+      Tableau détaillé de la fiche ({{ total_lignes_export }} ligne{{ total_lignes_export|pluralize }})
+    </span>
+    {% if classe %}
+    <div style="display:flex;gap:6px;">
+      <a href="{% url 'bulletins_classe_mali' %}?classe={{ classe.pk }}{% if periode %}&periode={{ periode.pk }}{% endif %}"
+         class="btn btn-outline btn-sm">
+        <i class="bi bi-file-earmark-text"></i> Bulletins de {{ classe.nom }}
+      </a>
+      <a href="{% url 'releve_notes_classe' %}?classe={{ classe.pk }}{% if periode %}&periode={{ periode.pk }}{% endif %}"
+         class="btn btn-outline btn-sm">
+        <i class="bi bi-grid-3x3-gap"></i> Matrice de {{ classe.nom }}
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if lignes %}
+  <div class="table-scroll-mobile" style="overflow-x:auto;">
+    <table class="table-modern">
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>Matricule</th>
+          <th>Nom & Prénom</th>
+          <th style="text-align:center;">Sexe</th>
+          <th>Classe</th>
+          <th>{% if is_universite %}Code & Intitulé UE{% else %}Matière{% endif %}</th>
+          <th style="text-align:center;">{% if is_universite %}Crédits{% else %}Coef{% endif %}</th>
+          {% if is_universite %}
+          <th style="text-align:center;">Session 1</th>
+          <th style="text-align:center;">Rattrapage</th>
+          <th style="text-align:center;">Note Retenue</th>
+          {% elif is_premier_cycle %}
+          <th style="text-align:center;">Note /10</th>
+          <th style="text-align:center;">Équiv. /20</th>
+          {% else %}
+          <th style="text-align:center;">Note Classe</th>
+          <th style="text-align:center;">Note Compo</th>
+          <th style="text-align:center;">Moyenne /20</th>
+          {% endif %}
+          <th style="text-align:center;">Statut</th>
+          <th style="text-align:center;">Mention / Appr.</th>
+          <th class="no-print">Bulletin</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in lignes %}
+        <tr>
+          <td style="color:var(--text-muted);font-size:12px;">{{ forloop.counter }}</td>
+          <td>
+            <code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;">
+              {{ r.eleve.matricule }}
+            </code>
+          </td>
+          <td>
+            <div style="font-weight:700;font-size:13px;">
+              {{ r.eleve.nom }} {{ r.eleve.prenom }}
+            </div>
+          </td>
+          <td style="text-align:center;">{{ r.eleve.sexe }}</td>
+          <td>
+            <span class="badge badge-info">{{ r.classe.nom }}</span>
+          </td>
+          <td>
+            {% if is_universite %}
+              <div style="font-weight:700;font-size:12.5px;">{{ r.code_matiere }}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);">{{ r.nom_matiere }} ({{ r.semestre }})</div>
+            {% else %}
+              <div style="font-weight:600;font-size:13px;">{{ r.nom_matiere }}</div>
+            {% endif %}
+          </td>
+          <td style="text-align:center;font-weight:600;">{{ r.coef_ou_credits }}</td>
+
+          {% if is_universite %}
+          <td style="text-align:center;">
+            {% if r.note_1 is not None %}{{ r.note_1|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;color:var(--warning);font-weight:600;">
+            {% if r.note_2 is not None %}{{ r.note_2|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;font-weight:800;font-size:14px;">
+            {% if r.note_finale is not None %}{{ r.note_finale|floatformat:2 }}/20{% else %}—{% endif %}
+          </td>
+          {% elif is_premier_cycle %}
+          <td style="text-align:center;font-weight:800;font-size:14px;">
+            {% if r.note_1 is not None %}{{ r.note_1|floatformat:2 }}/10{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;color:var(--text-muted);">
+            {% if r.note_2 is not None %}{{ r.note_2|floatformat:2 }}/20{% else %}—{% endif %}
+          </td>
+          {% else %}
+          <td style="text-align:center;">
+            {% if r.note_1 is not None %}{{ r.note_1|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;">
+            {% if r.note_2 is not None %}{{ r.note_2|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;font-weight:800;font-size:14px;">
+            {% if r.note_finale is not None %}{{ r.note_finale|floatformat:2 }}/20{% else %}—{% endif %}
+          </td>
+          {% endif %}
+
+          <td style="text-align:center;">
+            {% if r.statut_code == 'admis' %}
+              <span class="badge badge-success">{{ r.statut_label }}</span>
+            {% elif r.statut_code == 'ajourne' %}
+              <span class="badge badge-danger">{{ r.statut_label }}</span>
+            {% else %}
+              <span class="badge badge-warning">{{ r.statut_label }}</span>
+            {% endif %}
+          </td>
+          <td style="text-align:center;font-size:12px;font-weight:600;">
+            {{ r.mention }}
+          </td>
+          <td class="no-print">
+            <a href="{% url 'generer_document' r.eleve.pk 'bulletin' %}"
+               target="_blank"
+               class="btn btn-outline btn-sm"
+               title="Ouvrir le bulletin / relevé">
+              <i class="bi bi-file-earmark-text"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pied de fiche avec Signatures officielles -->
+  <div class="fiche-signatures">
+    <div class="fiche-sign-bloc">
+      <div style="font-weight:700;">{{ entete.sign_gauche }}</div>
+      <div class="fiche-sign-ligne">Signature</div>
+    </div>
+    <div style="text-align:center;align-self:flex-end;font-size:11.5px;color:var(--text-muted);">
+      Édité le {{ fiche_meta.date_edition|date:"d/m/Y à H:i" }}
+    </div>
+    <div class="fiche-sign-bloc">
+      <div style="font-weight:700;">{{ entete.sign_droite }}</div>
+      <div class="fiche-sign-ligne">Signature et cachet</div>
+    </div>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:50px;color:var(--text-muted);">
+    <div style="font-size:42px;margin-bottom:10px;"><i class="bi bi-funnel"></i></div>
+    <div style="font-size:15px;font-weight:700;">Aucune note ne correspond aux critères sélectionnés</div>
+    <div style="font-size:13px;margin-top:4px;">Modifiez les filtres ci-dessus ou cliquez sur Réinitialiser.</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exporterFormat(fmt) {
+  const form = document.getElementById('form-export-notes');
+  const inp = document.getElementById('input-format');
+  inp.value = fmt;
+  form.submit();
+  setTimeout(function() { inp.value = ''; }, 500);
+}
+function SoumettreSansExport() {
+  const form = document.getElementById('form-export-notes');
+  document.getElementById('input-format').value = '';
+  form.submit();
+}
+</script>
+{% endblock %}

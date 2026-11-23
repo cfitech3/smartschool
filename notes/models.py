@@ -95,6 +95,9 @@ class NoteUE(models.Model):
             elif float(note_finale) >= 12: self.mention = 'Assez Bien'
             elif float(note_finale) >= 10: self.mention = 'Passable'
             else: self.mention = 'Insuffisant'
+        else:
+            self.credits_valides = False
+            self.mention = ''
         super().save(*args, **kwargs)
 
     @property
@@ -169,7 +172,8 @@ class NotePeriode(models.Model):
                         self._coef_cache = mc
                         return mc
         except Exception:
-            pass
+            import logging
+            logging.getLogger(__name__).warning("Erreur résolution coefficient effectif NotePeriode(%s)", getattr(self, 'pk', None), exc_info=True)
         self._coef_cache = coef
         return coef
 
@@ -288,8 +292,27 @@ class EmploiDuTemps(models.Model):
                 enseignant_id=self.enseignant_id, jour=self.jour,
                 heure_debut__lt=self.heure_fin, heure_fin__gt=self.heure_debut
             ).exclude(pk=self.pk)
+            if self.classe_id and self.classe.annee_id:
+                conflits_ens = conflits_ens.filter(classe__annee_id=self.classe.annee_id)
             if conflits_ens.exists():
-                raise ValidationError("Cet enseignant a déjà un cours programmé sur ce créneau.")
+                c = conflits_ens.select_related('classe', 'matiere').first()
+                raise ValidationError(
+                    f"Cet enseignant est déjà occupé ({c.classe.nom} — {c.matiere.nom}, {c.heure_debut}-{c.heure_fin})."
+                )
+        salle_clean = (self.salle or '').strip()
+        if salle_clean and self.etablissement_id and self.jour and self.heure_debut and self.heure_fin:
+            conflits_salle = EmploiDuTemps.objects.filter(
+                etablissement_id=self.etablissement_id, jour=self.jour,
+                salle__iexact=salle_clean,
+                heure_debut__lt=self.heure_fin, heure_fin__gt=self.heure_debut
+            ).exclude(pk=self.pk)
+            if self.classe_id and self.classe.annee_id:
+                conflits_salle = conflits_salle.filter(classe__annee_id=self.classe.annee_id)
+            if conflits_salle.exists():
+                c = conflits_salle.select_related('classe', 'matiere').first()
+                raise ValidationError(
+                    f"La salle « {salle_clean} » est déjà occupée par {c.classe.nom} ({c.matiere.nom}, {c.heure_debut}-{c.heure_fin})."
+                )
 
     def __str__(self): return f"{self.classe.nom} — {self.jour} {self.heure_debut}-{self.heure_fin} — {self.matiere.nom}"
 

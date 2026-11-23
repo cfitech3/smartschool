@@ -1,9 +1,12 @@
 from django.urls import path
-from . import views, views_export, views_rapports, views_tranches, views_impayes
+from . import views, views_export, views_rapports, views_tranches, views_impayes, views_bourses
 urlpatterns = [
     path('', views.liste_paiements, name='liste_paiements'),
     path('ajouter/', views.enregistrer_paiement, name='enregistrer_paiement'),
-    path('reduction/', views.ajouter_reduction, name='ajouter_reduction'),
+    path('reduction/', views_bourses.ajouter_reduction, name='ajouter_reduction'),
+    path('reduction/<int:pk>/supprimer/', views_bourses.supprimer_reduction, name='supprimer_reduction'),
+    path('bourses/', views_bourses.liste_bourses, name='liste_bourses'),
+    path('echeancier/<int:eleve_pk>/<int:type_frais_pk>/', views_bourses.personnaliser_echeancier, name='personnaliser_echeancier'),
     path('recu/<int:pk>/', views.recu_paiement, name='recu_paiement'),
     path('annuler/<int:pk>/', views.annuler_paiement, name='annuler_paiement'),
     path('rapport/', views.rapport_financier, name='rapport_financier'),

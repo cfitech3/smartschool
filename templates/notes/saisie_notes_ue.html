@@ -1,90 +1,224 @@
 {% extends "base/base.html" %}
 {% load dict_extras %}
-{% block title %}Notes UE{% endblock %}
+{% block title %}Notes UE — Système LMD{% endblock %}
 {% block topbar_title %}Saisie notes — Université{% endblock %}
 {% block nav_notes %}active{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1><i class="bi bi-bank"></i>️ Saisie notes UE</h1><div class="page-subtitle">Système LMD — Crédits ECTS</div></div>
-
-</div>
-
-<!-- Filtres -->
-<div class="card" style="margin-bottom:14px;"><div class="card-body" style="padding:13px 16px;">
-<form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-  <div style="flex:1;min-width:160px;"><label class="form-label" style="margin-bottom:4px;">Classe *</label>
-    <select name="classe" class="form-control" onchange="this.form.submit()">
-      <option value="">-- Choisir --</option>
-      {% for c in classes %}<option value="{{ c.pk }}"{% if classe_id == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.nom }} — {{ c.niveau.nom }}{% if c.filiere %} ({{ c.filiere }}){% endif %}</option>{% endfor %}
-    </select>
+  <div>
+    <h1><i class="bi bi-bank"></i> Saisie notes UE — Système LMD</h1>
+    <div class="page-subtitle">
+      {% if session_mode == 'rattrapage' %}
+      <span class="badge badge-warning">2ᵉ Session — Rattrapage</span> Les UE déjà validées (≥ 10/20 en 1ʳᵉ session)
+      sont capitalisées et verrouillées.
+      {% else %}
+      <span class="badge badge-primary">1ʳᵉ Session — Normale</span> Crédits ECTS &amp; capitalisation automatique.
+      {% endif %}
+    </div>
   </div>
-  <div style="flex:1;min-width:160px;"><label class="form-label" style="margin-bottom:4px;">Période *</label>
-    <select name="periode" class="form-control"><option value="">-- Période --</option>
-    {% for p in periodes %}<option value="{{ p.pk }}"{% if periode_id == p.pk|stringformat:"s" %} selected{% endif %}>{{ p.libelle }}</option>{% endfor %}
-    </select>
-  </div>
-  {% if semestres_cycle %}
-  <div style="min-width:130px;"><label class="form-label" style="margin-bottom:4px;">Semestre</label>
-    <select name="semestre" class="form-control">
-      {% for s in semestres_cycle %}<option value="{{ s }}"{% if semestre == s|stringformat:"s" %} selected{% endif %}>Semestre {{ s }}</option>{% endfor %}
-    </select>
+  {% if request.user.is_admin_ou_secretariat or request.user.is_enseignant %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% url 'export_notes' %}{% if classe_id %}?classe={{ classe_id }}{% endif %}"
+      class="btn btn-outline btn-sm"><i class="bi bi-file-earmark-spreadsheet-fill"></i> Export &amp; Filtrage Excel</a>
+    <a href="{% url 'releve_notes_classe' %}{% if classe_id %}?classe={{ classe_id }}{% if periode_id %}&periode={{ periode_id }}{% endif %}{% endif %}"
+      class="btn btn-outline btn-sm"><i class="bi bi-table"></i> Relevé de classe</a>
+    <a href="{% url 'bulletins_classe_mali' %}{% if classe_id %}?classe={{ classe_id }}{% if periode_id %}&periode={{ periode_id }}{% endif %}{% endif %}"
+      class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-text"></i> Bulletins / Relevés LMD</a>
   </div>
   {% endif %}
-  <button type="submit" class="btn btn-primary">Afficher</button>
-</form>
-</div></div>
+</div>
+
+<!-- Filtres + Sélecteur de Session (Normale vs Rattrapage) -->
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-body" style="padding:13px 16px;">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:1;min-width:160px;"><label class="form-label" style="margin-bottom:4px;">Classe *</label>
+        <select name="classe" class="form-control" onchange="this.form.submit()">
+          <option value="">-- Choisir --</option>
+          {% for c in classes %}
+          {% if classe_id == c.pk|stringformat:"s" %}
+          <option value="{{ c.pk }}" selected>{{ c.nom }} — {{ c.niveau.nom }}{% if c.filiere %} ({{ c.filiere }}){% endif %}</option>
+          {% else %}
+          <option value="{{ c.pk }}">{{ c.nom }} — {{ c.niveau.nom }}{% if c.filiere %} ({{ c.filiere }}){% endif %}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div style="flex:1;min-width:150px;"><label class="form-label" style="margin-bottom:4px;">Période *</label>
+        <select name="periode" class="form-control">
+          <option value="">-- Période --</option>
+          {% for p in periodes %}
+          {% if periode_id == p.pk|stringformat:"s" %}
+          <option value="{{ p.pk }}" selected>{{ p.libelle }}</option>
+          {% else %}
+          <option value="{{ p.pk }}">{{ p.libelle }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      {% if semestres_cycle %}
+      <div style="min-width:125px;"><label class="form-label" style="margin-bottom:4px;">Semestre</label>
+        <select name="semestre" class="form-control">
+          {% for s in semestres_cycle %}
+          {% if semestre == s|stringformat:"s" %}
+          <option value="{{ s }}" selected>Semestre {{ s }}</option>
+          {% else %}
+          <option value="{{ s }}">Semestre {{ s }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div style="min-width:175px;"><label class="form-label" style="margin-bottom:4px;">Session LMD</label>
+        <select name="session" class="form-control" onchange="this.form.submit()">
+          {% if session_mode == 'normale' %}
+          <option value="normale" selected>1ʳᵉ Session (Normale)</option>
+          <option value="rattrapage">2ᵉ Session (Rattrapage)</option>
+          {% else %}
+          <option value="normale">1ʳᵉ Session (Normale)</option>
+          <option value="rattrapage" selected>2ᵉ Session (Rattrapage)</option>
+          {% endif %}
+        </select>
+      </div>
+      {% if session_mode == 'rattrapage' %}
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;padding-bottom:8px;cursor:pointer;">
+        <input type="checkbox" name="filtre_rattrapage" value="1" {% if filtre_rattrapage %} checked{% endif %}
+          onchange="this.form.submit()">
+        À rattraper uniquement
+      </label>
+      {% endif %}
+      <button type="submit" class="btn btn-primary">Afficher</button>
+    </form>
+  </div>
+</div>
 
 {% if ues_data %}
-<div class="alert alert-info"><i class="bi bi-bank"></i>️ Saisir <strong>note /20</strong> et éventuellement la <strong>note de rattrapage</strong>. La validation (≥10) et la mention sont calculées automatiquement.</div>
+<!-- Barre KPI + Capitalisation inter-années + Import/Export Excel hors-ligne -->
+<div class="card" style="margin-bottom:14px;">
+  <div class="card-body"
+    style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;">
+      <span><i class="bi bi-check-circle-fill text-success"></i> Validés S1 : <strong>{{ stats_session.valides_s1
+          }}</strong></span>
+      <span><i class="bi bi-arrow-repeat text-warning"></i> En rattrapage : <strong>{{ stats_session.a_rattraper
+          }}</strong></span>
+      <span><i class="bi bi-award-fill text-primary"></i> Validés après rattrapage : <strong>{{
+          stats_session.valides_ratt }}</strong></span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      {% if stats_session.capitalisables > 0 %}
+      <form method="post" style="display:inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="importer_capitalisations">
+        <input type="hidden" name="semestre" value="{{ semestre }}">
+        <input type="hidden" name="session" value="{{ session_mode }}">
+        <button type="submit" class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success);">
+          <i class="bi bi-journal-check"></i> Reporter {{ stats_session.capitalisables }} UE capitalisée(s)
+        </button>
+      </form>
+      {% endif %}
+      {% if periode %}
+      <a href="{% url 'telecharger_modele_saisie_excel' %}?lmd=1&classe={{ classe.pk }}&periode={{ periode.pk }}&semestre={{ semestre }}"
+        class="btn btn-outline btn-sm">
+        <i class="bi bi-download"></i> Grille Excel hors-ligne
+      </a>
+      <form method="post" action="{% url 'importer_notes_excel' %}" enctype="multipart/form-data"
+        style="display:inline-flex;gap:6px;align-items:center;">{% csrf_token %}
+        <input type="hidden" name="lmd" value="1">
+        <input type="hidden" name="classe" value="{{ classe.pk }}">
+        <input type="hidden" name="periode" value="{{ periode.pk }}">
+        <input type="hidden" name="semestre" value="{{ semestre }}">
+        <input type="hidden" name="session" value="{{ session_mode }}">
+        <label class="btn btn-outline btn-sm" style="margin:0;cursor:pointer;">
+          <i class="bi bi-upload"></i> Importer Excel (.xlsx)
+          <input type="file" name="fichier_excel" accept=".xlsx" style="display:none;" onchange="this.form.submit()">
+        </label>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
 <form method="post">{% csrf_token %}
   <input type="hidden" name="semestre" value="{{ semestre }}">
+  <input type="hidden" name="session" value="{{ session_mode }}">
   <div class="card">
     <div class="card-header">
-      <span class="card-title">{{ classe.nom }} — Semestre {{ semestre }}</span>
+      <span class="card-title">{{ classe.nom }} — Semestre {{ semestre }} ({% if session_mode == 'rattrapage' %}2ᵉ
+        Session Rattrapage{% else %}1ʳᵉ Session Normale{% endif %})</span>
       <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer</button>
     </div>
     <div style="overflow-x:auto;">
-    <table class="table-modern" style="min-width:700px;">
-    <thead>
-      <tr>
-        <th style="min-width:180px;">UE</th>
-        <th style="text-align:center;">Crédits</th>
-        {% for eleve in eleves_list %}
-        <th style="text-align:center;min-width:130px;font-size:11.5px;">
-          {{ eleve.nom|slice:":8" }}<br>{{ eleve.prenom|slice:":8" }}
-        </th>
-        {% endfor %}
-      </tr>
-    </thead>
-    <tbody>
-    {% for item in ues_data %}
-    <tr>
-      <td>
-        <div style="font-weight:700;font-size:13px;">{{ item.ue.code }}</div>
-        <div style="font-size:11px;color:var(--text-muted);">{{ item.ue.nom }}</div>
-      </td>
-      <td style="text-align:center;"><span class="badge badge-primary">{{ item.ue.credits }} cr.</span></td>
-      {% for eleve in eleves_list %}
-      <td style="padding:6px 8px;">
-        {% with note=item.notes|get_item:eleve.pk %}
-        <input type="number" name="note_{{ item.ue.pk }}_{{ eleve.pk }}"
-          class="form-control" style="width:80px;margin:0 auto;text-align:center;font-size:14px;font-weight:700;margin-bottom:4px;border:2px solid {% if note and note.credits_valides %}rgba(46,125,50,0.4){% elif note %}rgba(198,40,40,0.4){% else %}var(--border){% endif %};"
-          min="0" max="20" step="0.25" placeholder="—"
-          value="{% if note and note.note is not None %}{{ note.note }}{% endif %}">
-        <input type="number" name="ratt_{{ item.ue.pk }}_{{ eleve.pk }}"
-          class="form-control" style="width:80px;margin:0 auto;text-align:center;font-size:12px;border:1.5px solid rgba(245,127,23,0.4);"
-          min="0" max="20" step="0.25" placeholder="Ratt."
-          value="{% if note and note.note_rattrapage is not None %}{{ note.note_rattrapage }}{% endif %}">
-        {% if note and note.mention %}
-        <div style="font-size:10px;text-align:center;margin-top:3px;color:{% if note.credits_valides %}var(--success){% else %}var(--danger){% endif %};">{{ note.mention }}</div>
-        {% endif %}
-        {% endwith %}
-      </td>
-      {% endfor %}
-    </tr>
-    {% endfor %}
-    </tbody>
-    </table>
+      <table class="table-modern" style="min-width:700px;">
+        <thead>
+          <tr>
+            <th style="min-width:180px;">UE</th>
+            <th style="text-align:center;">Crédits</th>
+            {% for eleve in eleves_list %}
+            <th style="text-align:center;min-width:135px;font-size:11.5px;">
+              {{ eleve.nom|slice:":10" }}<br>{{ eleve.prenom|slice:":10" }}
+              {% if periode and request.user.is_admin_ou_secretariat %}
+              <div style="margin-top:3px;"><a href="{% url 'releve_notes_lmd' eleve.pk periode.pk %}" target="_blank"
+                  style="font-size:10px;color:var(--primary);text-decoration:none;font-weight:700;"><i
+                    class="bi bi-file-earmark-text"></i> Relevé</a></div>
+              {% endif %}
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in ues_data %}
+          <tr>
+            <td>
+              <div style="font-weight:700;font-size:13px;">{{ item.ue.code }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ item.ue.nom }}</div>
+            </td>
+            <td style="text-align:center;"><span class="badge badge-primary">{{ item.ue.credits }} cr.</span></td>
+            {% for eleve in eleves_list %}
+            <td style="padding:6px 8px;text-align:center;">
+              {% with note=item.notes|get_item:eleve.pk %}
+              {% if session_mode == 'rattrapage' and note and note.note is not None and note.note >= 10 %}
+              <!-- UE déjà validée en 1re session : capitalisée et verrouillée -->
+              <div
+                style="background:#e8f5e9;border:1.5px solid #81c784;border-radius:8px;padding:6px 4px;font-size:11px;color:#1b5e20;font-weight:700;">
+                <i class="bi bi-lock-fill"></i> Capitalisé S1<br>
+                <span style="font-size:13px;">{{ note.note }}/20</span>
+              </div>
+              {% elif session_mode == 'rattrapage' %}
+              <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:3px;">
+                S1 : <strong>{% if note and note.note is not None %}{{ note.note }}/20{% else %}Abs.{% endif %}</strong>
+              </div>
+              <input type="number" name="ratt_{{ item.ue.pk }}_{{ eleve.pk }}" class="form-control"
+                style="width:86px;margin:0 auto;text-align:center;font-size:13.5px;font-weight:700;border:2px solid rgba(245,127,23,0.65);"
+                min="0" max="20" step="0.25" placeholder="Ratt. /20"
+                value="{% if note and note.note_rattrapage is not None %}{{ note.note_rattrapage }}{% endif %}">
+              {% if note and note.note_retenue is not None %}
+              <div
+                style="font-size:10px;margin-top:3px;color:{% if note.credits_valides %}var(--success){% else %}var(--danger){% endif %};">
+                Retenu : {{ note.note_retenue }}/20
+              </div>
+              {% endif %}
+              {% else %}
+              <input type="number" name="note_{{ item.ue.pk }}_{{ eleve.pk }}" class="form-control"
+                style="width:84px;margin:0 auto;text-align:center;font-size:14px;font-weight:700;margin-bottom:4px;border:2px solid {% if note and note.credits_valides %}rgba(46,125,50,0.4){% elif note %}rgba(198,40,40,0.4){% else %}var(--border){% endif %};"
+                min="0" max="20" step="0.25" placeholder="S1 /20"
+                value="{% if note and note.note is not None %}{{ note.note }}{% endif %}">
+              <input type="number" name="ratt_{{ item.ue.pk }}_{{ eleve.pk }}" class="form-control"
+                style="width:84px;margin:0 auto;text-align:center;font-size:11.5px;border:1.5px solid rgba(245,127,23,0.4);"
+                min="0" max="20" step="0.25" placeholder="Ratt."
+                value="{% if note and note.note_rattrapage is not None %}{{ note.note_rattrapage }}{% endif %}">
+              {% if note and note.mention %}
+              <div
+                style="font-size:10px;text-align:center;margin-top:3px;color:{% if note.credits_valides %}var(--success){% else %}var(--danger){% endif %};">
+                {{ note.mention }}</div>
+              {% endif %}
+              {% endif %}
+              {% endwith %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
       <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer les notes</button>
@@ -92,16 +226,21 @@
   </div>
 </form>
 {% elif classe %}
-<div class="card"><div style="text-align:center;padding:40px;color:var(--text-muted);">
-  <div style="font-size:36px;margin-bottom:10px;"><i class="bi bi-clipboard"></i></div>
-  Aucune UE configurée pour le Semestre {{ semestre }}.
-  <a href="{% url 'detail_cycle' classe.niveau.cycle.pk %}">Configurer les UEs →</a>
-</div></div>
+<div class="card">
+  <div style="text-align:center;padding:40px;color:var(--text-muted);">
+    <div style="font-size:36px;margin-bottom:10px;"><i class="bi bi-clipboard"></i></div>
+    Aucune UE configurée pour le Semestre {{ semestre }}.
+    <a href="{% url 'detail_cycle' classe.niveau.cycle.pk %}">Configurer les UEs →</a>
+  </div>
+</div>
 {% else %}
-<div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);">
-  <div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-bank"></i>️</div>
-  <div style="font-size:16px;font-weight:700;">Sélectionnez une classe et une période</div>
-  {% if not classes %}<div style="margin-top:10px;font-size:13px;">Aucune classe université. <a href="{% url 'ajouter_classe' %}">Créer une classe</a> avec le cycle Université.</div>{% endif %}
-</div></div>
+<div class="card">
+  <div style="text-align:center;padding:60px;color:var(--text-muted);">
+    <div style="font-size:48px;margin-bottom:14px;"><i class="bi bi-bank"></i></div>
+    <div style="font-size:16px;font-weight:700;">Sélectionnez une classe et une période</div>
+    {% if not classes %}<div style="margin-top:10px;font-size:13px;">Aucune classe université. <a
+        href="{% url 'ajouter_classe' %}">Créer une classe</a> avec le cycle Université.</div>{% endif %}
+  </div>
+</div>
 {% endif %}
 {% endblock %}

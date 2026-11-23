@@ -35,7 +35,8 @@ def log_connexion_succes(sender, request, user, **kwargs):
             etablissement=getattr(user, 'etablissement', None),
         )
     except Exception:
-        pass
+        import logging
+        logging.getLogger(__name__).warning("Échec journalisation connexion succès", exc_info=True)
 
 
 @receiver(user_login_failed)
@@ -51,4 +52,5 @@ def log_connexion_echec(sender, credentials, request, **kwargs):
             etablissement=getattr(user, 'etablissement', None) if user else None,
         )
     except Exception:
-        pass
+        import logging
+        logging.getLogger(__name__).warning("Échec journalisation connexion succès", exc_info=True)

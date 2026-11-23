@@ -14,27 +14,18 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Count, Q, Max
+from django.db.models.functions import TruncMonth
 from django.http import HttpResponse
 from django.utils import timezone
+from accounts.permissions import superadmin_required
 from .models import Etablissement, AnneeScolaire, JournalAction, ParametresReseau
 from accounts.models import User
 from eleves.models import Eleve
 from finances.models import Paiement
 
 
-def superadmin_required(fn):
-    def w(request, *a, **k):
-        if not request.user.is_authenticated or request.user.role != 'super_admin':
-            messages.error(request, "Accès réservé au Super Administrateur.")
-            return redirect('dashboard')
-        return fn(request, *a, **k)
-    w.__name__ = fn.__name__
-    return w
-
-
 def get_ip(request):
-    return (request.META.get('HTTP_X_FORWARDED_FOR','').split(',')[0].strip()
-            or request.META.get('REMOTE_ADDR') or None)
+    return request.META.get('REMOTE_ADDR') or None
 
 
 # ── 1. DASHBOARD RÉSEAU ───────────────────────────────────────────────────────
@@ -43,15 +34,27 @@ def get_ip(request):
 @superadmin_required
 def dashboard_saas(request):
     today = timezone.now().date()
+    semaine_debut = timezone.now() - datetime.timedelta(days=7)
 
-    etabs = Etablissement.objects.all().order_by('nom').annotate(
-        nb_eleves=Count('eleves', filter=Q(eleves__is_active=True)),
-        nb_users=Count('utilisateurs', filter=Q(utilisateurs__is_active=True)),
+    etabs = list(Etablissement.objects.all().order_by('nom').annotate(
+        nb_eleves=Count('eleves', filter=Q(eleves__is_active=True), distinct=True),
+        nb_users=Count('utilisateurs', filter=Q(utilisateurs__is_active=True), distinct=True),
+        connexions_semaine=Count(
+            'utilisateurs',
+            filter=Q(utilisateurs__last_login__gte=semaine_debut),
+            distinct=True,
+        ),
+    ))
+
+    recettes_par_etab = dict(
+        Paiement.objects.filter(
+            statut='valide', date_paiement__month=today.month, date_paiement__year=today.year,
+        ).values('etablissement_id').annotate(t=Sum('montant')).values_list('etablissement_id', 't')
     )
 
     stats = {
-        'nb_etabs_actifs':      etabs.filter(is_active=True).count(),
-        'nb_etabs_suspendus':   etabs.filter(is_active=False).count(),
+        'nb_etabs_actifs':      sum(1 for e in etabs if e.is_active),
+        'nb_etabs_suspendus':   sum(1 for e in etabs if not e.is_active),
         'nb_eleves_total':      Eleve.objects.filter(is_active=True).count(),
         'nb_users_total':       User.objects.filter(is_active=True).exclude(role='super_admin').count(),
         'recettes_reseau_mois': float(Paiement.objects.filter(
@@ -63,26 +66,34 @@ def dashboard_saas(request):
         ).aggregate(t=Sum('montant'))['t'] or 0),
     }
 
-    semaine_debut = timezone.now() - datetime.timedelta(days=7)
     for e in etabs:
-        e.recettes_mois = float(Paiement.objects.filter(
-            etablissement=e, statut='valide',
-            date_paiement__month=today.month, date_paiement__year=today.year,
-        ).aggregate(t=Sum('montant'))['t'] or 0)
-        e.connexions_semaine = User.objects.filter(
-            etablissement=e, last_login__gte=semaine_debut
-        ).count()
+        e.recettes_mois = float(recettes_par_etab.get(e.pk) or 0)
         e.sante = ('active' if e.connexions_semaine > 0 and e.is_active
                    else ('inactive' if e.is_active else 'suspendue'))
 
-    # Graphique 12 mois recettes réseau
-    chart_croissance = []
-    for i in range(11, -1, -1):
-        d = (today.replace(day=1) - datetime.timedelta(days=i * 28)).replace(day=1)
-        recettes = float(Paiement.objects.filter(
-            statut='valide', date_paiement__month=d.month, date_paiement__year=d.year,
-        ).aggregate(t=Sum('montant'))['t'] or 0)
-        chart_croissance.append({'mois': d.strftime('%b %Y'), 'recettes': recettes})
+    # Graphique 12 mois recettes réseau (requête unique + arithmétique calendaire exacte)
+    mois_list = []
+    y, m = today.year, today.month
+    for _ in range(12):
+        mois_list.append(datetime.date(y, m, 1))
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    mois_list.reverse()
+    debut_12m = timezone.make_aware(datetime.datetime.combine(mois_list[0], datetime.time.min))
+    totaux_mois = {
+        (row['mois'].year, row['mois'].month): float(row['total'] or 0)
+        for row in Paiement.objects.filter(statut='valide', date_paiement__gte=debut_12m)
+        .annotate(mois=TruncMonth('date_paiement'))
+        .values('mois')
+        .annotate(total=Sum('montant'))
+        if row['mois']
+    }
+    chart_croissance = [
+        {'mois': d.strftime('%b %Y'), 'recettes': totaux_mois.get((d.year, d.month), 0.0)}
+        for d in mois_list
+    ]
 
     etabs_inactifs_warn = [e for e in etabs if e.is_active and e.nb_eleves > 0 and e.connexions_semaine == 0]
     derniers_users = User.objects.exclude(role='super_admin').select_related('etablissement').order_by('-date_creation')[:8]

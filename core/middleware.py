@@ -19,7 +19,23 @@ class EtablissementMiddleware:
             ]
             path = request.path
 
-            if hasattr(request.user, 'etablissement') and request.user.etablissement:
+            if request.user.role == 'super_admin' or request.session.get('_impersonate_original_pk'):
+                # Super admin (ou mode espionnage) : priorité au sélecteur d'établissement en session
+                etab_id = request.session.get('etablissement_id')
+                if etab_id:
+                    try:
+                        request.etablissement = Etablissement.objects.get(pk=etab_id)
+                    except Etablissement.DoesNotExist:
+                        pass
+                if not request.etablissement and getattr(request.user, 'etablissement', None):
+                    request.etablissement = request.user.etablissement
+                if not request.etablissement:
+                    premier = Etablissement.objects.filter(is_active=True).first()
+                    if premier:
+                        request.etablissement = premier
+                        request.session['etablissement_id'] = premier.pk
+
+            elif hasattr(request.user, 'etablissement') and request.user.etablissement:
                 etab = request.user.etablissement
 
                 # ── CHANTIER 3 : Blocage établissement inactif ──────────────
@@ -29,19 +45,5 @@ class EtablissementMiddleware:
                         return redirect('acces_bloque')
 
                 request.etablissement = etab
-
-            elif request.user.role == 'super_admin' or request.session.get('_impersonate_original_pk'):
-                # Super admin (ou mode espionnage) : session d'abord
-                etab_id = request.session.get('etablissement_id')
-                if etab_id:
-                    try:
-                        request.etablissement = Etablissement.objects.get(pk=etab_id)
-                    except Etablissement.DoesNotExist:
-                        pass
-                if not request.etablissement:
-                    premier = Etablissement.objects.filter(is_active=True).first()
-                    if premier:
-                        request.etablissement = premier
-                        request.session['etablissement_id'] = premier.pk
 
         return self.get_response(request)

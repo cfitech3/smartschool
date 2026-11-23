@@ -7,9 +7,12 @@
     <h1><i class="bi bi-clipboard"></i> Relevé de notes</h1>
     <div class="page-subtitle">{% if classe %}{{ classe.nom }}{% if periode %} — {{ periode.libelle }}{% endif %}{% else %}Sélectionner une classe{% endif %}</div>
   </div>
-  {% if classe and periode %}
-  <button onclick="window.print()" class="btn btn-outline"><i class="bi bi-printer-fill"></i>️ Imprimer</button>
-  {% endif %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% url 'export_notes' %}{% if classe_id %}?classe={{ classe_id }}{% endif %}" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-spreadsheet-fill"></i> Export & Filtrage Excel</a>
+    {% if classe %}
+    <button onclick="window.print()" class="btn btn-outline btn-sm"><i class="bi bi-printer-fill"></i> Imprimer</button>
+    {% endif %}
+  </div>
 </div>
 
 <!-- Filtres -->
@@ -17,13 +20,24 @@
   <form method="get" style="padding:16px 18px;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
     <div style="flex:1;min-width:180px;">
       <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Classe</label>
-      <select name="classe" required style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      <select name="classe" required onchange="this.form.submit()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
         <option value="">-- Choisir --</option>
         {% for c in classes %}
         <option value="{{ c.pk }}" {% if classe_id == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>
         {% endfor %}
       </select>
     </div>
+    {% if is_premier_cycle %}
+    <div style="flex:1;min-width:180px;">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Composition N°</label>
+      <select name="numero" required style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+        <option value="">-- Choisir --</option>
+        {% for n in compo_numeros %}
+        <option value="{{ n }}" {% if numero == n %}selected{% endif %}>Composition {{ n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% else %}
     <div style="flex:1;min-width:180px;">
       <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Période</label>
       <select name="periode" required style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
@@ -33,11 +47,12 @@
         {% endfor %}
       </select>
     </div>
+    {% endif %}
     <button type="submit" class="btn btn-primary">Afficher</button>
   </form>
 </div>
 
-{% if classe and periode and tableau %}
+{% if classe and tableau %}
 <!-- Tableau des résultats -->
 <div class="card" style="overflow-x:auto;">
   <table class="table-modern" style="min-width:700px;">
@@ -46,7 +61,7 @@
         <th style="width:30px;">Rang</th>
         <th>Élève</th>
         {% for mat in matieres %}
-        <th style="text-align:center;font-size:11px;">{{ mat.nom|truncatechars:10 }}</th>
+        <th style="text-align:center;font-size:11px;" title="{{ mat.libelle_complet|default:mat.nom }}">{{ mat.nom|truncatechars:10 }}</th>
         {% endfor %}
         <th style="text-align:center;background:var(--bg);">Moy. générale</th>
       </tr>
@@ -60,22 +75,22 @@
       <td style="font-weight:700;">{{ r.eleve.nom_complet }}</td>
       {% for ligne in r.lignes %}
       <td style="text-align:center;font-size:13px;
-        color:{% if ligne.moyenne_finale is not None %}{% if ligne.moyenne_finale >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
+        color:{% if ligne.moyenne_finale is not None %}{% if is_premier_cycle and ligne.moyenne_finale >= 5 or not is_premier_cycle and ligne.moyenne_finale >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
         {% if ligne.moyenne_finale is not None %}{{ ligne.moyenne_finale|floatformat:2 }}{% else %}—{% endif %}
       </td>
       {% endfor %}
       <td style="text-align:center;font-weight:900;font-size:15px;background:var(--bg);
-        color:{% if r.moyenne is not None %}{% if r.moyenne >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
-        {% if r.moyenne is not None %}{{ r.moyenne|floatformat:2 }}/20{% else %}—{% endif %}
+        color:{% if r.moyenne is not None %}{% if is_premier_cycle and r.moyenne >= 5 or not is_premier_cycle and r.moyenne >= 10 %}var(--success){% else %}var(--danger){% endif %}{% else %}var(--text-muted){% endif %};">
+        {% if r.moyenne is not None %}{{ r.moyenne|floatformat:2 }}/{% if is_premier_cycle %}10{% else %}20{% endif %}{% else %}—{% endif %}
       </td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
 </div>
-{% elif classe and periode %}
+{% elif classe and periode or classe and is_premier_cycle and numero %}
 <div class="card" style="padding:40px;text-align:center;color:var(--text-muted);">
-  Aucune note saisie pour {{ classe.nom }} — {{ periode.libelle }}.
+  Aucune note saisie pour {{ classe.nom }}{% if is_premier_cycle %} — Composition {{ numero }}{% elif periode %} — {{ periode.libelle }}{% endif %}.
 </div>
 {% endif %}
 {% endblock %}

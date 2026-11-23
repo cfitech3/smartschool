@@ -91,11 +91,12 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ chart_paiements|default:"[]"|json_script:"chart-paiements-comptable-data" }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   // Chart 1: Évolution 30 jours
-  const rawData = {{ chart_paiements|safe }};
+  const rawData = JSON.parse(JSON.parse(document.getElementById('chart-paiements-comptable-data').textContent || '"[]"'));
   const labels = rawData.map(d => d.jour);
   const totals = rawData.map(d => d.total);
     

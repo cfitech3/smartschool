@@ -5,17 +5,11 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.html import escape
 from django.db.models import Q, Sum
-from accounts.permissions import permission_required, has_permission
+from accounts.permissions import permission_required, has_permission, require_etab as req
 from eleves.models import Eleve
 from finances.models import Paiement
 from etablissements.models import AnneeScolaire, ModeleDocument
 from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_eleves_actifs, get_inscriptions_actives
-
-def req(fn):
-    def w(request,*a,**k):
-        if not request.etablissement: return redirect("dashboard")
-        return fn(request,*a,**k)
-    w.__name__=fn.__name__; return w
 
 def get_modele(etab, type_doc):
     """Récupère le modèle actif. Gère les alias entre URL et type en base."""
@@ -86,7 +80,8 @@ def generer_document(request, eleve_pk, type_doc):
     # Remplacement sécurisé des balises (échappement anti-XSS des données dynamiques)
     contenu_rendu = None
     if modele and modele.contenu_personnalise:
-        contenu_rendu = modele.contenu_personnalise
+        from notes.templatetags.dict_extras import sanitize_html_fragment
+        contenu_rendu = sanitize_html_fragment(modele.contenu_personnalise)
         contenu_rendu = contenu_rendu.replace('[NOM_ELEVE]', escape(f"{eleve.nom} {eleve.prenom}"))
         contenu_rendu = contenu_rendu.replace('[CLASSE]', escape(inscription.classe.nom if inscription else ''))
         contenu_rendu = contenu_rendu.replace('[MATRICULE]', escape(eleve.matricule or ''))
@@ -96,10 +91,13 @@ def generer_document(request, eleve_pk, type_doc):
         contenu_rendu = contenu_rendu.replace('[ANNEE_SCOLAIRE]', escape(annee.libelle if annee else ''))
         contenu_rendu = contenu_rendu.replace('[NOM_ECOLE]', escape(etab.nom))
     
+    from core.verification_qr import construire_contexte_qr
+    ref_code = f"{type_doc[:4].upper()}-{eleve.matricule[-4:]}-{today.year}"
     ctx={"eleve":eleve,"etab":etab,"annee":annee,"inscription":inscription,
          "today":today,"modele":modele,
-         "ref":f"{type_doc[:4].upper()}-{eleve.matricule[-4:]}-{today.year}",
+         "ref":ref_code,
          "contenu_personnalise_rendu": contenu_rendu}
+    ctx.update(construire_contexte_qr(request, 'doc', eleve, annee=annee, extra={'doc_type': type_doc, 'ref': ref_code}))
 
     if type_doc=="certificat_scolarite":
         return render(request,"core/docs/certificat_scolarite.html",ctx)
@@ -109,6 +107,21 @@ def generer_document(request, eleve_pk, type_doc):
         paiements=eleve.paiements.filter(annee=annee,statut="valide").select_related("type_frais").order_by("-date_paiement")
         ctx.update({"paiements":paiements,"total":paiements.aggregate(t=Sum("montant"))["t"] or 0})
         return render(request,"core/docs/recu_annuel.html",ctx)
+    elif type_doc in ("bulletin", "releve_notes"):
+        from notes.models import Periode
+        cycle = inscription.classe.niveau.cycle if (inscription and inscription.classe.niveau and inscription.classe.niveau.cycle) else None
+        if cycle and cycle.is_premier_cycle and cycle.utilise_compositions_multiples and annee:
+            from notes.views_notes import bulletin_composition
+            return bulletin_composition(request, eleve_pk=eleve.pk, annee_pk=annee.pk, numero=1)
+        per = Periode.objects.filter(etablissement=etab, annee=annee, is_active=True).first() or Periode.objects.filter(etablissement=etab, annee=annee).first()
+        if not per:
+            messages.error(request, "Aucune période académique disponible pour générer le bulletin.")
+            return redirect("liste_documents")
+        if cycle and cycle.is_universite:
+            from notes.views_universite import releve_notes_lmd
+            return releve_notes_lmd(request, eleve_pk=eleve.pk, periode_pk=per.pk)
+        from notes.views_notes import bulletin_eleve
+        return bulletin_eleve(request, eleve_pk=eleve.pk, periode_pk=per.pk)
 
     messages.error(request,"Type de document inconnu.")
     return redirect("liste_documents")

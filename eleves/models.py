@@ -76,11 +76,14 @@ class Eleve(models.Model):
 
     def get_inscription_active(self):
         if hasattr(self, '_prefetched_objects_cache') and 'inscriptions' in self._prefetched_objects_cache:
-            for insc in self._prefetched_objects_cache['inscriptions']:
-                if insc.is_active:
-                    return insc
-            return None
-        return self.inscriptions.filter(is_active=True).select_related('classe__niveau__cycle').first()
+            actives = [insc for insc in self._prefetched_objects_cache['inscriptions'] if insc.is_active]
+            return actives[0] if actives else None
+        return (
+            self.inscriptions.filter(is_active=True)
+            .select_related('classe__niveau__cycle', 'annee')
+            .order_by('-annee__is_active', '-id')
+            .first()
+        )
 
 
 class Tuteur(models.Model):

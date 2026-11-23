@@ -17,8 +17,9 @@
 <div class="card" style="margin-bottom:16px;padding:14px 18px;">
   <form method="get" style="display:flex;gap:12px;align-items:center;">
     <label style="font-size:13px;font-weight:600;">Année :</label>
-    <select name="annee" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
-      {% for a in annees %}<option value="{{ a }}" {% if a == annee %}selected{% endif %}>{{ a }}</option>{% endfor %}
+    <select name="annee"
+      style="padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+      {% for a in annees %}<option value="{{ a }}" {% if a==annee %}selected{% endif %}>{{ a }}</option>{% endfor %}
     </select>
     <button type="submit" class="btn btn-primary">Afficher</button>
   </form>
@@ -40,19 +41,22 @@
 
 <!-- Graphique évolution réseau -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title"><i class="bi bi-graph-up"></i> Évolution recettes réseau {{ annee }}</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-graph-up"></i> Évolution recettes réseau {{ annee
+      }}</span></div>
   <div style="padding:16px 18px;"><canvas id="chartReseau" height="70"></canvas></div>
 </div>
 
 <!-- Graphique comparatif par établissement -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><span class="card-title"><i class="bi bi-buildings-fill"></i> Comparatif par établissement</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-buildings-fill"></i> Comparatif par
+      établissement</span></div>
   <div style="padding:16px 18px;"><canvas id="chartEtabs" height="90"></canvas></div>
 </div>
 
 <!-- Tableau croisé -->
 <div class="card">
-  <div class="card-header"><span class="card-title"><i class="bi bi-clipboard"></i> Tableau détaillé — Recettes (FCFA)</span></div>
+  <div class="card-header"><span class="card-title"><i class="bi bi-clipboard"></i> Tableau détaillé — Recettes
+      (FCFA)</span></div>
   <div style="overflow-x:auto;">
     <table class="table-modern" style="min-width:900px;">
       <thead>
@@ -63,30 +67,35 @@
         </tr>
       </thead>
       <tbody>
-      {% for ligne in tableau %}
-      <tr>
-        <td style="font-weight:700;font-size:13px;">
-          {{ ligne.etab.nom|truncatechars:24 }}
-          {% if not ligne.etab.is_active %}<span style="color:var(--danger);font-size:10px;"><i class="bi bi-lock-fill"></i></span>{% endif %}
-        </td>
-        {% for val in ligne.mois %}
-        <td style="text-align:right;font-size:12px;color:{% if val > 0 %}var(--success){% else %}var(--text-muted){% endif %};">
-          {% if val > 0 %}{{ val|floatformat:0 }}{% else %}—{% endif %}
-        </td>
+        {% for ligne in tableau %}
+        <tr>
+          <td style="font-weight:700;font-size:13px;">
+            {{ ligne.etab.nom|truncatechars:24 }}
+            {% if not ligne.etab.is_active %}<span style="color:var(--danger);font-size:10px;"><i
+                class="bi bi-lock-fill"></i></span>{% endif %}
+          </td>
+          {% for val in ligne.mois %}
+          <td
+            style="text-align:right;font-size:12px;color:{% if val > 0 %}var(--success){% else %}var(--text-muted){% endif %};">
+            {% if val > 0 %}{{ val|floatformat:0 }}{% else %}—{% endif %}
+          </td>
+          {% endfor %}
+          <td style="text-align:right;font-weight:700;font-size:13px;color:var(--primary);background:var(--bg);">
+            {{ ligne.total|floatformat:0 }}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="15" style="text-align:center;padding:30px;color:var(--text-muted);">Aucun établissement</td>
+        </tr>
         {% endfor %}
-        <td style="text-align:right;font-weight:700;font-size:13px;color:var(--primary);background:var(--bg);">
-          {{ ligne.total|floatformat:0 }}
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="15" style="text-align:center;padding:30px;color:var(--text-muted);">Aucun établissement</td></tr>
-      {% endfor %}
       </tbody>
       <tfoot>
         <tr style="font-weight:700;background:var(--bg);">
           <td>TOTAL RÉSEAU</td>
           {% for t in totaux_mois %}
-          <td style="text-align:right;color:var(--primary);">{% if t > 0 %}{{ t|floatformat:0 }}{% else %}—{% endif %}</td>
+          <td style="text-align:right;color:var(--primary);">{% if t > 0 %}{{ t|floatformat:0 }}{% else %}—{% endif %}
+          </td>
           {% endfor %}
           <td style="text-align:right;font-size:14px;color:var(--primary);">{{ grand_total|floatformat:0 }}</td>
         </tr>
@@ -96,57 +105,61 @@
 </div>
 
 {% block extra_js %}
+{{ chart_reseau|default:"[]"|json_script:"chart-reseau-data" }}
+{{ chart_etabs|default:"[]"|json_script:"chart-etabs-data" }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  const reseau = {{ chart_reseau|safe }};
-  const etabs  = {{ chart_etabs|safe }};
-  const COLORS = ['#1565C0','#2E7D32','#C62828','#F57F17','#6A1B9A','#00695C','#4E342E'];
+  document.addEventListener("DOMContentLoaded", function () {
+    const reseau = JSON.parse(JSON.parse(document.getElementById('chart-reseau-data').textContent || '"[]"'));
+    const etabs = JSON.parse(JSON.parse(document.getElementById('chart-etabs-data').textContent || '"[]"'));
+    const COLORS = ['#1565C0', '#2E7D32', '#C62828', '#F57F17', '#6A1B9A', '#00695C', '#4E342E'];
 
-  // Chart réseau
-  const ctx1 = document.getElementById('chartReseau');
-  if(ctx1) new Chart(ctx1, {
-    type: 'bar',
-    data: {
-      labels: reseau.map(d => d.mois),
-      datasets: [{
-        label: 'Recettes réseau (FCFA)',
-        data: reseau.map(d => d.total),
-        backgroundColor: 'rgba(21,101,192,0.2)',
-        borderColor: 'rgba(21,101,192,0.9)',
-        borderWidth: 2, borderRadius: 6,
-      }]
-    },
-    options: { responsive:true, plugins:{legend:{display:false}},
-      scales:{ y:{beginAtZero:true, ticks:{callback:v=>v>=1000000?(v/1000000).toFixed(1)+'M':(v>=1000?(v/1000).toFixed(0)+'k':v)}} }
-    }
-  });
-
-  // Chart par établissement
-  const ctx2 = document.getElementById('chartEtabs');
-  if(ctx2 && etabs.length) {
-    const labels = {{ chart_reseau|safe }}.map(d => d.mois);
-    new Chart(ctx2, {
-      type: 'line',
+    // Chart réseau
+    const ctx1 = document.getElementById('chartReseau');
+    if (ctx1) new Chart(ctx1, {
+      type: 'bar',
       data: {
-        labels: labels,
-        datasets: etabs.map((e,i) => ({
-          label: e.nom,
-          data: e.data,
-          borderColor: COLORS[i % COLORS.length],
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          pointRadius: 3,
-          tension: 0.3,
-        }))
+        labels: reseau.map(d => d.mois),
+        datasets: [{
+          label: 'Recettes réseau (FCFA)',
+          data: reseau.map(d => d.total),
+          backgroundColor: 'rgba(21,101,192,0.2)',
+          borderColor: 'rgba(21,101,192,0.9)',
+          borderWidth: 2, borderRadius: 6,
+        }]
       },
-      options: { responsive:true,
-        plugins:{ legend:{position:'bottom', labels:{font:{size:11}, boxWidth:20}} },
-        scales:{ y:{beginAtZero:true, ticks:{callback:v=>v>=1000?(v/1000).toFixed(0)+'k':v}} }
+      options: {
+        responsive: true, plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v) } } }
       }
     });
-  }
-});
+
+    // Chart par établissement
+    const ctx2 = document.getElementById('chartEtabs');
+    if (ctx2 && etabs.length) {
+      const labels = reseau.map(d => d.mois);
+      new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: etabs.map((e, i) => ({
+            label: e.nom,
+            data: e.data,
+            borderColor: COLORS[i % COLORS.length],
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            pointRadius: 3,
+            tension: 0.3,
+          }))
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 20 } } },
+          scales: { y: { beginAtZero: true, ticks: { callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v } } }
+        }
+      });
+    }
+  });
 </script>
 {% endblock %}
 {% endblock %}

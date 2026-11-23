@@ -34,9 +34,13 @@ def changer_etablissement(request, etab_id):
         except UserModel.DoesNotExist:
             pass
     if is_super:
+        if etab_id == 0:
+            request.session['superadmin_vue_locale'] = False
+            return redirect('dashboard')
         try:
             etab = Etablissement.objects.get(pk=etab_id)  # Sans filtre is_active
             request.session['etablissement_id'] = etab.pk
+            request.session['superadmin_vue_locale'] = True
         except Etablissement.DoesNotExist:
             pass
     return redirect('dashboard')

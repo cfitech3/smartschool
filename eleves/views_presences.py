@@ -8,16 +8,7 @@ from .models import Presence, Inscription, Eleve, JourNonOuvre
 from etablissements.models import Classe, AnneeScolaire
 import datetime
 from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_eleves_actifs, get_inscriptions_actives
-from accounts.permissions import role_required
-
-
-def req(fn):
-    def w(request, *a, **k):
-        if not request.etablissement:
-            return redirect("dashboard")
-        return fn(request, *a, **k)
-    w.__name__ = fn.__name__
-    return w
+from accounts.permissions import role_required, require_etab as req
 
 
 # ══════════════════════════════════════════════════════════════
@@ -52,7 +43,7 @@ def appel_presences(request):
 
     # Vérifier si le jour est non ouvré (dimanche ou déclaré)
     if classe_id:
-        classe = get_object_or_404(classes, pk=classe_id)
+        classe = get_object_or_404(classes, pk=classe_id, etablissement=etab)
         jour_non_ouvre, motif_non_ouvre = JourNonOuvre.est_jour_non_ouvre(etab, date_appel, classe)
 
     if classe_id and not jour_non_ouvre:
@@ -69,7 +60,7 @@ def appel_presences(request):
             })
 
     if request.method == "POST" and classe_id and not jour_non_ouvre:
-        classe = get_object_or_404(classes, pk=classe_id)
+        classe = get_object_or_404(classes, pk=classe_id, etablissement=etab)
         saved = 0
         for insc in classe.inscriptions.filter(is_active=True).select_related("eleve"):
             st = request.POST.get(f"statut_{insc.eleve.pk}", "present")
@@ -215,8 +206,9 @@ def historique_presences(request):
                 "absents": presences.filter(statut="absent").count(),
                 "retards": presences.filter(statut="retard").count(),
             }
-        except Exception:
-            pass
+        except (ValueError, TypeError):
+            import logging
+            logging.getLogger(__name__).debug("Format de mois invalide pour historique présences : %s", mois)
     return render(request, "eleves/historique_presences.html", {
         "classes": classes, "classe": classe, "classe_id": classe_id,
         "presences": presences, "mois": mois, "stats": stats,

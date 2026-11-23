@@ -5,13 +5,8 @@ from django.contrib import messages
 from .models import Enseignant, AffectationMatiere, AnneeScolaire, Classe
 from notes.models import Matiere
 from accounts.models import User
+from accounts.permissions import require_etab as req
 from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_eleves_actifs, get_inscriptions_actives
-
-def req(fn):
-    def w(request,*a,**k):
-        if not request.etablissement: return redirect("dashboard")
-        return fn(request,*a,**k)
-    w.__name__=fn.__name__; return w
 
 
 # ── Helpers de validation des saisies enseignant ─────────────────────────────────────────────

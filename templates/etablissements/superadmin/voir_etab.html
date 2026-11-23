@@ -112,10 +112,11 @@
 </div>
 
 {% block extra_js %}
+{{ chart|default:"[]"|json_script:"chart-etab-data" }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-  const rawData = {{ chart|safe }};
+  const rawData = JSON.parse(JSON.parse(document.getElementById('chart-etab-data').textContent || '"[]"'));
   const ctx = document.getElementById('chartEtab');
   if(!ctx || !rawData.length) return;
   new Chart(ctx, {

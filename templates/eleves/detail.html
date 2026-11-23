@@ -5,10 +5,13 @@
 {% block content %}
 <div class="page-header">
   <div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'liste_eleves' %}" class="btn btn-outline btn-sm">← Retour</a><div><h1>{{ eleve.nom }} {{ eleve.prenom }}</h1><div class="page-subtitle">{{ eleve.matricule }}</div></div></div>
-  <div style="display:flex;gap:8px;">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    {% if request.user.is_admin_ou_secretariat %}
+    <a href="{% url 'generer_document' eleve.pk 'bulletin' %}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-award-fill"></i> Bulletin / Relevé</a>
+    {% endif %}
     <a href="{% url 'generer_document' eleve.pk 'certificat_scolarite' %}" target="_blank" class="btn btn-outline btn-sm"><i class="bi bi-file-earmark-text"></i> Certificat</a>
     <a href="{% url 'carte_scolaire' eleve.pk %}" target="_blank" class="btn btn-outline btn-sm"><i class="bi bi-person-badge"></i> Carte</a>
-    <a href="{% url 'modifier_eleve' eleve.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-pencil-fill"></i>️ Modifier</a>
+    <a href="{% url 'modifier_eleve' eleve.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-pencil-fill"></i> Modifier</a>
     <a href="{% url 'generer_acces_eleve' eleve.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-lock-fill"></i> Accès famille</a>
   </div>
 </div>

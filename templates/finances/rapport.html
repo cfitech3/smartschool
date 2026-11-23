@@ -31,7 +31,8 @@
 {% endif %}
 {% endblock %}
 {% block extra_js %}
+{{ mois_data|default:"[]"|json_script:"mois-data-json" }}
 <script>
-const d={{ mois_data|safe }};
+const d = JSON.parse(JSON.parse(document.getElementById('mois-data-json').textContent || '"[]"'));
 if(d&&d.length){new Chart(document.getElementById('chartMois'),{type:'bar',data:{labels:d.map(x=>x.mois),datasets:[{label:'Recettes',data:d.map(x=>x.total),backgroundColor:'rgba(21,101,192,0.7)',borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString()+' F'},grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}});}
 </script>{% endblock %}

@@ -1,7 +1,7 @@
 from django.db import models, transaction
 from django.utils import timezone
 from django.core.validators import MinValueValidator
-import time
+import secrets
 
 class TypeFrais(models.Model):
     PERIODICITES = [('unique', 'Paiement Unique'), ('mensuel', 'Mensuel'), ('tranches', 'Par Tranches')]
@@ -24,18 +24,72 @@ class TypeFrais(models.Model):
 
 
 class ReductionFrais(models.Model):
+    """
+    Bourse / remise accordée à un élève sur un type de frais.
+    Le champ `montant` contient TOUJOURS le montant effectif déduit (FCFA),
+    même en mode pourcentage : il est recalculé dans save() à partir du tarif
+    standard du TypeFrais. Le tarif de la classe n'est jamais modifié.
+    """
+    CATEGORIES = [
+        ('bourse_etat',       "Bourse d'État / Nationale"),
+        ('bourse_excellence', "Bourse d'excellence / Mérite"),
+        ('demi_bourse',       "Demi-bourse"),
+        ('fratrie',           "Réduction Fratrie / Famille nombreuse"),
+        ('personnel',         "Enfant du personnel"),
+        ('prise_en_charge',   "Prise en charge par un tiers (ONG, entreprise...)"),
+        ('social',            "Cas social / Dérogation Direction"),
+        ('autre',             "Autre réduction"),
+    ]
+    MODES_CALCUL = [('fixe', 'Montant fixe (FCFA)'), ('pourcentage', 'Pourcentage (%)')]
+
     etablissement = models.ForeignKey('etablissements.Etablissement', on_delete=models.CASCADE)
     eleve = models.ForeignKey('eleves.Eleve', on_delete=models.CASCADE, related_name='reductions')
     annee = models.ForeignKey('etablissements.AnneeScolaire', on_delete=models.CASCADE)
     type_frais = models.ForeignKey(TypeFrais, on_delete=models.CASCADE)
-    montant = models.DecimalField(max_digits=12, decimal_places=0, default=0, help_text="Montant fixe réduit.")
+    categorie = models.CharField(max_length=30, choices=CATEGORIES, default='autre')
+    mode_calcul = models.CharField(max_length=15, choices=MODES_CALCUL, default='fixe')
+    valeur_pourcentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Pourcentage de remise (0 à 100) si mode = pourcentage."
+    )
+    montant = models.DecimalField(max_digits=12, decimal_places=0, default=0, help_text="Montant effectif réduit (FCFA).")
+    organisme_tiers = models.CharField(max_length=150, blank=True, help_text="Organisme payeur (État, ONG, Mairie, Entreprise...)")
     motif = models.CharField(max_length=200, blank=True)
     date_accord = models.DateTimeField(default=timezone.now)
+    accordee_par = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name='reductions_accordees')
 
     class Meta:
         unique_together = ['eleve', 'annee', 'type_frais']
 
     def __str__(self): return f"Réduction de {self.montant} FCFA pour {self.eleve}"
+
+    def calculer_montant(self):
+        """Montant effectif (FCFA) borné entre 0 et le tarif standard du frais."""
+        from decimal import Decimal, ROUND_HALF_UP
+        base = Decimal(str(self.type_frais.montant_defaut or 0))
+        if self.mode_calcul == 'pourcentage':
+            pct = Decimal(str(self.valeur_pourcentage or 0))
+            pct = max(Decimal('0'), min(Decimal('100'), pct))
+            val = (base * pct / Decimal('100')).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        else:
+            val = Decimal(str(self.montant or 0))
+        return max(Decimal('0'), min(base, val)) if base > 0 else max(Decimal('0'), val)
+
+    def save(self, *args, **kwargs):
+        self.montant = self.calculer_montant()
+        super().save(*args, **kwargs)
+
+    @property
+    def est_exoneration_totale(self):
+        return self.type_frais.montant_defaut > 0 and self.montant >= self.type_frais.montant_defaut
+
+    @property
+    def libelle_valeur(self):
+        if self.mode_calcul == 'pourcentage' and self.valeur_pourcentage is not None:
+            return f"-{self.valeur_pourcentage.normalize():f} %"
+        return f"-{int(self.montant):,} F".replace(',', ' ')
 
 
 class Paiement(models.Model):
@@ -71,35 +125,15 @@ class Paiement(models.Model):
     @staticmethod
     def _generer_reference_atomique(etablissement_id=None):
         """
-        Génère une référence de paiement unique et non-devinable de façon atomique.
-
-        Format : PAY-XXXXXXXX (8 chiffres basés sur timestamp en microsecondes
-        + compteur journalier pour garantir l'unicité).
-
-        La combinaison timestamp+select_for_update protège contre les conditions
-        de concurrence même avec plusieurs workers Gunicorn simultanés.
+        Génère une référence de paiement unique et non-devinable (PAY-XXXXXXXX)
+        via CSPRNG (secrets.randbelow) sans contention de verrou inter-établissements
+        ni scan COUNT(*).
         """
-        with transaction.atomic():
-            if etablissement_id:
-                from etablissements.models import Etablissement
-                list(Etablissement.objects.select_for_update().filter(pk=etablissement_id).values_list('pk', flat=True))
-            else:
-                list(Paiement.objects.select_for_update().order_by('-pk').values_list('pk', flat=True)[:1])
-
-            # Timestamp en microsecondes, réduit aux 8 derniers chiffres
-            ts_micro = str(int(time.time() * 1_000_000))[-8:]
-            reference = f"PAY-{ts_micro}"
-
-            # En cas de collision (très peu probable mais possible), ajouter
-            # un compteur croissant jusqu'à trouver une référence libre.
-            if Paiement.objects.filter(reference=reference).exists():
-                compteur = Paiement.objects.count()
-                reference = f"PAY-{ts_micro[:4]}{compteur:04d}"
-                # Dernière vérification de sécurité
-                while Paiement.objects.filter(reference=reference).exists():
-                    compteur += 1
-                    reference = f"PAY-{ts_micro[:4]}{compteur:04d}"
-            return reference
+        for _ in range(20):
+            reference = f"PAY-{secrets.randbelow(100_000_000):08d}"
+            if not Paiement.objects.filter(reference=reference).exists():
+                return reference
+        raise RuntimeError("Impossible de générer une référence de paiement unique.")
 
     def save(self, *args, **kwargs):
         if not self.reference:

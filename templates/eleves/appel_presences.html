@@ -3,47 +3,126 @@
 {% block topbar_title %}Appel des présences{% endblock %}
 {% block extra_css %}
 <style>
-.presence-btn-group { display:flex; gap:6px; justify-content:center; flex-wrap:nowrap; }
-.presence-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 12px; border-radius: 7px; border: 2px solid var(--border);
-  cursor: pointer; font-size: 12px; font-weight: 700;
-  background: var(--bg-card); color: var(--text-muted);
-  transition: all 0.15s ease; user-select: none; white-space: nowrap;
-}
-.presence-btn input[type="radio"] { display: none; }
-.presence-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.1); }
-.presence-btn.active-present { background:#e8f5e9; border-color:#2e7d32; color:#2e7d32; }
-.presence-btn.active-absent  { background:#ffebee; border-color:#c62828; color:#c62828; }
-.presence-btn.active-retard  { background:#fff3e0; border-color:#e65100; color:#e65100; }
-.presence-btn.active-justifie{ background:#e3f2fd; border-color:#1565c0; color:#1565c0; }
-.presence-row { transition: background 0.15s ease; }
-.presence-row.row-absent  { background: rgba(198,40,40,0.04) !important; }
-.presence-row.row-retard  { background: rgba(230,81,0,0.04) !important; }
-.presence-row.row-justifie{ background: rgba(21,101,192,0.04) !important; }
-.presence-row.row-present { background: transparent !important; }
-.stat-pill {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
-}
-.stat-pill.presents { background:#e8f5e9; color:#2e7d32; }
-.stat-pill.absents  { background:#ffebee; color:#c62828; }
-.stat-pill.retards  { background:#fff3e0; color:#e65100; }
+  .presence-btn-group {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
+
+  .presence-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 7px;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    transition: all 0.15s ease;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .presence-btn input[type="radio"] {
+    display: none;
+  }
+
+  .presence-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, .1);
+  }
+
+  .presence-btn.active-present {
+    background: #e8f5e9;
+    border-color: #2e7d32;
+    color: #2e7d32;
+  }
+
+  .presence-btn.active-absent {
+    background: #ffebee;
+    border-color: #c62828;
+    color: #c62828;
+  }
+
+  .presence-btn.active-retard {
+    background: #fff3e0;
+    border-color: #e65100;
+    color: #e65100;
+  }
+
+  .presence-btn.active-justifie {
+    background: #e3f2fd;
+    border-color: #1565c0;
+    color: #1565c0;
+  }
+
+  .presence-row {
+    transition: background 0.15s ease;
+  }
+
+  .presence-row.row-absent {
+    background: rgba(198, 40, 40, 0.04) !important;
+  }
+
+  .presence-row.row-retard {
+    background: rgba(230, 81, 0, 0.04) !important;
+  }
+
+  .presence-row.row-justifie {
+    background: rgba(21, 101, 192, 0.04) !important;
+  }
+
+  .presence-row.row-present {
+    background: transparent !important;
+  }
+
+  .stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .stat-pill.presents {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .stat-pill.absents {
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  .stat-pill.retards {
+    background: #fff3e0;
+    color: #e65100;
+  }
 </style>
 {% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
     <h1><i class="bi bi-clipboard"></i> Appel des présences</h1>
-    {% if annee %}<div style="font-size:13px;color:var(--text-muted);margin-top:3px;">{{ annee.libelle }}</div>{% endif %}
+    {% if annee %}
+    <div style="font-size:13px;color:var(--text-muted);margin-top:3px;">{{ annee.libelle }}</div>
+    {% endif %}
   </div>
   <div style="display:flex;gap:8px;">
-    {% if request.user.role in 'admin,super_admin,secretariat,surveillant' %}
-    <a href="{% url 'gestion_jours_non_ouvres' %}" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);">
+    {% if request.user.peut_gerer_presences %}
+    <a href="{% url 'gestion_jours_non_ouvres' %}" class="btn btn-outline btn-sm"
+      style="color:var(--danger);border-color:var(--danger);">
       <i class="bi bi-calendar-x"></i> Jours non ouvrés
     </a>
     {% endif %}
-    <a href="{% url 'historique_presences' %}" class="btn btn-outline btn-sm"><i class="bi bi-bar-chart-fill"></i> Historique</a>
+    <a href="{% url 'historique_presences' %}" class="btn btn-outline btn-sm"><i class="bi bi-bar-chart-fill"></i>
+      Historique</a>
   </div>
 </div>
 
@@ -53,7 +132,8 @@
     <form method="get" id="form-filtre" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
       <div style="flex:1;min-width:200px;">
         <label class="form-label" style="margin-bottom:4px;font-weight:600;">Classe</label>
-        <select name="classe" class="form-control" id="select-classe" onchange="document.getElementById('form-filtre').submit()">
+        <select name="classe" class="form-control" id="select-classe"
+          onchange="document.getElementById('form-filtre').submit()">
           <option value="">-- Sélectionner une classe --</option>
           {% for c in classes %}
           <option value="{{ c.pk }}" {% if classe_id == c.pk|stringformat:"s" %}selected{% endif %}>
@@ -62,13 +142,14 @@
           {% endfor %}
         </select>
         {% if not classes %}
-        <div style="color:var(--danger);font-size:12px;margin-top:4px;"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Aucune classe disponible</div>
+        <div style="color:var(--danger);font-size:12px;margin-top:4px;"><i
+            class="bi bi-exclamation-triangle-fill text-warning"></i>️ Aucune classe disponible</div>
         {% endif %}
       </div>
       <div style="flex:1;min-width:160px;">
         <label class="form-label" style="margin-bottom:4px;font-weight:600;">Date</label>
         <input type="date" name="date" value="{{ date_appel|date:'Y-m-d' }}" class="form-control"
-               onchange="document.getElementById('form-filtre').submit()">
+          onchange="document.getElementById('form-filtre').submit()">
       </div>
       <div style="align-self:flex-end;">
         {% if date_appel == today %}
@@ -84,67 +165,74 @@
 </div>
 
 {% if classe %}
-  {% if jour_non_ouvre %}
-  <!-- JOUR NON OUVRE : blocage de l'appel -->
-  <div style="background:linear-gradient(135deg,#ffebee,#fce4ec);border:2px solid #e53935;border-radius:12px;padding:24px 28px;margin-bottom:16px;text-align:center;">
-    <div style="font-size:48px;margin-bottom:12px;">🚫</div>
-    <div style="font-size:20px;font-weight:800;color:#c62828;margin-bottom:6px;">Jour non ouvré</div>
-    <div style="font-size:15px;color:#b71c1c;margin-bottom:16px;">
-      <strong>{{ date_appel|date:"l d F Y" }}</strong> — {{ motif_non_ouvre }}
-    </div>
-    <div style="font-size:13px;color:#e53935;margin-bottom:20px;">
-      L'appel ne peut pas être effectué ce jour-là.
-    </div>
-    {% if request.user.role in 'admin,super_admin,secretariat,surveillant' %}
-    <a href="{% url 'gestion_jours_non_ouvres' %}" class="btn btn-outline" style="border-color:#e53935;color:#e53935;">
-      <i class="bi bi-pencil-square"></i> Modifier les jours non ouvrés
-    </a>
-    {% endif %}
+{% if jour_non_ouvre %}
+<!-- JOUR NON OUVRE : blocage de l'appel -->
+<div
+  style="background:linear-gradient(135deg,#ffebee,#fce4ec);border:2px solid #e53935;border-radius:12px;padding:24px 28px;margin-bottom:16px;text-align:center;">
+  <div style="font-size:48px;margin-bottom:12px;">🚫</div>
+  <div style="font-size:20px;font-weight:800;color:#c62828;margin-bottom:6px;">Jour non ouvré</div>
+  <div style="font-size:15px;color:#b71c1c;margin-bottom:16px;">
+    <strong>{{ date_appel|date:"l d F Y" }}</strong> — {{ motif_non_ouvre }}
   </div>
-  {% else %}
-  {% if appel_fait %}
-  <div class="alert alert-info"><i class="bi bi-check-circle-fill text-success"></i> Appel déjà enregistré pour cette date — vous pouvez le modifier.</div>
+  <div style="font-size:13px;color:#e53935;margin-bottom:20px;">
+    L'appel ne peut pas être effectué ce jour-là.
+  </div>
+  {% if request.user.peut_gerer_presences %}
+  <a href="{% url 'gestion_jours_non_ouvres' %}" class="btn btn-outline" style="border-color:#e53935;color:#e53935;">
+    <i class="bi bi-pencil-square"></i> Modifier les jours non ouvrés
+  </a>
   {% endif %}
+</div>
+{% else %}
+{% if appel_fait %}
+<div class="alert alert-info"><i class="bi bi-check-circle-fill text-success"></i> Appel déjà enregistré pour cette date
+  — vous pouvez le modifier.</div>
+{% endif %}
 
-  <!-- Compteurs temps réel -->
-  <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;" id="stats-bar">
-    <span class="stat-pill presents"><i class="bi bi-check-circle-fill text-success"></i> Présents : <strong id="count-present">0</strong></span>
-    <span class="stat-pill absents"><i class="bi bi-x-circle-fill text-danger"></i> Absents : <strong id="count-absent">0</strong></span>
-    <span class="stat-pill retards">⏰ Retards : <strong id="count-retard">0</strong></span>
-  </div>
-  <!-- Barre de progression -->
-  <div class="appel-counter">
-    <span id="progress-label">0 / {{ eleves_data|length }} élève(s) traité(s)</span>
-    <span id="progress-pct" style="font-weight:700;color:var(--primary);">0%</span>
-  </div>
-  <div class="appel-progress-bar"><div class="appel-progress-fill" id="progress-fill" style="width:0%;"></div></div>
+<!-- Compteurs temps réel -->
+<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;" id="stats-bar">
+  <span class="stat-pill presents"><i class="bi bi-check-circle-fill text-success"></i> Présents : <strong
+      id="count-present">0</strong></span>
+  <span class="stat-pill absents"><i class="bi bi-x-circle-fill text-danger"></i> Absents : <strong
+      id="count-absent">0</strong></span>
+  <span class="stat-pill retards">⏰ Retards : <strong id="count-retard">0</strong></span>
+</div>
+<!-- Barre de progression -->
+<div class="appel-counter">
+  <span id="progress-label">0 / {{ eleves_data|length }} élève(s) traité(s)</span>
+  <span id="progress-pct" style="font-weight:700;color:var(--primary);">0%</span>
+</div>
+<div class="appel-progress-bar">
+  <div class="appel-progress-fill" id="progress-fill" style="width:0%;"></div>
+</div>
 
-  <form method="post" id="form-appel">
-    {% csrf_token %}
-    <input type="hidden" name="classe" value="{{ classe.pk }}">
-    <div class="card">
-      <div class="card-header" style="flex-wrap:wrap;gap:8px;">
-        <span class="card-title">{{ classe.nom }} — {{ date_appel|date:"d F Y" }}</span>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <button type="button" onclick="toggleNonTraites()" class="btn btn-outline btn-sm" id="btn-filtre">
-            <i class="bi bi-search"></i> Non traités
-          </button>
-          <button type="button" onclick="setAll('present')" class="btn btn-outline btn-sm"
-                  style="color:var(--success);border-color:var(--success);"><i class="bi bi-check-circle-fill text-success"></i> Tous présents</button>
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer</button>
-        </div>
+<form method="post" id="form-appel">
+  {% csrf_token %}
+  <input type="hidden" name="classe" value="{{ classe.pk }}">
+  <div class="card">
+    <div class="card-header" style="flex-wrap:wrap;gap:8px;">
+      <span class="card-title">{{ classe.nom }} — {{ date_appel|date:"d F Y" }}</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button type="button" onclick="toggleNonTraites()" class="btn btn-outline btn-sm" id="btn-filtre">
+          <i class="bi bi-search"></i> Non traités
+        </button>
+        <button type="button" onclick="setAll('present')" class="btn btn-outline btn-sm"
+          style="color:var(--success);border-color:var(--success);"><i class="bi bi-check-circle-fill text-success"></i>
+          Tous présents</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer</button>
       </div>
+    </div>
 
-      <table class="table-modern">
-        <thead>
-          <tr>
-            <th style="width:40px;">#</th>
-            <th>Élève</th>
-            <th style="text-align:center;">Statut</th>
-            <th>Motif (si absent/retard)</th>
-          </tr>
-        </thead>
-        <tbody>
+    <table class="table-modern">
+      <thead>
+        <tr>
+          <th style="width:40px;">#</th>
+          <th>Élève</th>
+          <th style="text-align:center;">Statut</th>
+          <th>Motif (si absent/retard)</th>
+        </tr>
+      </thead>
+      <tbody>
         {% for item in eleves_data %}
         <tr class="presence-row row-{{ item.statut }}" id="row-{{ item.eleve.pk }}">
           <td style="font-weight:600;color:var(--text-muted);">{{ forloop.counter }}</td>
@@ -156,63 +244,61 @@
             <div class="presence-btn-group">
               <!-- Présent -->
               <label class="presence-btn {% if item.statut == 'present' %}active-present{% endif %}"
-                     id="btn-present-{{ item.eleve.pk }}"
-                     onclick="selectStatut({{ item.eleve.pk }}, 'present')">
+                id="btn-present-{{ item.eleve.pk }}" onclick="selectStatut({{ item.eleve.pk }}, 'present')">
                 <input type="radio" name="statut_{{ item.eleve.pk }}" value="present"
-                       {% if item.statut == 'present' %}checked{% endif %}>
+                  {% if item.statut == 'present' %}checked{% endif %}>
                 <i class="bi bi-check-circle-fill text-success"></i> Présent
               </label>
               <!-- Absent -->
               <label class="presence-btn {% if item.statut == 'absent' %}active-absent{% endif %}"
-                     id="btn-absent-{{ item.eleve.pk }}"
-                     onclick="selectStatut({{ item.eleve.pk }}, 'absent')">
+                id="btn-absent-{{ item.eleve.pk }}" onclick="selectStatut({{ item.eleve.pk }}, 'absent')">
                 <input type="radio" name="statut_{{ item.eleve.pk }}" value="absent"
-                       {% if item.statut == 'absent' %}checked{% endif %}>
+                  {% if item.statut == 'absent' %}checked{% endif %}>
                 <i class="bi bi-x-circle-fill text-danger"></i> Absent
               </label>
               <!-- Retard -->
               <label class="presence-btn {% if item.statut == 'retard' %}active-retard{% endif %}"
-                     id="btn-retard-{{ item.eleve.pk }}"
-                     onclick="selectStatut({{ item.eleve.pk }}, 'retard')">
+                id="btn-retard-{{ item.eleve.pk }}" onclick="selectStatut({{ item.eleve.pk }}, 'retard')">
                 <input type="radio" name="statut_{{ item.eleve.pk }}" value="retard"
-                       {% if item.statut == 'retard' %}checked{% endif %}>
+                  {% if item.statut == 'retard' %}checked{% endif %}>
                 ⏰ Retard
               </label>
               <!-- Justifié -->
               <label class="presence-btn {% if item.statut == 'justifie' %}active-justifie{% endif %}"
-                     id="btn-justifie-{{ item.eleve.pk }}"
-                     onclick="selectStatut({{ item.eleve.pk }}, 'justifie')">
+                id="btn-justifie-{{ item.eleve.pk }}" onclick="selectStatut({{ item.eleve.pk }}, 'justifie')">
                 <input type="radio" name="statut_{{ item.eleve.pk }}" value="justifie"
-                       {% if item.statut == 'justifie' %}checked{% endif %}>
+                  {% if item.statut == 'justifie' %}checked{% endif %}>
                 <i class="bi bi-journal-text"></i> Justifié
               </label>
             </div>
           </td>
           <td>
             <input type="text" name="motif_{{ item.eleve.pk }}" class="form-control"
-                   style="min-width:130px;font-size:12.5px;" value="{{ item.motif }}"
-                   placeholder="Motif si nécessaire..."
-                   id="motif-{{ item.eleve.pk }}">
+              style="min-width:130px;font-size:12.5px;" value="{{ item.motif }}" placeholder="Motif si nécessaire..."
+              id="motif-{{ item.eleve.pk }}">
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="4" style="text-align:center;padding:30px;color:var(--text-muted);">
-          Aucun élève inscrit dans cette classe.
-        </td></tr>
+        <tr>
+          <td colspan="4" style="text-align:center;padding:30px;color:var(--text-muted);">
+            Aucun élève inscrit dans cette classe.
+          </td>
+        </tr>
         {% endfor %}
-        </tbody>
-      </table>
+      </tbody>
+    </table>
 
-      {% if eleves_data %}
-      <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;">
-        <button type="button" onclick="setAll('present')" class="btn btn-outline"
-                style="color:var(--success);border-color:var(--success);"><i class="bi bi-check-circle-fill text-success"></i> Tous présents</button>
-        <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer l'appel</button>
-      </div>
-      {% endif %}
+    {% if eleves_data %}
+    <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;">
+      <button type="button" onclick="setAll('present')" class="btn btn-outline"
+        style="color:var(--success);border-color:var(--success);"><i class="bi bi-check-circle-fill text-success"></i>
+        Tous présents</button>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Enregistrer l'appel</button>
     </div>
-  </form>
-  {% endif %}{# fin else jour_non_ouvre #}
+    {% endif %}
+  </div>
+</form>
+{% endif %}{# fin else jour_non_ouvre #}
 
 {% else %}
 <div class="card">
@@ -221,8 +307,10 @@
     <div style="font-size:16px;font-weight:700;margin-bottom:8px;">Sélectionnez une classe</div>
     <div style="font-size:13px;">Choisissez une classe dans le menu ci-dessus pour commencer l'appel</div>
     {% if not classes %}
-    <div style="margin-top:16px;padding:12px 20px;background:rgba(198,40,40,0.08);border-radius:8px;color:var(--danger);font-size:13px;font-weight:600;">
-      <i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Aucune classe disponible — vérifiez que des cycles sont activés dans les paramètres.
+    <div
+      style="margin-top:16px;padding:12px 20px;background:rgba(198,40,40,0.08);border-radius:8px;color:var(--danger);font-size:13px;font-weight:600;">
+      <i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Aucune classe disponible — vérifiez que des cycles
+      sont activés dans les paramètres.
     </div>
     {% endif %}
   </div>
@@ -232,116 +320,116 @@
 
 {% block extra_js %}
 <script>
-// Statuts disponibles et leurs classes CSS
-const STATUT_CLASSES = {
-  'present':  'active-present',
-  'absent':   'active-absent',
-  'retard':   'active-retard',
-  'justifie': 'active-justifie',
-};
-const ROW_CLASSES = {
-  'present':  'row-present',
-  'absent':   'row-absent',
-  'retard':   'row-retard',
-  'justifie': 'row-justifie',
-};
+  // Statuts disponibles et leurs classes CSS
+  const STATUT_CLASSES = {
+    'present': 'active-present',
+    'absent': 'active-absent',
+    'retard': 'active-retard',
+    'justifie': 'active-justifie',
+  };
+  const ROW_CLASSES = {
+    'present': 'row-present',
+    'absent': 'row-absent',
+    'retard': 'row-retard',
+    'justifie': 'row-justifie',
+  };
 
-function selectStatut(eleveId, statut) {
-  // Cocher le radio
-  const radio = document.querySelector(`input[name="statut_${eleveId}"][value="${statut}"]`);
-  if (radio) radio.checked = true;
+  function selectStatut(eleveId, statut) {
+    // Cocher le radio
+    const radio = document.querySelector(`input[name="statut_${eleveId}"][value="${statut}"]`);
+    if (radio) radio.checked = true;
 
-  // Mettre à jour les boutons visuels
-  ['present','absent','retard','justifie'].forEach(s => {
-    const btn = document.getElementById(`btn-${s}-${eleveId}`);
+    // Mettre à jour les boutons visuels
+    ['present', 'absent', 'retard', 'justifie'].forEach(s => {
+      const btn = document.getElementById(`btn-${s}-${eleveId}`);
+      if (btn) {
+        Object.values(STATUT_CLASSES).forEach(c => btn.classList.remove(c));
+        if (s === statut) btn.classList.add(STATUT_CLASSES[statut]);
+      }
+    });
+
+    // Mettre à jour la ligne
+    const row = document.getElementById(`row-${eleveId}`);
+    if (row) {
+      Object.values(ROW_CLASSES).forEach(c => row.classList.remove(c));
+      row.classList.add(ROW_CLASSES[statut]);
+    }
+
+    // Afficher/masquer le motif
+    const motif = document.getElementById(`motif-${eleveId}`);
+    if (motif) {
+      motif.style.display = (statut === 'present') ? 'none' : '';
+      motif.placeholder = statut === 'absent' ? 'Raison de l\'absence...' :
+        statut === 'retard' ? 'Raison du retard...' : 'Motif de justification...';
+    }
+
+    updateStats();
+  }
+
+  function setAll(statut) {
+    document.querySelectorAll('[id^="row-"]').forEach(row => {
+      const eleveId = row.id.replace('row-', '');
+      selectStatut(eleveId, statut);
+    });
+  }
+
+  function updateStats() {
+    const radios = document.querySelectorAll('input[type="radio"]:checked');
+    const total = document.querySelectorAll('[id^="row-"]').length;
+    let counts = { present: 0, absent: 0, retard: 0, justifie: 0 };
+    radios.forEach(r => { if (r.value in counts) counts[r.value]++; });
+    const p = document.getElementById('count-present');
+    const a = document.getElementById('count-absent');
+    const r = document.getElementById('count-retard');
+    if (p) p.textContent = counts.present;
+    if (a) a.textContent = counts.absent;
+    if (r) r.textContent = counts.retard + counts.justifie;
+    // Barre de progression
+    const done = counts.present + counts.absent + counts.retard + counts.justifie;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const fill = document.getElementById('progress-fill');
+    const label = document.getElementById('progress-label');
+    const pctEl = document.getElementById('progress-pct');
+    if (fill) fill.style.width = pct + '%';
+    if (label) label.textContent = done + ' / ' + total + ' élève(s) traité(s)';
+    if (pctEl) pctEl.textContent = pct + '%';
+  }
+
+  let filtreActif = false;
+  function toggleNonTraites() {
+    filtreActif = !filtreActif;
+    const btn = document.getElementById('btn-filtre');
+    document.querySelectorAll('[id^="row-"]').forEach(row => {
+      const eleveId = row.id.replace('row-', '');
+      const checked = document.querySelector(`input[name="statut_${eleveId}"]:checked`);
+      const traite = checked && checked.value !== '';
+      if (filtreActif) {
+        row.style.display = traite ? 'none' : '';
+      } else {
+        row.style.display = '';
+      }
+    });
     if (btn) {
-      Object.values(STATUT_CLASSES).forEach(c => btn.classList.remove(c));
-      if (s === statut) btn.classList.add(STATUT_CLASSES[statut]);
+      btn.style.background = filtreActif ? 'var(--primary)' : '';
+      btn.style.color = filtreActif ? '#fff' : '';
+      btn.style.borderColor = filtreActif ? 'var(--primary)' : '';
+      btn.innerHTML = filtreActif ? '<i class="bi bi-eye-fill"></i>️ Tous' : '<i class="bi bi-search"></i> Non traités';
     }
-  });
-
-  // Mettre à jour la ligne
-  const row = document.getElementById(`row-${eleveId}`);
-  if (row) {
-    Object.values(ROW_CLASSES).forEach(c => row.classList.remove(c));
-    row.classList.add(ROW_CLASSES[statut]);
   }
 
-  // Afficher/masquer le motif
-  const motif = document.getElementById(`motif-${eleveId}`);
-  if (motif) {
-    motif.style.display = (statut === 'present') ? 'none' : '';
-    motif.placeholder = statut === 'absent' ? 'Raison de l\'absence...' :
-                        statut === 'retard' ? 'Raison du retard...' : 'Motif de justification...';
-  }
+  // Cacher les champs motif pour les "présents" au chargement + init stats
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[id^="motif-"]').forEach(inp => {
+      const eleveId = inp.id.replace('motif-', '');
+      const checkedRadio = document.querySelector(`input[name="statut_${eleveId}"]:checked`);
+      if (checkedRadio && checkedRadio.value === 'present') inp.style.display = 'none';
+    });
+    updateStats();
 
-  updateStats();
-}
-
-function setAll(statut) {
-  document.querySelectorAll('[id^="row-"]').forEach(row => {
-    const eleveId = row.id.replace('row-', '');
-    selectStatut(eleveId, statut);
+    // Auto-dismiss des alertes
+    document.querySelectorAll('.alert').forEach(el => {
+      setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.4s'; setTimeout(() => el.remove(), 400); }, 5000);
+    });
   });
-}
-
-function updateStats() {
-  const radios = document.querySelectorAll('input[type="radio"]:checked');
-  const total = document.querySelectorAll('[id^="row-"]').length;
-  let counts = {present:0, absent:0, retard:0, justifie:0};
-  radios.forEach(r => { if (r.value in counts) counts[r.value]++; });
-  const p = document.getElementById('count-present');
-  const a = document.getElementById('count-absent');
-  const r = document.getElementById('count-retard');
-  if (p) p.textContent = counts.present;
-  if (a) a.textContent = counts.absent;
-  if (r) r.textContent = counts.retard + counts.justifie;
-  // Barre de progression
-  const done = counts.present + counts.absent + counts.retard + counts.justifie;
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const fill = document.getElementById('progress-fill');
-  const label = document.getElementById('progress-label');
-  const pctEl = document.getElementById('progress-pct');
-  if (fill) fill.style.width = pct + '%';
-  if (label) label.textContent = done + ' / ' + total + ' élève(s) traité(s)';
-  if (pctEl) pctEl.textContent = pct + '%';
-}
-
-let filtreActif = false;
-function toggleNonTraites() {
-  filtreActif = !filtreActif;
-  const btn = document.getElementById('btn-filtre');
-  document.querySelectorAll('[id^="row-"]').forEach(row => {
-    const eleveId = row.id.replace('row-', '');
-    const checked = document.querySelector(`input[name="statut_${eleveId}"]:checked`);
-    const traite = checked && checked.value !== '';
-    if (filtreActif) {
-      row.style.display = traite ? 'none' : '';
-    } else {
-      row.style.display = '';
-    }
-  });
-  if (btn) {
-    btn.style.background = filtreActif ? 'var(--primary)' : '';
-    btn.style.color = filtreActif ? '#fff' : '';
-    btn.style.borderColor = filtreActif ? 'var(--primary)' : '';
-    btn.innerHTML = filtreActif ? '<i class="bi bi-eye-fill"></i>️ Tous' : '<i class="bi bi-search"></i> Non traités';
-  }
-}
-
-// Cacher les champs motif pour les "présents" au chargement + init stats
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('[id^="motif-"]').forEach(inp => {
-    const eleveId = inp.id.replace('motif-', '');
-    const checkedRadio = document.querySelector(`input[name="statut_${eleveId}"]:checked`);
-    if (checkedRadio && checkedRadio.value === 'present') inp.style.display = 'none';
-  });
-  updateStats();
-
-  // Auto-dismiss des alertes
-  document.querySelectorAll('.alert').forEach(el => {
-    setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity 0.4s'; setTimeout(()=>el.remove(),400); }, 5000);
-  });
-});
 </script>
 {% endblock %}

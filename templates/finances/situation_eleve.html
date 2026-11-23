@@ -1,46 +1,188 @@
 {% extends "base/base.html" %}
-{% block title %}Situation{{ eleve.nom_complet }}{% endblock %}
+{% block title %}Situation {{ eleve.nom_complet }}{% endblock %}
 {% block topbar_title %}Situation financiere{% endblock %}
 {% block nav_paiements %}active{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'detail_eleve' eleve.pk %}" class="btn btn-outline btn-sm">← Retour</a><div><h1>{{ eleve.nom }} {{ eleve.prenom }}</h1><div class="page-subtitle">Situation financière — {% if annee %}{{ annee.libelle }}{% endif %}</div></div></div>
-  <div style="display:flex;gap:8px;">
-    <a href="{% url 'ajouter_reduction' %}?eleve={{ eleve.pk }}" class="btn btn-outline"><i class="bi bi-gift-fill"></i> Ajouter Bourse/Réduction</a>
+  <div style="display:flex;align-items:center;gap:12px;"><a href="{% url 'detail_eleve' eleve.pk %}"
+      class="btn btn-outline btn-sm">← Retour</a>
+    <div>
+      <h1>{{ eleve.nom }} {{ eleve.prenom }}</h1>
+      <div class="page-subtitle">Situation financière — {% if annee %}{{ annee.libelle }}{% endif %}</div>
+    </div>
+  </div>
+  {% if peut_gerer %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% url 'situation_tranches_eleve' eleve.pk %}" class="btn btn-outline"><i class="bi bi-calendar3"></i>
+      Échéancier</a>
+    <a href="{% url 'ajouter_reduction' %}?eleve={{ eleve.pk }}" class="btn btn-outline"><i class="bi bi-gift-fill"></i>
+      Accorder Bourse/Réduction</a>
     <a href="{% url 'enregistrer_paiement' %}?eleve={{ eleve.pk }}" class="btn btn-primary">+ Paiement</a>
   </div>
+  {% endif %}
 </div>
 <div class="stats-grid" style="margin-bottom:16px;">
-  <div class="stat-card"><div class="stat-icon green"><i class="bi bi-check-circle-fill text-success"></i></div><div class="stat-body"><div class="stat-value">{{ total_paye|floatformat:0 }}</div><div class="stat-label">FCFA payés</div></div></div>
-  <div class="stat-card"><div class="stat-icon red"><i class="bi bi-bullseye"></i></div><div class="stat-body"><div class="stat-value">{{ total_exige|floatformat:0 }}</div><div class="stat-label">Total exigé (Après réduction)</div></div></div>
-  <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-cash-stack"></i></div><div class="stat-body"><div class="stat-value">{{ reste_a_payer|floatformat:0 }}</div><div class="stat-label">Reste à payer</div></div></div>
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="bi bi-tag-fill"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ total_obligatoire|floatformat:0 }}</div>
+      <div class="stat-label">Tarif standard (FCFA)</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="bi bi-gift-fill"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ total_reductions|floatformat:0 }}</div>
+      <div class="stat-label">Bourses / réductions</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon red"><i class="bi bi-bullseye"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ total_exige|floatformat:0 }}</div>
+      <div class="stat-label">Total exigé (après réduction)</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="bi bi-check-circle-fill text-success"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ total_paye|floatformat:0 }}</div>
+      <div class="stat-label">FCFA payés</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="bi bi-cash-stack"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ reste_a_payer|floatformat:0 }}</div>
+      <div class="stat-label">Reste à payer</div>
+    </div>
+  </div>
 </div>
 
-{% if reductions %}
-<div class="card" style="margin-bottom:16px;"><div class="card-header"><span class="card-title">Bourses / Réductions</span></div>
-<div class="table-scroll-mobile" style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table class="table-modern">
-<thead><tr><th>Type de frais</th><th>Montant de la réduction</th><th>Motif</th><th>Date</th></tr></thead>
-<tbody>{% for r in reductions %}<tr>
-<td>{{ r.type_frais.nom }}</td><td><strong>-{{ r.montant|floatformat:0 }} F</strong></td>
-<td>{{ r.motif }}</td>
-<td style="font-size:12px;color:var(--text-muted);">{{ r.date_accord|date:"d/m/Y" }}</td>
-</tr>{% endfor %}</tbody>
-</table></div>
+{% if detail_frais %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">Détail par type de frais</span></div>
+  <div class="table-scroll-mobile" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+    <table class="table-modern">
+      <thead>
+        <tr>
+          <th>Type de frais</th>
+          <th>Tarif standard</th>
+          <th>Réduction</th>
+          <th>Net à payer</th>
+          <th>Payé</th>
+          <th>Reste</th>{% if peut_gerer %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>{% for d in detail_frais %}<tr>
+          <td><strong>{{ d.type_frais.nom }}</strong>{% if not d.type_frais.is_obligatoire %} <small
+              style="color:var(--text-muted);">(facultatif)</small>{% endif %}</td>
+          <td>{{ d.base|floatformat:0 }} F</td>
+          <td>
+            {% if d.reduction %}
+            <span style="color:var(--success);font-weight:700;">{{ d.reduction.libelle_valeur }}</span>
+            {% if d.reduction.mode_calcul == 'pourcentage' %}
+            <br><small style="color:var(--text-muted);">-{{ d.reduction.montant|floatformat:0 }} F</small>
+            {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td><strong>{{ d.net|floatformat:0 }} F</strong></td>
+          <td style="color:var(--success);">{{ d.paye|floatformat:0 }} F</td>
+          <td style="font-weight:700;color:{% if d.reste > 0 %}var(--danger){% else %}var(--success){% endif %};">
+            {{ d.reste|floatformat:0 }} F
+          </td>
+          {% if peut_gerer %}
+          <td style="white-space:nowrap;">
+            <a href="{% url 'personnaliser_echeancier' eleve.pk d.type_frais.pk %}" class="btn btn-outline btn-sm"
+              title="Personnaliser l'échéancier de cet élève">
+              <i class="bi bi-calendar2-week"></i>
+              {% if d.a_echeancier %}Rééchelonner{% else %}Créer échéancier{% endif %}
+            </a>
+          </td>
+          {% endif %}
+        </tr>{% endfor %}</tbody>
+    </table>
+  </div>
 </div>
 {% endif %}
-<div class="card"><div class="card-header"><span class="card-title">Historique des paiements</span><a href="{% url 'generer_document' eleve.pk 'recu_paiement_annuel' %}" target="_blank" class="btn btn-outline btn-sm"><i class="bi bi-file-earmark-text"></i> Recapitulatif</a></div>
-{% if paiements %}
-<div class="table-scroll-mobile" style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table class="table-modern">
-<thead><tr><th>Reference</th><th>Type</th><th>Montant</th><th>Mode</th><th>Statut</th><th>Date</th><th></th></tr></thead>
-<tbody>{% for p in paiements %}<tr>
-<td><code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;">{{ p.reference }}</code></td>
-<td>{{ p.type_frais.nom }}</td><td><strong>{{ p.montant|floatformat:0 }} F</strong></td>
-<td style="font-size:12px;">{{ p.get_mode_paiement_display }}</td>
-<td>{% if p.statut == 'valide' %}<span class="badge badge-success">Valide</span>{% else %}<span class="badge badge-warning">{{ p.get_statut_display }}</span>{% endif %}</td>
-<td style="font-size:12px;color:var(--text-muted);">{{ p.date_paiement|date:"d/m/Y" }}</td>
-<td><a href="{% url 'recu_paiement' p.pk %}" class="btn btn-outline btn-sm" target="_blank"><i class="bi bi-receipt"></i></a></td>
-</tr>{% endfor %}</tbody>
-</table></div>
-{% else %}<div style="text-align:center;padding:32px;color:var(--text-muted);">Aucun paiement cette annee</div>{% endif %}
+
+{% if reductions %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><span class="card-title">Bourses / Réductions accordées</span></div>
+  <div class="table-scroll-mobile" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+    <table class="table-modern">
+      <thead>
+        <tr>
+          <th>Type de frais</th>
+          <th>Catégorie</th>
+          <th>Réduction</th>
+          <th>Organisme / Motif</th>
+          <th>Accordée</th>{% if peut_gerer %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>{% for r in reductions %}<tr>
+          <td>{{ r.type_frais.nom }}</td>
+          <td><span class="badge badge-success">{{ r.get_categorie_display }}</span>{% if r.est_exoneration_totale %}
+            <span class="badge badge-warning">Exonération totale</span>{% endif %}
+          </td>
+          <td><strong>{{ r.libelle_valeur }}</strong>{% if r.mode_calcul == 'pourcentage' %}<br><small
+              style="color:var(--text-muted);">-{{ r.montant|floatformat:0 }} F</small>{% endif %}</td>
+          <td>
+            {% if r.organisme_tiers %}<strong>{{ r.organisme_tiers }}</strong><br>{% endif %}
+            <small>{{ r.motif }}</small>
+          </td>
+          <td style="font-size:12px;color:var(--text-muted);">
+            {{ r.date_accord|date:"d/m/Y" }}
+            {% if r.accordee_par %}<br>par {{ r.accordee_par.get_full_name|default:r.accordee_par.username }}{% endif %}
+          </td>
+          {% if peut_gerer %}<td style="white-space:nowrap;">
+            <a href="{% url 'ajouter_reduction' %}?pk={{ r.pk }}" class="btn btn-outline btn-sm" title="Modifier"><i
+                class="bi bi-pencil"></i></a>
+            <form method="post" action="{% url 'supprimer_reduction' r.pk %}" style="display:inline;"
+              onsubmit="return confirm('Supprimer cette réduction ? Les échéances non payées seront recalculées au tarif standard.');">
+              {% csrf_token %}<button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger);"
+                title="Supprimer"><i class="bi bi-trash"></i></button></form>
+          </td>{% endif %}
+        </tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+<div class="card">
+  <div class="card-header"><span class="card-title">Historique des paiements</span><a
+      href="{% url 'generer_document' eleve.pk 'recu_paiement_annuel' %}" target="_blank"
+      class="btn btn-outline btn-sm"><i class="bi bi-file-earmark-text"></i> Recapitulatif</a></div>
+  {% if paiements %}
+  <div class="table-scroll-mobile" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+    <table class="table-modern">
+      <thead>
+        <tr>
+          <th>Reference</th>
+          <th>Type</th>
+          <th>Montant</th>
+          <th>Mode</th>
+          <th>Statut</th>
+          <th>Date</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>{% for p in paiements %}<tr>
+          <td><code
+              style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;">{{ p.reference }}</code>
+          </td>
+          <td>{{ p.type_frais.nom }}</td>
+          <td><strong>{{ p.montant|floatformat:0 }} F</strong></td>
+          <td style="font-size:12px;">{{ p.get_mode_paiement_display }}</td>
+          <td>{% if p.statut == 'valide' %}<span class="badge badge-success">Valide</span>{% else %}<span
+              class="badge badge-warning">{{ p.get_statut_display }}</span>{% endif %}</td>
+          <td style="font-size:12px;color:var(--text-muted);">{{ p.date_paiement|date:"d/m/Y" }}</td>
+          <td><a href="{% url 'recu_paiement' p.pk %}" class="btn btn-outline btn-sm" target="_blank"><i
+                class="bi bi-receipt"></i></a></td>
+        </tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:32px;color:var(--text-muted);">Aucun paiement cette annee</div>
+  {% endif %}
 </div>
 {% endblock %}

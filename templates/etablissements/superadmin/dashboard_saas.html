@@ -183,10 +183,11 @@
 </div>
 
 {% block extra_js %}
+{{ chart_croissance|default:"[]"|json_script:"chart-saas-data" }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-  const raw = {{ chart_croissance|safe }};
+  const raw = JSON.parse(JSON.parse(document.getElementById('chart-saas-data').textContent || '"[]"'));
   const ctx = document.getElementById('chartSaas');
   if(!ctx || !raw.length) return;
   new Chart(ctx, {

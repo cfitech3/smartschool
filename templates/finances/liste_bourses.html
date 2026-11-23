@@ -1,0 +1,68 @@
+{% extends "base/base.html" %}
+{% block title %}Bourses &amp; Réductions{% endblock %}
+{% block topbar_title %}Bourses &amp; Réductions{% endblock %}
+{% block nav_paiements %}active{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="bi bi-gift-fill"></i> Bourses &amp; Réductions</h1>
+    <div class="page-subtitle">{% if annee %}{{ annee.libelle }}{% else %}Aucune année active{% endif %} — remises individuelles, le tarif standard des classes reste inchangé</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'liste_paiements' %}" class="btn btn-outline">← Paiements</a>
+    <a href="{% url 'ajouter_reduction' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Accorder une bourse</a>
+  </div>
+</div>
+
+<div class="stats-grid" style="margin-bottom:16px;">
+  <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-people-fill"></i></div><div class="stat-body"><div class="stat-value">{{ stats.nb_eleves }}</div><div class="stat-label">Élèves bénéficiaires</div></div></div>
+  <div class="stat-card"><div class="stat-icon green"><i class="bi bi-gift-fill"></i></div><div class="stat-body"><div class="stat-value">{{ stats.nb }}</div><div class="stat-label">Bourses / réductions</div></div></div>
+  <div class="stat-card"><div class="stat-icon red"><i class="bi bi-cash-coin"></i></div><div class="stat-body"><div class="stat-value">{{ stats.total|floatformat:0 }}</div><div class="stat-label">FCFA de remises accordées</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-building"></i></div><div class="stat-body"><div class="stat-value">{{ stats.tiers|floatformat:0 }}</div><div class="stat-label">FCFA pris en charge par des tiers</div></div></div>
+</div>
+
+{% if par_categorie %}
+<div class="card" style="margin-bottom:16px;"><div class="card-header"><span class="card-title">Répartition par catégorie</span></div>
+<div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap;">
+  {% for c in par_categorie %}
+  <a href="?categorie={{ c.code }}" style="text-decoration:none;border:1px solid var(--border,#e0e0e0);border-radius:10px;padding:10px 14px;min-width:180px;{% if categorie == c.code %}border-color:var(--primary);background:var(--bg-secondary,#f5f7fb);{% endif %}">
+    <div style="font-size:12px;color:var(--text-muted);">{{ c.libelle }}</div>
+    <div style="font-weight:800;font-size:16px;">{{ c.total|floatformat:0 }} F</div>
+    <div style="font-size:12px;">{{ c.nb }} réduction(s)</div>
+  </a>
+  {% endfor %}
+</div></div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header">
+    <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;width:100%;">
+      <input type="text" name="q" value="{{ q }}" class="form-control" style="max-width:260px;" placeholder="Élève, matricule, organisme...">
+      <select name="categorie" class="form-control" style="max-width:280px;">
+        <option value="">Toutes les catégories</option>
+        {% for code, lib in categories %}<option value="{{ code }}"{% if categorie == code %} selected{% endif %}>{{ lib }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-funnel"></i> Filtrer</button>
+      {% if q or categorie %}<a href="{% url 'liste_bourses' %}" class="btn btn-outline btn-sm">Réinitialiser</a>{% endif %}
+    </form>
+  </div>
+  {% if reductions %}
+  <div class="table-scroll-mobile" style="overflow-x:auto;"><table class="table-modern">
+    <thead><tr><th>Élève</th><th>Frais</th><th>Catégorie</th><th>Réduction</th><th>Montant déduit</th><th>Organisme / Motif</th><th>Accordée</th><th></th></tr></thead>
+    <tbody>{% for r in reductions %}<tr>
+      <td><a href="{% url 'situation_eleve' r.eleve.pk %}"><strong>{{ r.eleve.nom_complet }}</strong></a><br><small style="color:var(--text-muted);">{{ r.eleve.matricule }}</small></td>
+      <td>{{ r.type_frais.nom }}<br><small style="color:var(--text-muted);">Tarif : {{ r.type_frais.montant_defaut|floatformat:0 }} F</small></td>
+      <td><span class="badge badge-success">{{ r.get_categorie_display }}</span>{% if r.est_exoneration_totale %}<br><span class="badge badge-warning">Exonération totale</span>{% endif %}</td>
+      <td><strong>{{ r.libelle_valeur }}</strong></td>
+      <td><strong>{{ r.montant|floatformat:0 }} F</strong></td>
+      <td>{% if r.organisme_tiers %}<strong>{{ r.organisme_tiers }}</strong><br>{% endif %}<small>{{ r.motif }}</small></td>
+      <td style="font-size:12px;color:var(--text-muted);">{{ r.date_accord|date:"d/m/Y" }}{% if r.accordee_par %}<br>{{ r.accordee_par.get_full_name|default:r.accordee_par.username }}{% endif %}</td>
+      <td style="white-space:nowrap;"><a href="{% url 'ajouter_reduction' %}?pk={{ r.pk }}" class="btn btn-outline btn-sm"><i class="bi bi-pencil"></i></a></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}
+  <div style="text-align:center;padding:32px;color:var(--text-muted);">Aucune bourse ou réduction{% if q or categorie %} pour ce filtre{% endif %}.</div>
+  {% endif %}
+</div>
+{% endblock %}
+

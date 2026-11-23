@@ -33,15 +33,24 @@ def _get_classe_suivante(classe_actuelle, annee_suivante=None):
     niveau_suivant = niveaux_cycle.first()
     if not niveau_suivant:
         return None
-    # Prendre la première classe du niveau suivant (même établissement, année suivante en priorité)
+    # Prendre la première classe du niveau suivant (même filière en priorité si renseignée)
     qs = Classe.objects.filter(
         etablissement=classe_actuelle.etablissement,
         niveau=niveau_suivant,
     )
     if annee_suivante:
-        classe_suiv = qs.filter(annee=annee_suivante).first()
+        qs_annee = qs.filter(annee=annee_suivante)
+        if classe_actuelle.filiere:
+            cl_fil = qs_annee.filter(filiere__iexact=classe_actuelle.filiere).first()
+            if cl_fil:
+                return cl_fil
+        classe_suiv = qs_annee.first()
         if classe_suiv:
             return classe_suiv
+    if classe_actuelle.filiere:
+        cl_fil = qs.filter(filiere__iexact=classe_actuelle.filiere).first()
+        if cl_fil:
+            return cl_fil
     return qs.first()
 
 
@@ -53,6 +62,9 @@ def _calculer_moyenne_annuelle(eleve, classe, annee):
     Pour le 1er cycle (compositions /10, coef=1) :
       → Moyenne de toutes les compositions de l'année scolaire.
 
+    Pour l'université (NoteUE /20 pondérées par crédits ECTS) :
+      → Moyenne pondérée par crédits de toutes les UE de l'année.
+
     Pour les autres cycles (NotePeriode /20+/40) :
       → Moyenne des moyennes trimestrielles.
     """
@@ -60,6 +72,23 @@ def _calculer_moyenne_annuelle(eleve, classe, annee):
     cycle = None
     if classe.niveau and classe.niveau.cycle:
         cycle = classe.niveau.cycle
+
+    # ── UNIVERSITÉ : NoteUE /20 pondéré par crédits ECTS ─────────
+    if cycle and cycle.is_universite:
+        from notes.models import NoteUE
+        notes_ue = NoteUE.objects.filter(
+            eleve=eleve, periode__annee=annee
+        ).select_related('ue')
+        total_pts = 0.0
+        total_cred = 0
+        for n in notes_ue:
+            if n.note_retenue is not None:
+                c = n.ue.credits or 1
+                total_pts += float(n.note_retenue) * c
+                total_cred += c
+        if total_cred == 0:
+            return None
+        return round(total_pts / total_cred, 2)
 
     # ── 1ER CYCLE : Compositions /10 ─────────────────────────────
     if cycle and cycle.is_premier_cycle and cycle.utilise_compositions_multiples:
@@ -188,7 +217,9 @@ def assistant_fin_annee(request):
                     if Inscription.objects.filter(eleve=eleve, annee=annee_suivante).exists():
                         continue
 
-                    if decision == 'admis' and classe_suivante_id:
+                    if decision == 'admis':
+                        if not classe_suivante_id:
+                            raise ValueError("Veuillez sélectionner une classe de destination pour les élèves admis.")
                         classe_dest = get_object_or_404(Classe, pk=classe_suivante_id, etablissement=etab)
                         Inscription.objects.filter(
                             eleve=eleve, annee=annee_active
@@ -203,13 +234,24 @@ def assistant_fin_annee(request):
                         classe_redouble = Classe.objects.filter(
                             etablissement=etab, annee=annee_suivante,
                             nom=classe_actuelle.nom, niveau=classe_actuelle.niveau
-                        ).first() or classe_actuelle
+                        ).first()
+                        if not classe_redouble:
+                            classe_redouble = Classe.objects.create(
+                                etablissement=etab, annee=annee_suivante,
+                                niveau=classe_actuelle.niveau, nom=classe_actuelle.nom,
+                                capacite_max=classe_actuelle.capacite_max,
+                                salle=classe_actuelle.salle,
+                                serie=classe_actuelle.serie,
+                                division=classe_actuelle.division,
+                                filiere=classe_actuelle.filiere,
+                                semestre_actif=classe_actuelle.semestre_actif,
+                            )
                         Inscription.objects.filter(
                             eleve=eleve, annee=annee_active
                         ).update(is_active=False)
                         Inscription.objects.create(
                             eleve=eleve, classe=classe_redouble,
-                            annee=annee_suivante, statut='redoublant', is_active=True
+                            annee=annee_suivante, statut='actif', is_active=True
                         )
                         nb_redouble += 1
 

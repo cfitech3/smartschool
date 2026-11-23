@@ -117,7 +117,8 @@ def export_excel_finances(request):
             date_paiement__month=mois, date_paiement__year=annee_val
         ).select_related('eleve', 'type_frais').prefetch_related('eleve__inscriptions__classe').order_by('-date_paiement')
 
-        total = 0
+        from decimal import Decimal
+        total = Decimal('0')
         row = 5
         for i, p in enumerate(paiements, 1):
             insc = p.eleve.get_inscription_active()
@@ -134,12 +135,12 @@ def export_excel_finances(request):
             ws.cell(row=row, column=8, value=safe_excel_value(p.reference or '—'))
             style_row(ws, row, 8, alt=(i % 2 == 0))
             ws.row_dimensions[row].height = 18
-            total += float(p.montant)
+            total += Decimal(str(p.montant))
             row += 1
 
         # Total
         ws.cell(row=row, column=4, value="TOTAL").font = Font(bold=True)
-        total_cell = ws.cell(row=row, column=5, value=total)
+        total_cell = ws.cell(row=row, column=5, value=float(total))
         total_cell.font = Font(bold=True, size=12, color=VERT)
         total_cell.number_format = '#,##0'
         total_cell.fill = PatternFill("solid", fgColor="E8F5E9")

@@ -30,6 +30,10 @@ def generer_echeances(request, type_frais_pk):
         messages.error(request, "Ce type de frais n'est pas configuré en paiement par tranches.")
         return redirect('liste_types_frais')
 
+    if not annee:
+        messages.error(request, "Aucune année scolaire active.")
+        return redirect('liste_types_frais')
+
     if request.method == 'POST':
         nb = type_frais.nombre_tranches or 1
         dates_str = [request.POST.get(f'date_{i}', '') for i in range(1, nb + 1)]
@@ -41,7 +45,10 @@ def generer_echeances(request, type_frais_pk):
         dates = []
         for i, (m, d) in enumerate(zip(montants_str, dates_str), 1):
             try:
-                montants.append(int(m))
+                m_int = int(m)
+                if m_int < 0:
+                    errors.append(f"Le montant de la tranche {i} ne peut pas être négatif.")
+                montants.append(m_int)
             except ValueError:
                 errors.append(f"Montant invalide pour la tranche {i}.")
             if d:
@@ -88,7 +95,7 @@ def generer_echeances(request, type_frais_pk):
                                 'libelle': f'Tranche {i}',
                                 'montant': montant,
                                 'date_limite': date_limite,
-                                'statut': 'payee' if montant == 0 else 'a_payer',
+                                'statut': 'dispensee' if montant == 0 else 'a_payer',
                             }
                         )
                         if created:
@@ -141,10 +148,12 @@ def tableau_tranches(request, type_frais_pk):
     for e in echeances:
         pk = e.eleve.pk
         if pk not in eleves_dict:
-            eleves_dict[pk] = {'eleve': e.eleve, 'tranches': [], 'total_paye': 0, 'nb_retard': 0}
+            eleves_dict[pk] = {'eleve': e.eleve, 'tranches': [], 'total_paye': 0, 'nb_retard': 0, 'tout_paye': True}
         eleves_dict[pk]['tranches'].append(e)
         if e.statut == 'payee':
             eleves_dict[pk]['total_paye'] += int(e.montant)
+        elif e.statut != 'dispensee':
+            eleves_dict[pk]['tout_paye'] = False
         if e.statut == 'retard':
             eleves_dict[pk]['nb_retard'] += 1
 
@@ -189,6 +198,9 @@ def payer_tranche(request, echeance_pk):
     if echeance.statut == 'payee':
         messages.warning(request, "Cette tranche est déjà payée.")
         return redirect('tableau_tranches', type_frais_pk=echeance.type_frais.pk)
+    if echeance.statut == 'dispensee':
+        messages.info(request, "Cette tranche est dispensée (bourse / exonération) : aucun encaissement nécessaire.")
+        return redirect('situation_tranches_eleve', eleve_pk=echeance.eleve.pk)
 
     if request.method == 'POST':
         mode = request.POST.get('mode_paiement', 'especes')

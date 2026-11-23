@@ -8,16 +8,8 @@ from eleves.models import Eleve, Presence, Inscription
 from etablissements.models import Classe, AnneeScolaire
 from decimal import Decimal
 import datetime
+from accounts.permissions import require_etab
 from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_eleves_actifs, get_inscriptions_actives
-
-
-def require_etab(fn):
-    def wrapper(request, *args, **kwargs):
-        if not request.etablissement:
-            return redirect('dashboard')
-        return fn(request, *args, **kwargs)
-    wrapper.__name__ = fn.__name__
-    return wrapper
 
 
 def require_surveillant(fn):
@@ -54,8 +46,8 @@ def saisie_conduite(request):
 
     classe_id  = request.GET.get('classe')
     periode_id = request.GET.get('periode')
-    classe  = get_object_or_404(classes, pk=classe_id) if classe_id else None
-    periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab, annee=annee) if (periode_id and annee) else None
+    classe  = get_object_or_404(classes, pk=int(classe_id), etablissement=etab) if (classe_id and str(classe_id).isdigit() and classes) else None
+    periode = get_object_or_404(Periode, pk=int(periode_id), etablissement=etab, annee=annee) if (periode_id and str(periode_id).isdigit() and annee) else None
 
     eleves_data = []
     if classe and periode and matiere_conduite:
@@ -64,13 +56,16 @@ def saisie_conduite(request):
             note = NotePeriode.objects.filter(
                 eleve=insc.eleve, matiere=matiere_conduite, periode=periode, classe=classe
             ).first()
-            # Compter les absences pour aide à la saisie
-            nb_absences = Presence.objects.filter(
-                eleve=insc.eleve, classe=classe, statut='absent'
-            ).count()
-            nb_retards = Presence.objects.filter(
-                eleve=insc.eleve, classe=classe, statut='retard'
-            ).count()
+            # Compter les absences sur la période (ou l'année si pas de dates sur la période) pour aide à la saisie
+            qs_pres = Presence.objects.filter(eleve=insc.eleve, classe=classe)
+            if periode.date_debut and periode.date_fin:
+                qs_pres = qs_pres.filter(date__range=(periode.date_debut, periode.date_fin))
+            elif periode.date_debut:
+                qs_pres = qs_pres.filter(date__gte=periode.date_debut)
+            elif periode.date_fin:
+                qs_pres = qs_pres.filter(date__lte=periode.date_fin)
+            nb_absences = qs_pres.filter(statut='absent').count()
+            nb_retards = qs_pres.filter(statut='retard').count()
             eleves_data.append({
                 'eleve': insc.eleve,
                 'note': note,
@@ -84,6 +79,7 @@ def saisie_conduite(request):
             messages.error(request, "La saisie est clôturée pour cette période. Contactez l'administration.")
             return redirect(f"{request.path}?classe={classe_id}&periode={periode_id}")
         saved = 0
+        erreurs_conduite = 0
         for insc in classe.inscriptions.filter(is_active=True).select_related('eleve'):
             nc = request.POST.get(f'nc_{insc.eleve.pk}', '').strip()
             if nc:
@@ -111,9 +107,16 @@ def saisie_conduite(request):
                             from .views_notes import enregistrer_log
                             enregistrer_log(note, request.user, 'note_conduite', avant, valeur)
                         saved += 1
+                    else:
+                        erreurs_conduite += 1
                 except Exception:
-                    pass
-        messages.success(request, f"{saved} note(s) de conduite enregistree(s). Le directeur a ete notifie.")
+                    erreurs_conduite += 1
+        if erreurs_conduite:
+            messages.warning(request, f"{erreurs_conduite} note(s) ignorée(s) : la conduite doit être comprise entre 0 et 18.")
+        if saved > 0:
+            messages.success(request, f"{saved} note(s) de conduite enregistrée(s). Le directeur a été notifié.")
+        else:
+            messages.info(request, "Aucune note de conduite enregistrée.")
         return redirect(f"{request.path}?classe={classe_id}&periode={periode_id}")
 
     return render(request, 'notes/saisie_conduite.html', {
@@ -166,17 +169,18 @@ def rapport_absences(request):
                     date__year=annee_str, date__month=mois_num
                 )
                 total = presences.count()
-                absents = presences.filter(statut='absent').count()
+                non_justifies = presences.filter(statut='absent').count()
                 retards = presences.filter(statut='retard').count()
                 justifies = presences.filter(statut='justifie').count()
+                absents = non_justifies + justifies
                 stats_eleves.append({
                     'eleve': insc.eleve,
                     'total': total,
                     'absents': absents,
                     'retards': retards,
                     'justifies': justifies,
-                    'non_justifies': max(0, absents - justifies),
-                    'alerte': absents >= 3,
+                    'non_justifies': non_justifies,
+                    'alerte': non_justifies >= 3,
                 })
             stats_eleves.sort(key=lambda x: x['absents'], reverse=True)
         except ValueError:
@@ -189,10 +193,13 @@ def rapport_absences(request):
         
         # P2.4: Optimisation de la requête (O(1) au lieu de O(N))
         from django.db.models import Count
-        absences_agg = Presence.objects.filter(
+        qs_agg = Presence.objects.filter(
             classe__etablissement=etab, statut='absent',
             date__year=annee_str, date__month=mois_num
-        ).values('eleve_id').annotate(nb=Count('id')).filter(nb__gte=3).order_by('-nb')
+        )
+        if classe:
+            qs_agg = qs_agg.filter(classe=classe)
+        absences_agg = qs_agg.values('eleve_id').annotate(nb=Count('id')).filter(nb__gte=3).order_by('-nb')
         
         eleve_ids = [item['eleve_id'] for item in absences_agg]
         eleves_dict = {e.pk: e for e in Eleve.objects.filter(pk__in=eleve_ids)}

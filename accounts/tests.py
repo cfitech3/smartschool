@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests -- Module Accounts
 =========================
 Couvre :
@@ -67,7 +67,7 @@ def _creer_tuteur(etab, nom="Traore", prenom="Oumar", telephone="76123456"):
 class TestGenererMotDePasse(TestCase):
 
     def test_longueur_par_defaut(self):
-        self.assertEqual(len(_generer_mot_de_passe()), 10)
+        self.assertEqual(len(_generer_mot_de_passe()), 12)
 
     def test_longueur_personnalisee(self):
         for n in [8, 12, 16]:
@@ -276,3 +276,23 @@ class TestHasPermission(TestCase):
     def test_non_authentifie(self):
         from django.contrib.auth.models import AnonymousUser
         self.assertFalse(has_permission(AnonymousUser(), 'dashboard'))
+
+
+class TestJournalisationEspionnage(TestCase):
+    """Vérifie que l'entrée et la sortie du mode espionnage sont journalisées dans JournalAction."""
+
+    def test_entree_et_sortie_espionnage_journalisees(self):
+        from django.urls import reverse
+        from etablissements.models import Etablissement, JournalAction
+        etab = Etablissement.objects.create(nom="Ecole Audit", code="AUD", type="ecole")
+        sa = User.objects.create_user(username="sa_audit", password="Password1234!", role="super_admin")
+        cible = User.objects.create_user(username="dir_audit", password="Password1234!", role="admin", etablissement=etab)
+
+        self.client.force_login(sa)
+        resp = self.client.post(reverse("se_connecter_comme", kwargs={"user_pk": cible.pk}))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(JournalAction.objects.filter(cible=cible.username, detail__icontains="Entrée mode espionnage").exists())
+
+        resp = self.client.get(reverse("quitter_espionnage"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(JournalAction.objects.filter(cible=sa.username, detail__icontains="Sortie mode espionnage").exists())

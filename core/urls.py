@@ -1,8 +1,9 @@
 from django.urls import path
 from django.views.generic import RedirectView
-from . import views, views_documents, views_espace_famille, views_dashboard, views_acces_bloque
+from . import views, views_documents, views_espace_famille, views_dashboard, views_acces_bloque, verification_qr
 urlpatterns = [
     path('', RedirectView.as_view(pattern_name='dashboard', permanent=False), name='home'),
+    path('verifier/<str:token>/', verification_qr.verifier_document_qr, name='verifier_document_qr'),
     path('acces-bloque/', views_acces_bloque.acces_bloque, name='acces_bloque'),
     path('dashboard/', views_dashboard.dashboard, name='dashboard'),
     path('changer-etablissement/<int:etab_id>/', views.changer_etablissement, name='changer_etablissement'),

@@ -59,7 +59,9 @@
       {% endif %}
       <!-- Mode espionnage : super_admin uniquement -->
       {% if request.user.role == 'super_admin' and u != request.user and u.role != 'super_admin' %}
-      <a href="{% url 'se_connecter_comme' u.pk %}" class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;" title="Se connecter comme {{ u.get_full_name|default:u.username }}"><i class="bi bi-eye-fill"></i></a>
+      <form method="post" action="{% url 'se_connecter_comme' u.pk %}" style="display:inline;">{% csrf_token %}
+        <button type="submit" class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;" title="Se connecter comme {{ u.get_full_name|default:u.username }}"><i class="bi bi-eye-fill"></i></button>
+      </form>
       {% endif %}
     </div>
   </td>

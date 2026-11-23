@@ -168,8 +168,10 @@ def setup_classes(etab, annee, cycle, cfg):
     """cfg = [(nom_niveau, ordre, [noms_classes], extra_defaults)]"""
     classes = []
     for niv_nom, ordre, noms, extra in cfg:
-        niv, _ = Niveau.objects.get_or_create(etablissement=etab, nom=niv_nom,
-                                              defaults={'cycle': cycle, 'ordre': ordre})
+        niv = Niveau.objects.filter(etablissement=etab, cycle=cycle, ordre=ordre).first()
+        if not niv:
+            niv, _ = Niveau.objects.get_or_create(etablissement=etab, nom=niv_nom,
+                                                  defaults={'cycle': cycle, 'ordre': ordre})
         if not niv.cycle_id:
             niv.cycle = cycle
             niv.save(update_fields=['cycle'])
@@ -386,21 +388,22 @@ def presences(etab, classes, surveillant, nb_jours=10):
 
 def comptes_famille(etab, suffixe):
     """Un compte eleve + le compte parent de son tuteur, pour tester l'Espace Famille."""
-    el = (Eleve.objects.filter(etablissement=etab, is_active=True, tuteur__isnull=False,
-                               inscriptions__is_active=True).order_by('pk').first())
+    u_el_exist = User.objects.filter(username=f'eleve_{suffixe}').first()
+    el = getattr(u_el_exist, 'profil_eleve', None) if u_el_exist else None
+    if not el:
+        el = (Eleve.objects.filter(etablissement=etab, is_active=True, tuteur__isnull=False,
+                                   inscriptions__is_active=True).order_by('pk').first())
     if not el:
         return
-    if not el.user_compte_id:
-        u = creer_user(f'eleve_{suffixe}', el.prenom, el.nom, 'eleve', etab)
-        if not hasattr(u, 'profil_eleve'):
-            el.user_compte = u
-            el.save(update_fields=['user_compte'])
+    u_el = creer_user(f'eleve_{suffixe}', el.prenom, el.nom, 'eleve', etab)
+    if el.user_compte_id != u_el.pk and not hasattr(u_el, 'profil_eleve'):
+        el.user_compte = u_el
+        el.save(update_fields=['user_compte'])
     tut = el.tuteur
-    if not tut.user_compte_id:
-        u = creer_user(f'parent_{suffixe}', tut.prenom, tut.nom, 'parent', etab, tel=tut.telephone)
-        if not hasattr(u, 'profil_tuteur'):
-            tut.user_compte = u
-            tut.save(update_fields=['user_compte'])
+    u_tut = creer_user(f'parent_{suffixe}', tut.prenom, tut.nom, 'parent', etab, tel=tut.telephone)
+    if tut.user_compte_id != u_tut.pk and not hasattr(u_tut, 'profil_tuteur'):
+        tut.user_compte = u_tut
+        tut.save(update_fields=['user_compte'])
     if tut.user_compte_id and not MessageFamille.objects.filter(expediteur=tut.user_compte).exists():
         MessageFamille.objects.create(
             etablissement=etab, expediteur=tut.user_compte, eleve=el, destinataire_role='directeur',
@@ -423,6 +426,8 @@ def demo_lycee():
         ('11eme Annee', 11, ['11eme Lettres', '11eme Sciences'], {}),
         ('12eme Annee', 12, ['Terminale Sciences', 'Terminale Lettres'], {}),
     ])
+    # Nettoyage des classes doublons vides (ex. avec accents d'anciens scripts)
+    Classe.objects.filter(etablissement=etab).exclude(pk__in=[c.pk for c in classes]).filter(inscriptions__isnull=True).delete()
     mats = setup_matieres(etab, [
         ('Mathematiques', 'MATH', 4), ('Physique-Chimie', 'PC', 3), ('Sciences de la Vie', 'SVT', 2),
         ('Francais', 'FR', 3), ('Histoire-Geographie', 'HG', 2), ('Anglais', 'ANG', 2),
@@ -465,53 +470,140 @@ def demo_universite():
          'diplome_prepare': 'Licence / Master / Doctorat'}, type_periode='semestre')
     periodes, a_noter = setup_periodes(etab, annee, 'semestre')
 
-    l1 = ['L1 Droit', 'L1 Gestion', 'L1 Informatique']
-    l2 = ['L2 Droit', 'L2 Gestion']
+    l1 = ['L1 Droit', 'L1 Gestion', 'L1 Informatique', 'L1 Medecine', 'L1 Sciences']
+    l2 = ['L2 Droit', 'L2 Gestion', 'L2 Informatique']
+    l3 = ['L3 Informatique']
     classes = setup_classes(etab, annee, cycle, [
         ('Licence 1', 1, l1, {'semestre_actif': 1}),
         ('Licence 2', 2, l2, {'semestre_actif': 3}),
+        ('Licence 3', 3, l3, {'semestre_actif': 5}),
     ])
     for cl in classes:
         if not cl.filiere:
             cl.filiere = cl.nom.split(' ', 1)[1]
             cl.save(update_fields=['filiere'])
 
-    UES = [  # (code, nom, credits, semestre)
-        ('UE101', 'Methodologie du travail universitaire', 4, 1), ('UE102', 'Expression ecrite et orale', 3, 1),
-        ('UE103', 'Introduction aux fondamentaux', 6, 1), ('UE104', 'Informatique de base', 3, 1),
-        ('UE201', 'Statistiques descriptives', 5, 2), ('UE202', 'Economie generale', 4, 2),
-        ('UE203', 'Anglais academique', 3, 2),
-        ('UE301', 'Analyse approfondie I', 6, 3), ('UE302', 'Comptabilite / Droit des obligations', 5, 3),
-        ('UE303', 'Recherche documentaire', 3, 3),
-        ('UE401', 'Analyse approfondie II', 6, 4), ('UE402', 'Projet tutore', 4, 4),
+    # Catalogue d'UE par filiere (prefixe code) et semestre
+    UES = [
+        # Droit (S1 a S4)
+        ('DROIT101', 'Introduction au Droit', 4, 1), ('DROIT102', 'Droit Civil I - Personnes', 4, 1),
+        ('DROIT103', 'Institutions Judiciaires', 3, 1), ('DROIT104', 'Histoire du Droit', 3, 1),
+        ('DROIT105', 'Economie Politique I', 3, 1), ('DROIT106', 'Methodologie Juridique', 3, 1),
+        ('DROIT201', 'Droit Civil II - Obligations', 4, 2), ('DROIT202', 'Droit Constitutionnel', 4, 2),
+        ('DROIT203', 'Droit Administratif I', 3, 2), ('DROIT204', 'Droit Penal General', 3, 2),
+        ('DROIT205', 'Droit Commercial I', 3, 2), ('DROIT206', 'Economie Politique II', 3, 2),
+        ('DROIT301', 'Droit du Travail', 4, 3), ('DROIT302', 'Droit International Public', 3, 3),
+        ('DROIT303', 'Procedure Civile', 3, 3), ('DROIT304', 'Droit des Societes', 3, 3),
+        ('DROIT305', 'Stage et Rapport', 4, 3),
+        ('DROIT401', 'Droit Fiscal', 4, 4), ('DROIT402', 'Droit International Prive', 3, 4),
+        ('DROIT403', 'Criminologie', 3, 4), ('DROIT404', "Droit de l'Environnement", 3, 4),
+        ('DROIT405', "Memoire de Fin d'Etudes", 5, 4),
+        # Gestion (S1 a S4)
+        ('GEST101', 'Introduction a la Gestion', 4, 1), ('GEST102', 'Comptabilite Generale I', 4, 1),
+        ('GEST103', 'Droit des Affaires I', 3, 1), ('GEST104', 'Mathematiques Financieres', 3, 1),
+        ('GEST105', 'Microeconomie', 3, 1),
+        ('GEST201', 'Comptabilite Generale II', 4, 2), ('GEST202', 'Marketing Fondamental', 4, 2),
+        ('GEST203', 'Gestion des Ressources Humaines', 3, 2), ('GEST204', 'Macroeconomie', 3, 2),
+        ('GEST205', 'Statistiques Appliquees', 3, 2), ('GEST206', 'Fiscalite des Entreprises', 3, 2),
+        ('GEST301', "Finance d'Entreprise", 4, 3), ('GEST302', 'Gestion de Production', 3, 3),
+        ('GEST303', 'Commerce International', 3, 3), ('GEST304', "Systeme d'Information", 3, 3),
+        ('GEST305', 'Gestion de Projet', 3, 3), ('GEST306', 'Stage et Memoire L2', 4, 3),
+        ('GEST401', 'Comptabilite Analytique', 4, 4), ('GEST402', 'Audit et Controle de Gestion', 4, 4),
+        ('GEST403', 'Management Strategique', 3, 4), ('GEST404', 'Gestion Bancaire', 3, 4),
+        ('GEST405', 'Stage et Soutenance L3', 4, 4),
+        # Informatique (S1 a S6)
+        ('INFO101', 'Algorithmique et Structures de Donnees', 4, 1), ('INFO102', 'Programmation C/C++', 4, 1),
+        ('INFO103', 'Mathematiques Discretes', 3, 1), ('INFO104', 'Architecture des Ordinateurs', 3, 1),
+        ('INFO105', "Systemes d'Exploitation I", 3, 1),
+        ('INFO201', 'Bases de Donnees Relationnelles', 4, 2), ('INFO202', 'Developpement Web HTML/CSS/JS', 4, 2),
+        ('INFO203', 'Reseaux Informatiques I', 3, 2), ('INFO204', 'Probabilites et Statistiques', 3, 2),
+        ('INFO205', "Systemes d'Exploitation II", 3, 2),
+        ('INFO301', 'Genie Logiciel et UML', 4, 3), ('INFO302', 'Programmation Java OO', 4, 3),
+        ('INFO303', 'Reseaux et Securite', 3, 3), ('INFO304', 'Intelligence Artificielle I', 3, 3),
+        ('INFO305', 'Bases de Donnees Avancees', 3, 3), ('INFO306', 'Projet Individuel', 3, 3),
+        ('INFO401', 'Developpement Mobile Android', 4, 4), ('INFO402', 'Cloud Computing et DevOps', 3, 4),
+        ('INFO403', 'Intelligence Artificielle II', 3, 4), ('INFO404', 'Entrepreneuriat Numerique', 3, 4),
+        ('INFO405', 'Stage et Rapport', 4, 4), ('INFO406', 'Projet de Fin de Licence', 3, 4),
+        ('INFO501', 'Architecture Logicielle', 4, 5), ('INFO502', 'Big Data et Analytics', 4, 5),
+        ('INFO503', 'Cybersecurite Avancee', 3, 5), ('INFO504', 'Gestion de Projet IT', 3, 5),
+        ('INFO505', 'Memoire de Recherche', 4, 5), ('INFO506', 'Seminaire Professionnel', 2, 5),
+        ('INFO601', 'Systemes Distribues', 4, 6), ('INFO602', 'Machine Learning Applique', 4, 6),
+        ('INFO603', 'Entrepreneuriat et Startup', 3, 6), ('INFO604', "Stage de Fin d'Etudes", 4, 6),
+        ('INFO605', 'Soutenance de Memoire', 5, 6),
+        # Medecine (S1 a S2)
+        ('MED101', 'Anatomie I', 5, 1), ('MED102', 'Biologie Cellulaire', 4, 1),
+        ('MED103', 'Biophysique Medicale', 4, 1), ('MED104', 'Chimie Biologique', 3, 1),
+        ('MED105', 'Histologie I', 3, 1), ('MED106', 'Psychologie Medicale', 2, 1),
+        ('MED201', 'Anatomie II', 5, 2), ('MED202', 'Physiologie I', 4, 2),
+        ('MED203', 'Biochimie Structurale', 4, 2), ('MED204', 'Histologie II', 3, 2),
+        ('MED205', 'Semiologie Generale', 3, 2), ('MED206', 'Ethique Medicale', 2, 2),
+        # Sciences (S1 a S2)
+        ('SCI101', 'Mathematiques I - Analyse', 4, 1), ('SCI102', 'Physique I - Mecanique', 4, 1),
+        ('SCI103', 'Chimie Generale', 3, 1), ('SCI104', 'Biologie Generale', 3, 1),
+        ('SCI105', 'Informatique Scientifique', 3, 1), ('SCI106', 'Geologie Generale', 3, 1),
+        ('SCI201', 'Mathematiques II - Algebre', 4, 2), ('SCI202', 'Physique II - Electricite', 4, 2),
+        ('SCI203', 'Chimie Organique', 3, 2), ('SCI204', 'Genetique', 3, 2),
+        ('SCI205', 'Statistiques et Probabilites', 3, 2), ('SCI206', 'Environnement et Ecologie', 3, 2),
     ]
-    ues = {}
+    PREFIXES_FILIERE = {
+        'Droit': 'DROIT', 'Gestion': 'GEST', 'Informatique': 'INFO',
+        'Medecine': 'MED', 'Sciences': 'SCI',
+    }
+    ues_par_prefixe_sem = {}
     for code, nom, cr, sem in UES:
         ue, _ = UEUniversite.objects.get_or_create(cycle=cycle, code=code, defaults={
             'nom': nom, 'credits': cr, 'semestre': sem, 'coefficient': 1})
-        ues.setdefault(ue.semestre, []).append(ue)
-    log(f'{len(UES)} UE (S1 a S4)')
+        prefixe = ''.join(ch for ch in code if ch.isalpha())
+        ues_par_prefixe_sem.setdefault((prefixe, ue.semestre), []).append(ue)
+
+    # Supprimer les anciennes UE generiques UE10x..UE40x
+    UEUniversite.objects.filter(cycle=cycle, code__startswith='UE').delete()
+    log(f'{len(UES)} UE par filiere (S1 a S6)')
 
     dir_ = creer_user('dir_ucadb', 'Sekou', 'Keita', 'admin', etab)
     creer_user('sec_ucadb', 'Aissata', 'Diallo', 'secretariat', etab)
     surv = creer_user('surv_ucadb', 'Lassina', 'Konate', 'surveillant', etab)
     compt = creer_user('compt_ucadb', 'Hawa', 'Camara', 'comptable', etab)
-    profs = [creer_enseignant(etab, 'prof_droit_ucadb', 'Modibo', 'Sidibe', 'Droit', 'Doctorat', 450000),
-             creer_enseignant(etab, 'prof_gest_ucadb', 'Rokia', 'Dembele', 'Gestion', 'Doctorat', 450000),
-             creer_enseignant(etab, 'prof_info_ucadb', 'Cheick', 'Kouyate', 'Informatique', 'Doctorat', 450000)]
+    p_droit = creer_enseignant(etab, 'prof_droit_ucadb', 'Modibo', 'Sidibe', 'Droit', 'Doctorat', 450000)
+    p_gest = creer_enseignant(etab, 'prof_gest_ucadb', 'Rokia', 'Dembele', 'Gestion', 'Doctorat', 450000)
+    p_info = creer_enseignant(etab, 'prof_info_ucadb', 'Cheick', 'Kouyate', 'Informatique', 'Doctorat', 450000)
     log('Equipe : directeur, secretariat, surveillant, comptable + 3 enseignants')
+
+    # Matieres et affectations par filiere pour l'EDT et le perimetre des enseignants universitaires
+    mats_univ = setup_matieres(etab, [
+        ('Droit Fondamental', 'DROIT', 4), ('Sciences de Gestion', 'GEST', 4),
+        ('Genie Informatique', 'INFO', 4), ('Sciences Medicales', 'MED', 4),
+        ('Sciences Exactes', 'SCI', 4),
+    ])
+    classes_droit = [c for c in classes if 'Droit' in c.nom]
+    classes_gest = [c for c in classes if 'Gestion' in c.nom]
+    classes_info = [c for c in classes if c not in classes_droit and c not in classes_gest]
+    affecter(annee, classes_droit, mats_univ, [(p_droit, ['DROIT'])])
+    affecter(annee, classes_gest, mats_univ, [(p_gest, ['GEST'])])
+    affecter(annee, classes_info, mats_univ, [(p_info, ['INFO', 'MED', 'SCI'])])
+    emploi_du_temps(etab, annee, classes)
 
     remplir_classes(etab, annee, classes, 18, 19, 26)
 
-    # Notes UE : L1 -> S1 (periode 1) / S2 (periode 2) ; L2 -> S3 / S4
+    # Notes UE par filiere et semestre : L1 -> (S1, S2), L2 -> (S3, S4), L3 -> (S5, S6)
+    prof_par_prefixe = {'DROIT': p_droit.user, 'GEST': p_gest.user, 'INFO': p_info.user,
+                        'MED': p_info.user, 'SCI': p_info.user}
     nb = 0
+    nb_purge = 0
     for cl in classes:
-        sems = (1, 2) if cl.nom in l1 else (3, 4)
-        prof = random.choice(profs).user
+        sems = (1, 2) if cl.nom in l1 else ((3, 4) if cl.nom in l2 else (5, 6))
+        filiere = cl.filiere or cl.nom.split(' ', 1)[1]
+        prefixe = PREFIXES_FILIERE.get(filiere, 'INFO')
+        prof = prof_par_prefixe.get(prefixe, p_info.user)
         for p in a_noter:
             sem = sems[0] if p.numero == 1 else sems[1]
+            ues_cibles = ues_par_prefixe_sem.get((prefixe, sem), [])
+            ids_ues_cibles = [u.pk for u in ues_cibles]
+            # Purge des NoteUE parasites (autre filiere ou autre semestre affectes par d'anciens scripts)
+            del_cnt, _ = NoteUE.objects.filter(classe=cl, periode=p).exclude(ue_id__in=ids_ues_cibles).delete()
+            nb_purge += del_cnt
             for insc in inscriptions_de(cl):
-                for ue in ues.get(sem, []):
+                for ue in ues_cibles:
                     if NoteUE.objects.filter(eleve=insc.eleve, ue=ue, classe=cl, periode=p).exists():
                         continue
                     n = note20(4, 19)
@@ -519,7 +611,7 @@ def demo_universite():
                     NoteUE.objects.create(eleve=insc.eleve, ue=ue, classe=cl, periode=p,
                                           note=n, note_rattrapage=ratt, saisi_par=prof)  # save() -> mention + credits
                     nb += 1
-    log(f'{nb} notes UE')
+    log(f'{nb} notes UE creees ({nb_purge} notes hors-filiere nettoyees)')
 
     frais_et_paiements(etab, annee, [
         ("Frais d'inscription", Decimal('50000'), 'unique', 1),
@@ -547,6 +639,11 @@ def demo_ecole():
         ('3eme Annee', 3, ['3eme Annee A'], {}), ('4eme Annee', 4, ['4eme Annee A'], {}),
         ('5eme Annee', 5, ['5eme Annee A'], {}), ('6eme Annee', 6, ['6eme Annee A'], {}),
     ])
+    # Supprimer les classes 1er cycle vides (ex: 2B, 3B, 4A, 5A d'anciens scripts)
+    Classe.objects.filter(
+        etablissement=etab, niveau__cycle=cycle
+    ).exclude(pk__in=[c.pk for c in classes]).filter(inscriptions__isnull=True).delete()
+
     mats = setup_matieres(etab, [
         ('Lecture', 'LECT', 1), ('Ecriture', 'ECR', 1), ('Calcul', 'CALC', 1), ('Sciences', 'SC', 1),
         ('Histoire-Geographie', 'HG', 1), ('Education Civique et Morale', 'ECM', 1), ('Dessin', 'DES', 1),
@@ -565,11 +662,14 @@ def demo_ecole():
     emploi_du_temps(etab, annee, classes)
     remplir_classes(etab, annee, classes, 15, 6, 12)
 
+    # Inclure aussi toute autre classe 1er cycle non vide existante (ex: 1A, 1B, 2A, 3A, 6A)
+    toutes_classes_1er = list(Classe.objects.filter(etablissement=etab, annee=annee, niveau__cycle=cycle))
+
     if cycle.utilise_compositions_multiples:
         # Compositions /10 liees a l'annee (pas a la periode) : une par trimestre deja commence
         nb = 0
         mats_notes = [m for m in mats.values() if not m.is_conduite]
-        for cl in classes:
+        for cl in toutes_classes_1er:
             a_creer = []
             existants = set(Composition.objects.filter(classe=cl, annee=annee)
                             .values_list('eleve_id', 'matiere_id', 'numero'))
@@ -588,14 +688,24 @@ def demo_ecole():
         log(f'{nb} compositions /10')
     else:
         log('Cycle existant sans compositions multiples -> notes de periode classiques')
-        notes_periodes(cycle, classes, mats, a_noter, maitres[0].user, surv)
+        notes_periodes(cycle, toutes_classes_1er, mats, a_noter, maitres[0].user, surv)
+
+    # Si l'etablissement possede aussi un 2nd cycle (7A, 8A, 9A), le completer proprement
+    cycle_2nd = Cycle.objects.filter(etablissement=etab, type_cycle='second_cycle').first()
+    if cycle_2nd:
+        classes_2nd = list(Classe.objects.filter(etablissement=etab, annee=annee, niveau__cycle=cycle_2nd))
+        if classes_2nd:
+            remplir_classes(etab, annee, classes_2nd, 12, 12, 15)
+            affecter(annee, classes_2nd, mats, [(maitres[0], codes[:3]), (maitres[1], codes[3:5]), (maitres[2], codes[5:])])
+            notes_periodes(cycle_2nd, classes_2nd, mats, a_noter, maitres[0].user, surv)
+            presences(etab, classes_2nd, surv)
 
     frais_et_paiements(etab, annee, [
         ('Frais de scolarite', Decimal('45000'), 'tranches', 3),
         ('Frais inscription', Decimal('10000'), 'unique', 1),
         ('Cantine', Decimal('20000'), 'unique', 1),
     ], compt)
-    presences(etab, classes, surv)
+    presences(etab, toutes_classes_1er, surv)
     comptes_famille(etab, 'efbt')
     return dir_
 

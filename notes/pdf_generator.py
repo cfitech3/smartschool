@@ -9,7 +9,7 @@ from django.conf import settings
 from django.utils.html import strip_tags
 from xml.sax.saxutils import escape as xml_escape
 
-def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lignes, moy_generale, total_coeffic, total_coef, rang, effectif, appre_directeur, modele=None, is_premier_cycle=False, moy_premier=None):
+def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lignes, moy_generale, total_coeffic, total_coef, rang, effectif, appre_directeur, modele=None, is_premier_cycle=False, moy_premier=None, qr_url=None, qr_code_court=None):
     """Génère le bulletin en PDF avec ReportLab."""
     doc = SimpleDocTemplate(
         response,
@@ -61,7 +61,8 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
                 elements.append(logo_img)
                 elements.append(Spacer(1, 0.3*cm))
         except Exception:
-            pass
+            import logging
+            logging.getLogger(__name__).warning("Impossible d'intégrer le logo dans le bulletin PDF", exc_info=True)
             
     # 2. En-tête de l'école
     if modele and modele.entete_personnalise:
@@ -84,7 +85,8 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
             if etab.adresse:
                 elements.append(Paragraph(xml_escape(etab.adresse), subtitle_style))
         except Exception:
-            pass
+            import logging
+            logging.getLogger(__name__).warning("Impossible d'intégrer le logo dans le bulletin PDF", exc_info=True)
         
     elements.append(Spacer(1, 0.5*cm))
     
@@ -159,9 +161,9 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
     # 4. Tableau Récapitulatif (Moyenne, Rang)
     moy_sur = "/10" if is_premier_cycle else "/20"
     data_recap = [
-        ["TOTAL MOY X COEF", f"{total_coeffic:.2f}" if total_coeffic else "-", "MOYENNE GÉNÉRALE", f"{moy_generale:.2f}{moy_sur}" if moy_generale else "-"],
-        ["TOTAL COEFF.", str(total_coef) if total_coef else "-", "RANG DANS LA CLASSE", f"{rang} / {effectif}" if rang else "-"],
-        ["APPRÉCIATION DIRECTEUR", appre_directeur, "MOYENNE DU PREMIER", f"{moy_premier:.2f}{moy_sur}" if moy_premier else "-"]
+        ["TOTAL MOY X COEF", f"{total_coeffic:.2f}" if total_coeffic is not None else "-", "MOYENNE GÉNÉRALE", f"{moy_generale:.2f}{moy_sur}" if moy_generale is not None else "-"],
+        ["TOTAL COEFF.", str(total_coef) if total_coef is not None else "-", "RANG DANS LA CLASSE", f"{rang} / {effectif}" if rang else "-"],
+        ["APPRÉCIATION DIRECTEUR", appre_directeur, "MOYENNE DU PREMIER", f"{moy_premier:.2f}{moy_sur}" if moy_premier is not None else "-"]
     ]
 
     t_recap = Table(data_recap, colWidths=[5*cm, 3.5*cm, 6*cm, 3.5*cm])
@@ -187,6 +189,27 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
     ]))
     elements.append(t_sign)
+
+    # 5b. QR Code signé de vérification
+    if qr_url:
+        from core.verification_qr import generer_qr_drawing_reportlab
+        qr_draw = generer_qr_drawing_reportlab(qr_url, size_cm=2.2)
+        if qr_draw is not None:
+            elements.append(Spacer(1, 0.8*cm))
+            qr_text = Paragraph(
+                f"<b>DOCUMENT AUTHENTIFIÉ PAR QR CODE SIGNÉ</b><br/>"
+                f"Scannez ce code pour vérifier l'authenticité et la moyenne officielle.<br/>"
+                f"Code de contrôle : <b>#{xml_escape(qr_code_court or '')}</b>",
+                info_style
+            )
+            t_qr = Table([[qr_draw, qr_text]], colWidths=[2.6*cm, 15.4*cm])
+            t_qr.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
+                ('PADDING', (0,0), (-1,-1), 6),
+            ]))
+            elements.append(t_qr)
     
     # 6. Pied de page personnalisé
     if modele and modele.pied_personnalise:
@@ -208,7 +231,8 @@ def generer_bulletin_pdf(response, eleve, periode, annee, etab, inscription, lig
                 elements.append(Spacer(1, 1*cm))
                 elements.append(Paragraph(f"<i>{xml_escape(etab.parametres.pied_bulletin)}</i>", info_style))
         except Exception:
-            pass
+            import logging
+            logging.getLogger(__name__).warning("Impossible d'intégrer le logo dans le bulletin PDF", exc_info=True)
     
     # Génération
     doc.build(elements)

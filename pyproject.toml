@@ -1,0 +1,15 @@
+[tool.bandit]
+exclude_dirs = ["migrations", "venv", ".venv", "__pycache__", "tests"]
+skips = ["B101"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = ["*/migrations/*", "venv", ".venv", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E9", "F", "B"]
+
+[tool.coverage.run]
+source = ["accounts", "core", "eleves", "etablissements", "finances", "notes"]
+omit = ["*/migrations/*", "*/tests.py", "manage.py"]

@@ -1,0 +1,51 @@
+name: SmartSchool CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  quality-and-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt flake8 bandit
+
+      - name: Lint (erreurs critiques syntaxe / noms non définis)
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Security scan (Bandit)
+        run: bandit -c pyproject.toml -r accounts core eleves etablissements finances notes -ll
+
+      - name: Django system check & migrations check
+        env:
+          DEBUG: "True"
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+
+      - name: Collectstatic
+        env:
+          DEBUG: "False"
+          SECRET_KEY: "ci-build-only-secret-key-not-used-in-production-at-all"
+          ALLOWED_HOSTS: "localhost,127.0.0.1"
+        run: python manage.py collectstatic --noinput
+
+      - name: Run Django test suite
+        env:
+          DEBUG: "True"
+        run: python manage.py test --verbosity=2

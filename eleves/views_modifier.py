@@ -2,16 +2,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from accounts.permissions import permission_required
+from accounts.permissions import permission_required, require_etab as req
 from .models import Eleve, Tuteur, Inscription
 from etablissements.models import Classe, AnneeScolaire, Niveau
 from core.cycle_filter import get_cycles_actifs_ids, get_classes_actives, get_eleves_actifs, get_inscriptions_actives
-
-def req(fn):
-    def w(request,*a,**k):
-        if not request.etablissement: return redirect("dashboard")
-        return fn(request,*a,**k)
-    w.__name__=fn.__name__; return w
 
 @login_required
 @permission_required("eleves")
@@ -36,7 +30,7 @@ def modifier_eleve_complet(request,pk):
             err_photo = _valider_photo(request.FILES["photo"])
             if err_photo:
                 messages.error(request, err_photo)
-                return redirect("modifier_eleve_complet", pk=eleve.pk)
+                return redirect("modifier_eleve", pk=eleve.pk)
             eleve.photo=request.FILES["photo"]
         eleve.save()
         # Changer classe
@@ -45,10 +39,29 @@ def modifier_eleve_complet(request,pk):
             nc=get_object_or_404(Classe,pk=nv_cl,etablissement=etab)
             if inscription:
                 if inscription.classe.pk!=nc.pk:
+                    old_cl = inscription.classe
                     inscription.classe=nc; inscription.save()
+                    # Migrer les notes de l'année active de l'ancienne classe vers la nouvelle
+                    from notes.models import NotePeriode, Composition, NoteUE
+                    for np in NotePeriode.objects.filter(eleve=eleve, classe=old_cl, periode__annee=annee):
+                        if not NotePeriode.objects.filter(eleve=eleve, matiere=np.matiere, classe=nc, periode=np.periode).exists():
+                            np.classe = nc
+                            np.save(update_fields=['classe'])
+                    Composition.objects.filter(eleve=eleve, classe=old_cl, annee=annee).update(classe=nc)
+                    for nu in NoteUE.objects.filter(eleve=eleve, classe=old_cl, periode__annee=annee):
+                        if not NoteUE.objects.filter(eleve=eleve, ue=nu.ue, classe=nc, periode=nu.periode).exists():
+                            nu.classe = nc
+                            nu.save(update_fields=['classe'])
                     messages.success(request,f"Classe changee vers {nc.nom}.")
             else:
-                Inscription.objects.create(eleve=eleve,classe=nc,annee=annee,statut="actif")
+                insc_existante = Inscription.objects.filter(eleve=eleve, annee=annee).first()
+                if insc_existante:
+                    insc_existante.classe = nc
+                    insc_existante.statut = "actif"
+                    insc_existante.is_active = True
+                    insc_existante.save()
+                else:
+                    Inscription.objects.create(eleve=eleve,classe=nc,annee=annee,statut="actif")
                 messages.success(request,f"Eleve affecte a {nc.nom}.")
         # Tuteur
         tnom=request.POST.get("tut_nom","").strip()

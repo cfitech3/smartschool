@@ -100,8 +100,8 @@ try:
             n_bull = Bulletin.objects.filter(eleve__etablissement=etab).count()
             Bulletin.objects.filter(eleve__etablissement=etab).delete()
             print("[OK] Bulletins supprimes : " + str(n_bull))
-        except Exception:
-            pass
+        except Exception as ex:
+            print("[WARN] Bulletins: " + str(ex))
 
         # 4d. Notes
         n = NotePeriode.objects.filter(eleve__etablissement=etab).delete()

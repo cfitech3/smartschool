@@ -16,13 +16,8 @@ const STATIC_ASSETS = [
   '/manifest.json',
 ];
 
-// Pages critiques à mettre en cache (mode offline)
-const CRITICAL_PAGES = [
-  '/dashboard/',
-  '/eleves/presences/',
-  '/notes/conduite/',
-  '/notes/absences/',
-];
+// Pages critiques (ne pas mettre en cache le HTML authentifié pour éviter toute fuite sur poste partagé)
+const CRITICAL_PAGES = [];
 
 // ── Installation ────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
@@ -53,9 +48,9 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Nettoyer le cache des pages authentifiées lors de la connexion/déconnexion
+  // Nettoyer le cache des pages lors de la connexion/déconnexion
   if (url.pathname.startsWith('/auth/logout') || url.pathname.startsWith('/auth/login')) {
-    caches.delete(CACHE_PAGES);
+    event.waitUntil(caches.delete(CACHE_PAGES));
     return;
   }
 

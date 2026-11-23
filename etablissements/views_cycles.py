@@ -2,14 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Cycle, SerieLycee, MatiereCycle, MatiereSerieCoef, UEUniversite, Niveau, Classe
+from accounts.permissions import admin_etab_required as req_admin
 from notes.models import Matiere
-
-def req_admin(fn):
-    def w(request, *a, **k):
-        if not request.user.is_admin or not request.etablissement:
-            return redirect("dashboard")
-        return fn(request, *a, **k)
-    w.__name__ = fn.__name__; return w
 
 
 @login_required

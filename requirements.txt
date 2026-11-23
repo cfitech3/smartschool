@@ -4,10 +4,11 @@ crispy-bootstrap5==2026.3
 Django==6.0.7
 django-crispy-forms==2.6
 et_xmlfile==2.0.0
+gunicorn==26.0.0
 openpyxl==3.1.5
 pillow==12.3.0
 reportlab==5.0.0
-requests>=2.31.0
+requests==2.34.2
 sqlparse==0.5.5
 tzdata==2026.2
 whitenoise==6.12.0

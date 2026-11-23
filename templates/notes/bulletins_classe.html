@@ -4,10 +4,12 @@
 {% block nav_bulletins %}active{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1><i class="bi bi-file-earmark-text"></i> Bulletins</h1><div class="page-subtitle">Format malien officiel</div></div>
+  <div><h1><i class="bi bi-file-earmark-text"></i> Bulletins</h1><div class="page-subtitle">{% if is_universite %}Système LMD — Relevés de notes ECTS{% elif is_premier_cycle %}1er Cycle — Compositions /10{% else %}Format malien officiel{% endif %}</div></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <a href="{% url 'liste_modeles' %}" class="btn btn-outline btn-sm"><i class="bi bi-printer-fill"></i>️ Modèles</a>
-    <a href="{% url 'saisie_notes_mali' %}" class="btn btn-primary btn-sm"><i class="bi bi-journal-text"></i> Saisir notes</a>
+    <a href="{% url 'export_notes' %}{% if classe_id %}?classe={{ classe_id }}{% endif %}" class="btn btn-outline btn-sm"><i class="bi bi-file-earmark-spreadsheet-fill"></i> Export & Filtrage Excel</a>
+    <a href="{% url 'releve_notes_classe' %}{% if classe_id %}?classe={{ classe_id }}{% if periode_id %}&periode={{ periode_id }}{% elif numero %}&numero={{ numero }}{% endif %}{% endif %}" class="btn btn-outline btn-sm"><i class="bi bi-table"></i> Relevé de classe</a>
+    <a href="{% url 'liste_modeles' %}" class="btn btn-outline btn-sm"><i class="bi bi-printer-fill"></i> Modèles</a>
+    <a href="{% if is_universite %}{% url 'saisie_notes_ue' %}{% else %}{% url 'saisie_notes_mali' %}{% endif %}{% if classe_id %}?classe={{ classe_id }}{% if periode_id %}&periode={{ periode_id }}{% elif numero %}&numero={{ numero }}{% endif %}{% endif %}" class="btn btn-primary btn-sm"><i class="bi bi-journal-text"></i> Saisir notes</a>
   </div>
 </div>
 
@@ -94,7 +96,7 @@
     </thead>
     <tbody id="tbody-bulletins">
     {% for r in resultats %}
-    <tr class="eleve-row" data-nom="{{ r.eleve.nom }} {{ r.eleve.prenom }}" data-rang="{{ r.rang|default:999 }}" data-moy="{{ r.moyenne|default:0 }}">
+    <tr class="eleve-row" data-nom="{{ r.eleve.nom }} {{ r.eleve.prenom }}" data-rang="{{ r.rang|default:999 }}" data-moy="{% if r.moyenne is not None %}{{ r.moyenne|stringformat:'.2f' }}{% else %}0{% endif %}">
       <td style="text-align:center;font-weight:800;font-size:18px;color:{% if r.rang == 1 %}var(--accent){% elif r.rang == 2 %}var(--primary){% else %}var(--text-muted){% endif %};">
         {{ r.rang }}{% if r.rang == 1 %} <i class="bi bi-award-fill text-warning"></i>{% elif r.rang == 2 %} <i class="bi bi-award-fill text-secondary"></i>{% elif r.rang == 3 %} <i class="bi bi-award-fill text-warning"></i>{% endif %}
       </td>
@@ -124,12 +126,14 @@
         {% else %}—{% endif %}
       </td>
       <td style="text-align:center;">
-        {% if r.moyenne is not None %}<span class="badge badge-success" title="Notes saisies"><i class="bi bi-check-circle-fill text-success"></i></span>
+        {% if r.moyenne is not None %}<span class="badge badge-success" title="Notes saisies"><i class="bi bi-check-circle-fill text-success"></i>{% if is_universite and r.credits_requis %} {{ r.credits_valides }}/{{ r.credits_requis }} cr.{% endif %}</span>
         {% else %}<span class="badge badge-warning" title="Aucune note"><i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Incomplet</span>{% endif %}
       </td>
       <td>
         {% if is_premier_cycle %}
           <a href="{% url 'bulletin_composition' r.eleve.pk annee.pk numero %}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-text"></i> Ouvrir</a>
+        {% elif is_universite %}
+          <a href="{% url 'releve_notes_lmd' r.eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-text"></i> Relevé LMD</a>
         {% else %}
           <a href="{% url 'bulletin_eleve' r.eleve.pk periode.pk %}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-text"></i> Ouvrir</a>
         {% endif %}
@@ -154,7 +158,7 @@
 <div class="card"><div style="text-align:center;padding:50px;color:var(--text-muted);">
   <div style="font-size:40px;margin-bottom:12px;"><i class="bi bi-journal-text"></i></div>
   <div style="font-weight:600;">Aucune note saisie</div>
-  <a href="{% url 'saisie_notes_mali' %}?classe={{ classe_id }}&periode={{ periode_id }}" class="btn btn-primary btn-sm" style="margin-top:14px;">+ Saisir des notes</a>
+  <a href="{% if is_universite %}{% url 'saisie_notes_ue' %}{% else %}{% url 'saisie_notes_mali' %}{% endif %}?classe={{ classe_id }}&periode={{ periode_id }}" class="btn btn-primary btn-sm" style="margin-top:14px;">+ Saisir des notes</a>
 </div></div>
 {% else %}
 <div class="card"><div style="text-align:center;padding:60px;color:var(--text-muted);">
@@ -168,7 +172,7 @@
 // ─── Données depuis Django ───
 const resultats = [
   {% for r in resultats %}
-  { nom:"{{ r.eleve.nom|escapejs }} {{ r.eleve.prenom|escapejs }}", moy:{% if r.moyenne is not None %}{{ r.moyenne }}{% else %}null{% endif %}, rang:{{ r.rang|default:0 }} },
+  { nom:"{{ r.eleve.nom|escapejs }} {{ r.eleve.prenom|escapejs }}", moy:{% if r.moyenne is not None %}{{ r.moyenne|stringformat:'.2f' }}{% else %}null{% endif %}, rang:{{ r.rang|default:0 }} },
   {% endfor %}
 ];
 
@@ -178,13 +182,18 @@ const resultats = [
   const barEl = document.getElementById('mention-bar');
   if (!statsEl || !resultats.length) return;
 
-  const MENTIONS = [
-    { label:'<i class="bi bi-star-fill text-warning"></i> Très Bien', min:16, max:20, color:'#2E7D32', bg:'#e8f5e9' },
+  const MENTIONS = {% if is_premier_cycle %}[
+    { label:'<i class="bi bi-star-fill text-warning"></i> Très Bien', min:8, max:10.01, color:'#2E7D32', bg:'#e8f5e9' },
+    { label:'<i class="bi bi-hand-thumbs-up-fill"></i> Bien',      min:6.5, max:8, color:'#1565C0', bg:'#e3f2fd' },
+    { label:'<i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Passable',  min:5, max:6.5, color:'#E65100', bg:'#fff3e0' },
+    { label:'<i class="bi bi-x-circle-fill text-danger"></i> Insuffisant',min:0, max:5, color:'#C62828', bg:'#ffebee' },
+  ]{% else %}[
+    { label:'<i class="bi bi-star-fill text-warning"></i> Très Bien', min:16, max:20.01, color:'#2E7D32', bg:'#e8f5e9' },
     { label:'<i class="bi bi-hand-thumbs-up-fill"></i> Bien',      min:14, max:16, color:'#1565C0', bg:'#e3f2fd' },
     { label:'<i class="bi bi-check-circle-fill text-success"></i> Assez Bien',min:12, max:14, color:'#3949AB', bg:'#e8eaf6' },
     { label:'<i class="bi bi-exclamation-triangle-fill text-warning"></i>️ Passable',  min:10, max:12, color:'#E65100', bg:'#fff3e0' },
     { label:'<i class="bi bi-x-circle-fill text-danger"></i> Insuffisant',min:0, max:10, color:'#C62828', bg:'#ffebee' },
-  ];
+  ]{% endif %};
   const COLORS_BAR = ['#2E7D32','#1565C0','#3949AB','#E65100','#C62828'];
   const total = resultats.filter(r => r.moy !== null).length;
 
@@ -245,6 +254,8 @@ function imprimerTous(){
   if (!confirm(`Cela va ouvrir ${total} onglet(s). Continuer ?`)) return;
   {% if is_premier_cycle %}
   const urls=[{% for r in resultats %}"{% url 'bulletin_composition' r.eleve.pk annee.pk numero %}",{% endfor %}];
+  {% elif is_universite and periode %}
+  const urls=[{% for r in resultats %}"{% url 'releve_notes_lmd' r.eleve.pk periode.pk %}",{% endfor %}];
   {% elif periode %}
   const urls=[{% for r in resultats %}"{% url 'bulletin_eleve' r.eleve.pk periode.pk %}",{% endfor %}];
   {% else %}

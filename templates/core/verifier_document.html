@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vérification de Document Officiel — SmartSchool</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#0f172a;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+    .card{background:#fff;max-width:560px;width:100%;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,0.35);overflow:hidden;}
+    .banner{padding:24px;text-align:center;color:#fff;}
+    .banner.ok{background:linear-gradient(135deg,#15803d,#166534);}
+    .banner.ko{background:linear-gradient(135deg,#b91c1c,#991b1b);}
+    .banner .icon{font-size:46px;margin-bottom:8px;}
+    .banner h1{font-size:19px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;}
+    .banner p{font-size:13px;opacity:0.9;margin-top:4px;}
+    .body{padding:24px;}
+    .etab-box{text-align:center;padding-bottom:14px;margin-bottom:16px;border-bottom:1px solid #e2e8f0;}
+    .etab-box h2{font-size:16px;font-weight:800;color:#1e3a8a;text-transform:uppercase;}
+    .etab-box small{color:#64748b;font-size:12px;}
+    .row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed #e2e8f0;font-size:13.5px;gap:12px;}
+    .row .lbl{color:#64748b;}
+    .row .val{font-weight:700;text-align:right;color:#0f172a;}
+    .kpi{margin-top:16px;background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:12px;padding:14px;text-align:center;}
+    .kpi .v{font-size:24px;font-weight:900;color:#15803d;}
+    .kpi .l{font-size:11px;text-transform:uppercase;color:#64748b;margin-top:2px;}
+    .warn{margin-top:12px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:10px 12px;border-radius:8px;font-size:12.5px;}
+    .foot{padding:14px 24px;background:#f1f5f9;font-size:11.5px;color:#64748b;text-align:center;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    {% if valide %}
+      <div class="banner ok">
+        <div class="icon"><i class="bi bi-patch-check-fill"></i></div>
+        <h1>Document Authentique Certifié</h1>
+        <p>Signature cryptographique vérifiée — Code #{{ code_court }}</p>
+      </div>
+      <div class="body">
+        <div class="etab-box">
+          <h2>{{ etab.nom }}</h2>
+          <small>République du Mali — Un Peuple, Un But, Une Foi</small>
+        </div>
+        <div class="row"><span class="lbl">Document</span><span class="val">{{ details.type_libelle }}</span></div>
+        <div class="row"><span class="lbl">Élève / Étudiant(e)</span><span class="val">{{ eleve.nom }} {{ eleve.prenom }}</span></div>
+        <div class="row"><span class="lbl">Matricule officiel</span><span class="val">{{ eleve.matricule }}</span></div>
+        <div class="row"><span class="lbl">Classe / Filière</span><span class="val">{% if inscription %}{{ inscription.classe.nom }}{% else %}—{% endif %}</span></div>
+        <div class="row"><span class="lbl">Année académique</span><span class="val">{{ annee.libelle|default:"—" }}</span></div>
+        <div class="row"><span class="lbl">Statut élève</span><span class="val">{% if eleve.is_active %}Inscrit(e) actif(ve){% else %}Archivé(e){% endif %}</span></div>
+        {% if date_emission %}
+        <div class="row"><span class="lbl">Date d'émission</span><span class="val">{{ date_emission }}</span></div>
+        {% endif %}
+
+        {% if details.moyenne_officielle is not None %}
+        <div class="kpi">
+          <div class="v">{{ details.moyenne_officielle|floatformat:2 }}{{ details.barème }}</div>
+          <div class="l">Moyenne Officielle en Base de Données</div>
+          {% if details.credits_requis %}
+          <div style="margin-top:6px;font-size:13px;font-weight:700;color:#1e3a8a;">
+            Crédits ECTS validés : {{ details.credits_obtenus }} / {{ details.credits_requis }}
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {% if not details.concordance %}
+        <div class="warn">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <strong>Attention :</strong> Les notes ont été mises à jour dans la base de données après l'impression de ce document. Seule la moyenne affichée ci-dessus fait foi.
+        </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="banner ko">
+        <div class="icon"><i class="bi bi-shield-fill-exclamation"></i></div>
+        <h1>Document Non Reconnu</h1>
+        <p>{{ erreur }}</p>
+      </div>
+      <div class="body" style="text-align:center;color:#475569;font-size:14px;line-height:1.6;">
+        Ce QR Code ne correspond à aucun document officiel valide émis par la plateforme SmartSchool, ou son contenu a été altéré.
+      </div>
+    {% endif %}
+    <div class="foot">
+      Vérification officielle en temps réel • SmartSchool V3
+    </div>
+  </div>
+</body>
+</html>
+

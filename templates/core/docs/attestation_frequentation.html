@@ -42,5 +42,6 @@ strong.val{text-decoration:underline;}
     {% endif %}
   </div>
   <div class="signatures"><div class="sign-bloc"><div>{{ modele.label_signature_gauche|default:"Le Directeur" }}</div><div class="sign-ligne">Signature et cachet</div></div><div class="sign-bloc"><div>{{ modele.label_signature_droite|default:"Lu et approuve" }}</div><div class="sign-ligne">Signature</div></div></div>
+  {% include "core/_bloc_qr_signature.html" %}
   {% if modele.texte_pied_page %}<div class="pied">{{ modele.texte_pied_page }}</div>{% endif %}
 </div></body></html>

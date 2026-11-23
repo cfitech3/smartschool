@@ -83,7 +83,7 @@ def get_alertes_etablissement(etab, annee, user):
 
         # Messages non lus
         nb_msg = MessageFamille.objects.filter(
-            expediteur__etablissement=etab, statut='non_lu'
+            etablissement=etab, statut='non_lu'
         ).count()
         if nb_msg > 0:
             alertes.append({
@@ -101,7 +101,9 @@ def get_alertes_etablissement(etab, annee, user):
         est_ferie, _ = JourNonOuvre.est_jour_non_ouvre(etab, today)
         heure = timezone.now().hour
         if heure >= 8 and not est_ferie:
-            toutes = Classe.objects.filter(etablissement=etab)
+            from core.cycle_filter import get_cycles_actifs_ids
+            cycles_ids = get_cycles_actifs_ids(etab)
+            toutes = Classe.objects.filter(etablissement=etab, niveau__cycle__in=cycles_ids)
             if annee:
                 toutes = toutes.filter(annee=annee)
             avec_appel = Presence.objects.filter(

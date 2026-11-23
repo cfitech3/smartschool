@@ -10,6 +10,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.db import transaction
+from django.utils import timezone
 from eleves.models import Eleve, Tuteur, Inscription
 from etablissements.models import Classe, AnneeScolaire
 from accounts.models import User
@@ -104,7 +105,13 @@ def import_eleves_excel(request):
 
     if request.method != "POST":
         classes = Classe.objects.filter(etablissement=etab, annee=annee).order_by('nom')
-        return render(request, 'eleves/import_excel.html', {'annee': annee, 'classes': classes})
+        cols_import = [
+            "Nom *", "Prénom *", "Sexe (M/F)", "Date naissance", "Lieu naissance",
+            "Classe *", "Statut (nouveau/ancien)", "Nom tuteur", "Tél tuteur", "Lien (pere/mere/tuteur)",
+        ]
+        return render(request, 'eleves/import_excel.html', {
+            'annee': annee, 'classes': classes, 'cols_import': cols_import,
+        })
 
     # ── Lecture du fichier ─────────────────────────────────────────────────
     fichier = request.FILES.get('fichier_excel') or request.FILES.get('fichier')

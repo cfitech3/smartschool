@@ -32,14 +32,15 @@
 </div>
 <div class="card">
 <table class="table-modern">
-<thead><tr><th>Eleve</th><th colspan="4">Generer un document</th></tr></thead>
+<thead><tr><th>Eleve</th><th colspan="5">Generer un document</th></tr></thead>
 <tbody>{% for e in eleves %}<tr>
 <td><div style="font-weight:700;">{{ e.nom }} {{ e.prenom }}</div><div style="font-size:11px;color:var(--text-muted);">{{ e.matricule }}</div></td>
+<td><a href="{% url 'generer_document' e.pk 'bulletin' %}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-award-fill"></i> Bulletin / Relevé</a></td>
 <td><a href="{% url 'generer_document' e.pk 'certificat_scolarite' %}" target="_blank" class="btn btn-outline btn-sm"><i class="bi bi-file-earmark-text"></i> Certificat</a></td>
 <td><a href="{% url 'generer_document' e.pk 'attestation_frequentation' %}" target="_blank" class="btn btn-outline btn-sm"><i class="bi bi-journal-text"></i> Attestation</a></td>
 <td><a href="{% url 'generer_document' e.pk 'recu_paiement_annuel' %}" target="_blank" class="btn btn-outline btn-sm"><i class="bi bi-credit-card"></i> Paiements</a></td>
 <td><a href="{% url 'carte_scolaire' e.pk %}" target="_blank" class="btn btn-outline btn-sm"><i class="bi bi-person-badge"></i> Carte</a></td>
-</tr>{% empty %}<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted);">Aucun eleve</td></tr>{% endfor %}
+</tr>{% empty %}<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted);">Aucun eleve</td></tr>{% endfor %}
 </tbody></table>
 </div>
 {% endblock %}

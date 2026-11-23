@@ -1,5 +1,8 @@
-from decimal import Decimal
+import logging
+from decimal import Decimal, ROUND_HALF_UP
 from .models import NotePeriode
+
+logger = logging.getLogger(__name__)
 
 
 def get_coefficients_map(classe, matieres):
@@ -23,7 +26,7 @@ def get_coefficients_map(classe, matieres):
             ).values_list('matiere_id', 'coefficient'):
                 coefs[mat_id] = c
     except Exception:
-        pass
+        logger.warning("Erreur lors du chargement des coefficients pour la classe %s", getattr(classe, 'pk', None), exc_info=True)
     return coefs
 
 
@@ -44,7 +47,8 @@ def calculer_bulletin(eleve, periode, matieres, index_notes=None, classe=None, c
         if index_notes is not None:
             note = index_notes.get((eleve.pk, mat.pk))
         else:
-            note = NotePeriode.objects.filter(eleve=eleve, matiere=mat, periode=periode).select_related('classe__niveau').first()
+            qs_note = NotePeriode.objects.filter(eleve=eleve, matiere=mat, periode=periode).select_related('classe__niveau')
+            note = (qs_note.filter(classe=classe).first() if classe is not None else None) or qs_note.order_by('-date_modif', '-pk').first()
         if coefs_map is not None:
             coef = coefs_map.get(mat.pk, mat.coefficient)
         elif note is not None:
@@ -82,7 +86,9 @@ def calculer_bulletin(eleve, periode, matieres, index_notes=None, classe=None, c
 
     moy_gen = None
     if total_coef > 0:
-        moy_gen = round(float(total_coeffic) / total_coef, 2)
+        moy_gen = float(
+            (total_coeffic / Decimal(str(total_coef))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        )
 
     # Conduite toujours en dernière ligne du bulletin
     lignes.sort(key=lambda l: (1 if l['matiere'].is_conduite else 0, l['matiere'].nom))
@@ -108,14 +114,15 @@ def calculer_bulletin_composition(eleve, annee, numero, matieres):
     total_coeffic = Decimal('0')
     total_coef = 0
 
+    compos_map = {
+        c.matiere_id: c
+        for c in Composition.objects.filter(eleve=eleve, annee=annee, numero=numero, matiere__in=matieres)
+    }
+
     for mat in matieres:
         if mat.is_conduite:
             continue  # la conduite n'a pas de composition individuelle
-        # Les compositions du 1er cycle sont liées à l'année scolaire (annee),
-        # et non à une période (trimestre). On cherche par annee.
-        compo = Composition.objects.filter(
-            eleve=eleve, matiere=mat, annee=annee, numero=numero
-        ).first()
+        compo = compos_map.get(mat.pk)
 
         # Coef forcé à 1 pour le 1er cycle
         coef = 1
@@ -148,7 +155,9 @@ def calculer_bulletin_composition(eleve, annee, numero, matieres):
 
     moy_gen = None
     if total_coef > 0:
-        moy_gen = round(float(total_coeffic) / total_coef, 2)
+        moy_gen = float(
+            (total_coeffic / Decimal(str(total_coef))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        )
 
     lignes.sort(key=lambda l: l['matiere'].nom)
     return lignes, moy_gen, total_coeffic, total_coef
@@ -188,19 +197,234 @@ def get_matieres_pour_eleve(eleve, annee_ou_periode, classe=None):
     return Matiere.objects.filter(id__in=mat_ids).order_by('nom')
 
 
-def get_matieres_pour_classe(classe, periode):
+def enregistrer_log(note, user, champ, avant, apres):
+    """Crée un log de modification de note."""
+    from .models import LogModificationNote
+    LogModificationNote.objects.create(
+        note_periode=note,
+        modifie_par=user,
+        role_modifiant=user.role,
+        champ_modifie=champ,
+        valeur_avant=str(avant) if avant is not None else '',
+        valeur_apres=str(apres) if apres is not None else '',
+        notif_envoyee=bool(user.is_enseignant or user.is_surveillant),
+    )
+
+
+def _attribuer_rangs_ex_aequo(moyennes):
+    """Trie une liste (eleve_pk, moyenne) décroissante et retourne {eleve_pk: rang}."""
+    moyennes.sort(key=lambda x: x[1], reverse=True)
+    rangs = {}
+    prev_moy = None
+    prev_rang = 0
+    for idx, (eleve_pk, moy_val) in enumerate(moyennes, start=1):
+        if moy_val != prev_moy:
+            prev_rang = idx
+            prev_moy = moy_val
+        rangs[eleve_pk] = prev_rang
+    return rangs
+
+
+def calculer_rangs_classe(classe, periode, matieres):
+    """Calcule les rangs de tous les élèves d'une classe en un seul batch SQL."""
+    toutes_notes = (
+        NotePeriode.objects
+        .filter(classe=classe, periode=periode)
+        .select_related('matiere')
+    )
+    index_notes = {(n.eleve_id, n.matiere_id): n for n in toutes_notes}
+    inscriptions = (
+        classe.inscriptions
+        .filter(is_active=True)
+        .select_related('eleve')
+        .only('eleve__id')
+    )
+    coefs_map = get_coefficients_map(classe, matieres)
+    moyennes = []
+    for insc in inscriptions:
+        eleve_pk = insc.eleve_id
+        total_coeffic = Decimal('0')
+        total_coef = 0
+        for mat in matieres:
+            note = index_notes.get((eleve_pk, mat.pk))
+            if note is not None:
+                coef = coefs_map.get(mat.pk, mat.coefficient)
+                note._coef_cache = coef
+                moy_finale = note.moyenne_finale
+                if moy_finale is not None:
+                    moy_coeff = round(moy_finale * coef, 2)
+                    total_coeffic += Decimal(str(moy_coeff))
+                    total_coef += coef
+        if total_coef > 0:
+            moy_gen = float(
+                (total_coeffic / Decimal(str(total_coef))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            )
+            moyennes.append((eleve_pk, moy_gen))
+    return _attribuer_rangs_ex_aequo(moyennes)
+
+
+def calculer_rangs_classe_composition(classe, annee, numero, matieres):
+    """Calcule les rangs de tous les élèves d'une classe pour une composition 1er cycle."""
+    from .models import Composition
+    toutes_compos = (
+        Composition.objects
+        .filter(classe=classe, annee=annee, numero=numero)
+        .select_related('matiere')
+    )
+    index_compos = {(c.eleve_id, c.matiere_id): c for c in toutes_compos}
+    inscriptions = (
+        classe.inscriptions
+        .filter(is_active=True)
+        .select_related('eleve')
+        .only('eleve__id')
+    )
+    moyennes = []
+    for insc in inscriptions:
+        eleve_pk = insc.eleve_id
+        total_coeffic = Decimal('0')
+        total_coef = 0
+        for mat in matieres:
+            if mat.is_conduite:
+                continue
+            compo = index_compos.get((eleve_pk, mat.pk))
+            if compo and compo.note is not None and compo.note_max:
+                note_sur_10 = (Decimal(str(compo.note)) / Decimal(str(compo.note_max))) * Decimal('10')
+                total_coeffic += note_sur_10.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                total_coef += 1
+        if total_coef > 0:
+            moy_gen = float(
+                (total_coeffic / Decimal(str(total_coef))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            )
+            moyennes.append((eleve_pk, moy_gen))
+    return _attribuer_rangs_ex_aequo(moyennes)
+
+
+def get_matieres_pour_classe(classe, periode=None):
     from etablissements.models import AffectationMatiere
-    from .models import Matiere, NotePeriode
+    from .models import Matiere, NotePeriode, Composition
     mat_ids = set()
-    
-    mat_ids.update(
-        AffectationMatiere.objects.filter(classe=classe, annee=periode.annee)
-        .values_list('matiere_id', flat=True)
-    )
-    
-    mat_ids.update(
-        NotePeriode.objects.filter(classe=classe, periode=periode)
-        .values_list('matiere_id', flat=True)
-    )
-    
+    annee = periode.annee if periode else classe.annee
+
+    if annee:
+        mat_ids.update(
+            AffectationMatiere.objects.filter(classe=classe, annee=annee)
+            .values_list('matiere_id', flat=True)
+        )
+
+    if periode:
+        mat_ids.update(
+            NotePeriode.objects.filter(classe=classe, periode=periode)
+            .values_list('matiere_id', flat=True)
+        )
+    elif annee:
+        mat_ids.update(
+            Composition.objects.filter(classe=classe, annee=annee)
+            .values_list('matiere_id', flat=True)
+        )
+
+    if not mat_ids:
+        return Matiere.objects.filter(etablissement=classe.etablissement).order_by('nom')
+
     return Matiere.objects.filter(id__in=mat_ids).order_by('nom')
+
+
+def enregistrer_log(note, user, champ, avant, apres):
+    """Crée un log de modification de note."""
+    from .models import LogModificationNote
+    LogModificationNote.objects.create(
+        note_periode=note,
+        modifie_par=user,
+        role_modifiant=user.role,
+        champ_modifie=champ,
+        valeur_avant=str(avant) if avant is not None else '',
+        valeur_apres=str(apres) if apres is not None else '',
+        notif_envoyee=bool(user.is_enseignant or user.is_surveillant),
+    )
+
+
+def _attribuer_rangs_ex_aequo(moyennes):
+    """Trie une liste (eleve_pk, moyenne) décroissante et retourne {eleve_pk: rang}."""
+    moyennes.sort(key=lambda x: x[1], reverse=True)
+    rangs = {}
+    prev_moy = None
+    prev_rang = 0
+    for idx, (eleve_pk, moy_val) in enumerate(moyennes, start=1):
+        if moy_val != prev_moy:
+            prev_rang = idx
+            prev_moy = moy_val
+        rangs[eleve_pk] = prev_rang
+    return rangs
+
+
+def calculer_rangs_classe(classe, periode, matieres):
+    """Calcule les rangs de tous les élèves d'une classe en un seul batch SQL."""
+    toutes_notes = (
+        NotePeriode.objects
+        .filter(classe=classe, periode=periode)
+        .select_related('matiere')
+    )
+    index_notes = {(n.eleve_id, n.matiere_id): n for n in toutes_notes}
+    inscriptions = (
+        classe.inscriptions
+        .filter(is_active=True)
+        .select_related('eleve')
+        .only('eleve__id')
+    )
+    coefs_map = get_coefficients_map(classe, matieres)
+    moyennes = []
+    for insc in inscriptions:
+        eleve_pk = insc.eleve_id
+        total_coeffic = Decimal('0')
+        total_coef = 0
+        for mat in matieres:
+            note = index_notes.get((eleve_pk, mat.pk))
+            if note is not None:
+                coef = coefs_map.get(mat.pk, mat.coefficient)
+                note._coef_cache = coef
+                moy_finale = note.moyenne_finale
+                if moy_finale is not None:
+                    moy_coeff = round(moy_finale * coef, 2)
+                    total_coeffic += Decimal(str(moy_coeff))
+                    total_coef += coef
+        if total_coef > 0:
+            moy_gen = float(
+                (total_coeffic / Decimal(str(total_coef))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            )
+            moyennes.append((eleve_pk, moy_gen))
+    return _attribuer_rangs_ex_aequo(moyennes)
+
+
+def calculer_rangs_classe_composition(classe, annee, numero, matieres):
+    """Calcule les rangs de tous les élèves d'une classe pour une composition 1er cycle."""
+    from .models import Composition
+    toutes_compos = (
+        Composition.objects
+        .filter(classe=classe, annee=annee, numero=numero)
+        .select_related('matiere')
+    )
+    index_compos = {(c.eleve_id, c.matiere_id): c for c in toutes_compos}
+    inscriptions = (
+        classe.inscriptions
+        .filter(is_active=True)
+        .select_related('eleve')
+        .only('eleve__id')
+    )
+    moyennes = []
+    for insc in inscriptions:
+        eleve_pk = insc.eleve_id
+        total_coeffic = Decimal('0')
+        total_coef = 0
+        for mat in matieres:
+            if mat.is_conduite:
+                continue
+            compo = index_compos.get((eleve_pk, mat.pk))
+            if compo and compo.note is not None and compo.note_max:
+                note_sur_10 = (Decimal(str(compo.note)) / Decimal(str(compo.note_max))) * Decimal('10')
+                total_coeffic += note_sur_10.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                total_coef += 1
+        if total_coef > 0:
+            moy_gen = float(
+                (total_coeffic / Decimal(str(total_coef))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            )
+            moyennes.append((eleve_pk, moy_gen))
+    return _attribuer_rangs_ex_aequo(moyennes)

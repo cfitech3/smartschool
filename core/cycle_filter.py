@@ -4,17 +4,36 @@ Toutes les requêtes passent par ce helper pour n'afficher
 que les données des cycles activés dans l'établissement,
 et en plus filtrer par les divisions de l'utilisateur connecté.
 """
-from etablissements.models import CycleActif, Classe, AnneeScolaire
+from etablissements.models import Cycle, CycleActif, Classe, AnneeScolaire
 from eleves.models import Eleve, Inscription
 from django.db.models import QuerySet
 
 
 def get_cycles_actifs_ids(etab) -> list:
-    """Retourne la liste des IDs de cycles actifs pour un établissement."""
-    return list(
+    """
+    Retourne la liste des IDs de cycles actifs pour un établissement.
+    Inclut également tout cycle de l'établissement possédant déjà des classes
+    (évite qu'un établissement ayant des classes dans un cycle non coché apparaisse vide),
+    et fait un fallback sur tous les cycles si aucun CycleActif n'est configuré.
+    """
+    if etab is None:
+        return []
+    ids_actifs = set(
         CycleActif.objects.filter(etablissement=etab, is_active=True)
         .values_list('cycle_id', flat=True)
     )
+    ids_avec_classes = set(
+        Classe.objects.filter(etablissement=etab, niveau__cycle__isnull=False)
+        .values_list('niveau__cycle_id', flat=True)
+        .distinct()
+    )
+    ids = list(ids_actifs | ids_avec_classes)
+    if not ids:
+        ids = list(
+            Cycle.objects.filter(etablissement=etab)
+            .values_list('id', flat=True)
+        )
+    return ids
 
 
 def get_cycles_actifs_ids_pour_user(etab, user=None) -> list:
