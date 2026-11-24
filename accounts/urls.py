@@ -1,7 +1,9 @@
 from django.urls import path
 from . import views, views_comptes, views_journal
+
 urlpatterns = [
     path('login/', views.login_view, name='login'),
+    path('verify-2fa/', views.verify_2fa, name='verify_2fa'),
     path('portail/<str:code_etab>/', views.login_portail, name='login_portail'),
     path('logout/', views.logout_view, name='logout'),
     path('profil/', views.profil, name='profil'),

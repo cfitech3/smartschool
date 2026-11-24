@@ -1,9 +1,13 @@
+from decimal import Decimal
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.core.validators import MinValueValidator
+from core.tenancy import TenantSafeMixin
 import secrets
 
-class TypeFrais(models.Model):
+class TypeFrais(TenantSafeMixin, models.Model):
     PERIODICITES = [('unique', 'Paiement Unique'), ('mensuel', 'Mensuel'), ('tranches', 'Par Tranches')]
     etablissement = models.ForeignKey('etablissements.Etablissement', on_delete=models.CASCADE)
     annee = models.ForeignKey(
@@ -17,13 +21,21 @@ class TypeFrais(models.Model):
     nombre_tranches = models.IntegerField(default=1, blank=True, help_text="Si périodicité par tranches, combien de tranches ?")
     description = models.TextField(blank=True)
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(montant_defaut__gte=0),
+                name='typefrais_montant_non_negatif',
+            ),
+        ]
+
     def __str__(self):
         if self.annee:
             return f"{self.nom} ({self.annee.libelle})"
         return self.nom
 
 
-class ReductionFrais(models.Model):
+class ReductionFrais(TenantSafeMixin, models.Model):
     """
     Bourse / remise accordée à un élève sur un type de frais.
     Le champ `montant` contient TOUJOURS le montant effectif déduit (FCFA),
@@ -62,6 +74,16 @@ class ReductionFrais(models.Model):
 
     class Meta:
         unique_together = ['eleve', 'annee', 'type_frais']
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(montant__gte=0),
+                name='reduction_montant_non_negatif',
+            ),
+            models.CheckConstraint(
+                condition=Q(valeur_pourcentage__isnull=True) | (Q(valeur_pourcentage__gte=0) & Q(valeur_pourcentage__lte=100)),
+                name='reduction_pourcentage_0_100',
+            ),
+        ]
 
     def __str__(self): return f"Réduction de {self.montant} FCFA pour {self.eleve}"
 
@@ -92,7 +114,7 @@ class ReductionFrais(models.Model):
         return f"-{int(self.montant):,} F".replace(',', ' ')
 
 
-class Paiement(models.Model):
+class Paiement(TenantSafeMixin, models.Model):
     MODES = [('especes','Especes'),('mobile_money','Mobile Money'),('virement','Virement')]
     STATUTS = [('valide','Valide'),('annule','Annule'),('attente','En attente')]
 
@@ -119,6 +141,16 @@ class Paiement(models.Model):
 
     class Meta:
         ordering = ['-date_paiement']
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(montant__gt=0),
+                name='paiement_montant_strictement_positif',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['etablissement', 'statut', '-date_paiement'], name='idx_pay_etab_statut_date'),
+            models.Index(fields=['eleve', 'annee', 'type_frais', 'statut'], name='idx_pay_eleve_annee_tf_st'),
+        ]
 
     def __str__(self): return f"{self.eleve.nom_complet} — {self.montant} FCFA"
 
@@ -136,12 +168,41 @@ class Paiement(models.Model):
         raise RuntimeError("Impossible de générer une référence de paiement unique.")
 
     def save(self, *args, **kwargs):
+        if self.pk:
+            orig = Paiement.objects.filter(pk=self.pk).only(
+                'montant', 'eleve_id', 'type_frais_id', 'annee_id',
+                'etablissement_id', 'reference', 'statut',
+            ).first()
+            if orig:
+                if (
+                    Decimal(str(orig.montant)) != Decimal(str(self.montant))
+                    or orig.eleve_id != self.eleve_id
+                    or orig.type_frais_id != self.type_frais_id
+                    or orig.annee_id != self.annee_id
+                    or orig.etablissement_id != self.etablissement_id
+                    or (orig.reference and orig.reference != self.reference)
+                ):
+                    raise ValidationError(
+                        "Immutabilité comptable : le montant, l'élève, le frais, l'année et la référence "
+                        "d'un paiement enregistré ne peuvent pas être modifiés. Annulez le paiement avec motif."
+                    )
+                if orig.statut == 'annule' and self.statut != 'annule':
+                    raise ValidationError("Un paiement annulé est définitif et ne peut pas être réactivé.")
         if not self.reference:
             self.reference = self._generer_reference_atomique(etablissement_id=self.etablissement_id)
         super().save(*args, **kwargs)
 
+    def delete(self, *args, force_system_delete=False, **kwargs):
+        self._check_tenant_isolation()
+        if not force_system_delete:
+            raise ValidationError(
+                "Suppression interdite : une pièce de caisse ne peut pas être supprimée. "
+                "Utilisez la procédure d'annulation motivée."
+            )
+        return super().delete(*args, **kwargs)
 
-class Echeance(models.Model):
+
+class Echeance(TenantSafeMixin, models.Model):
     """Représente une tranche de paiement due par un élève."""
     STATUTS = [
         ('a_payer',  'À payer'),
@@ -165,6 +226,16 @@ class Echeance(models.Model):
     class Meta:
         ordering = ['eleve','numero']
         unique_together = ['eleve', 'annee', 'type_frais', 'numero']
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(montant__gte=0),
+                name='echeance_montant_non_negatif',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['etablissement', 'annee', 'statut', 'date_limite'], name='idx_ech_etab_ann_st_dl'),
+            models.Index(fields=['eleve', 'annee', 'type_frais', 'statut'], name='idx_ech_eleve_ann_tf_st'),
+        ]
 
     def __str__(self):
         return f"{self.eleve.nom_complet} — {self.libelle} ({self.type_frais.nom}) — {self.get_statut_display()}"

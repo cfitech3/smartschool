@@ -118,11 +118,18 @@ def export_excel_finances(request):
         ).select_related('eleve', 'type_frais').prefetch_related('eleve__inscriptions__classe').order_by('-date_paiement')
 
         from decimal import Decimal
+        from eleves.models import Inscription
+        paiements_list = list(paiements)
+        inscr_map = {}
+        for insc in Inscription.objects.filter(
+            eleve_id__in={p.eleve_id for p in paiements_list}, is_active=True
+        ).select_related('classe', 'annee').order_by('-annee__is_active', '-id'):
+            inscr_map.setdefault(insc.eleve_id, insc.classe.nom)
+
         total = Decimal('0')
         row = 5
-        for i, p in enumerate(paiements, 1):
-            insc = p.eleve.get_inscription_active()
-            classe_nom = insc.classe.nom if insc else '—'
+        for i, p in enumerate(paiements_list, 1):
+            classe_nom = inscr_map.get(p.eleve_id, '—')
             ws.cell(row=row, column=1, value=i)
             ws.cell(row=row, column=2, value=safe_excel_value(p.eleve.nom_complet))
             ws.cell(row=row, column=3, value=safe_excel_value(classe_nom))

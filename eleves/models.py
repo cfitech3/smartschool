@@ -1,8 +1,10 @@
 from django.db import models, transaction
+from django.db.models import Q
 from django.utils import timezone
+from core.tenancy import TenantSafeMixin
 
 
-class Eleve(models.Model):
+class Eleve(TenantSafeMixin, models.Model):
     SEXES = [('M','Masculin'),('F','Feminin')]
     etablissement = models.ForeignKey('etablissements.Etablissement', on_delete=models.CASCADE, related_name='eleves')
     matricule = models.CharField(max_length=30, unique=True, blank=True)
@@ -22,6 +24,9 @@ class Eleve(models.Model):
 
     class Meta:
         ordering = ['nom','prenom']
+        indexes = [
+            models.Index(fields=['etablissement', 'is_active', 'nom', 'prenom'], name='idx_eleve_etab_actif_nom'),
+        ]
 
     def __str__(self): return f"{self.nom} {self.prenom} ({self.matricule})"
 
@@ -113,6 +118,17 @@ class Inscription(models.Model):
 
     class Meta:
         unique_together = ['eleve','annee']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['eleve', 'annee'],
+                condition=Q(is_active=True),
+                name='unique_inscription_active_par_eleve_annee',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['classe', 'annee', 'is_active'], name='idx_insc_classe_annee_actif'),
+            models.Index(fields=['eleve', 'is_active'], name='idx_insc_eleve_actif'),
+        ]
 
     def __str__(self): return f"{self.eleve.nom_complet} -> {self.classe.nom}"
 
@@ -130,6 +146,10 @@ class Presence(models.Model):
     class Meta:
         unique_together = ['eleve','date','classe']
         ordering = ['-date']
+        indexes = [
+            models.Index(fields=['classe', 'date', 'statut'], name='idx_pres_classe_date_statut'),
+            models.Index(fields=['eleve', 'statut', 'date'], name='idx_pres_eleve_statut_date'),
+        ]
 
     def __str__(self): return f"{self.eleve.nom_complet} — {self.date} — {self.get_statut_display()}"
 

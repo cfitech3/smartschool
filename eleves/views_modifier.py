@@ -26,17 +26,21 @@ def modifier_eleve_complet(request,pk):
         eleve.adresse=request.POST.get("adresse","").strip()
         eleve.telephone=request.POST.get("telephone","").strip()
         if request.FILES.get("photo"):
-            from etablissements.views import _valider_photo
-            err_photo = _valider_photo(request.FILES["photo"])
+            from core.validators import sanitize_uploaded_image
+            clean_photo, err_photo = sanitize_uploaded_image(request.FILES["photo"])
             if err_photo:
                 messages.error(request, err_photo)
                 return redirect("modifier_eleve", pk=eleve.pk)
-            eleve.photo=request.FILES["photo"]
+            eleve.photo = clean_photo
         eleve.save()
         # Changer classe
         nv_cl=request.POST.get("classe")
         if nv_cl and annee:
             nc=get_object_or_404(Classe,pk=nv_cl,etablissement=etab)
+            deja_dans_nc = bool(inscription and inscription.classe_id == nc.pk)
+            if not deja_dans_nc and nc.capacite_max and nc.inscriptions.filter(is_active=True).count() >= nc.capacite_max:
+                messages.error(request, f"Transfert refusé : la classe « {nc.nom} » a atteint sa capacité maximale ({nc.capacite_max} élèves).")
+                return redirect("modifier_eleve", pk=eleve.pk)
             if inscription:
                 if inscription.classe.pk!=nc.pk:
                     old_cl = inscription.classe

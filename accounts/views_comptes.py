@@ -402,9 +402,11 @@ def se_connecter_comme(request, user_pk):
 
     # auth_login() vide la session lors d'un changement d'utilisateur :
     # on écrit donc la clé d'espionnage APRÈS la connexion.
+    import time
     cible.backend = 'django.contrib.auth.backends.ModelBackend'
     auth_login(request, cible)
     request.session['_impersonate_original_pk'] = original_pk
+    request.session['_impersonate_started_at'] = int(time.time())
     if etab_id and not cible.etablissement_id:
         request.session['etablissement_id'] = etab_id
 
@@ -424,6 +426,7 @@ def quitter_espionnage(request):
 
     original = User.objects.filter(pk=original_pk, role='super_admin', is_active=True).first()
     request.session.pop('_impersonate_original_pk', None)
+    request.session.pop('_impersonate_started_at', None)
     if not original:
         messages.error(request, "Compte d'origine introuvable ou désactivé.")
         return redirect('dashboard')

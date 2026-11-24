@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from accounts.permissions import role_required
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
@@ -21,6 +22,7 @@ def dashboard(request):
 
 
 @login_required
+@require_POST
 def changer_etablissement(request, etab_id):
     """Super admin bascule sur un établissement (actif ou suspendu)."""
     from accounts.models import User as UserModel
@@ -57,13 +59,20 @@ def notifications(request):
         ).select_related('modifie_par','note_periode__eleve','note_periode__matiere','note_periode__classe').order_by('-date_modif')[:50]
     )
     LogModificationNote.objects.filter(note_periode__eleve__etablissement=etab, notif_lue=False).update(notif_lue=True)
+    if etab:
+        cache.delete(f"admin_notifs_{etab.pk}")
     return render(request, 'core/notifications.html', {'logs': logs})
 
 
 @login_required
+@require_POST
 @role_required('admin')
 def marquer_notif_lue(request, pk):
     etab = request.etablissement
     log = LogModificationNote.objects.filter(pk=pk, note_periode__eleve__etablissement=etab).first()
-    if log: log.notif_lue = True; log.save()
+    if log:
+        log.notif_lue = True
+        log.save(update_fields=['notif_lue'])
+    if etab:
+        cache.delete(f"admin_notifs_{etab.pk}")
     return redirect('notifications')

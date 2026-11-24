@@ -67,7 +67,8 @@ def generer_echeances(request, type_frais_pk):
                 messages.error(request, e)
         else:
             from .models import ReductionFrais
-            eleves = get_eleves_actifs(etab, user=request.user)
+            from .views import _resynchroniser_echeances
+            eleves = list(get_eleves_actifs(etab, user=request.user))
             reductions_map = {
                 r.eleve_id: int(r.montant)
                 for r in ReductionFrais.objects.filter(
@@ -81,7 +82,7 @@ def generer_echeances(request, type_frais_pk):
                     reduc = reductions_map.get(eleve.pk, 0)
                     net_total = max(0, montant_defaut_int - reduc)
                     if reduc > 0 and montant_defaut_int > 0:
-                        montants_eleve = [int(round(m * net_total / montant_defaut_int)) for m in montants]
+                        montants_eleve = [(m * net_total) // montant_defaut_int for m in montants]
                         if montants_eleve:
                             montants_eleve[-1] = max(0, net_total - sum(montants_eleve[:-1]))
                     else:
@@ -100,8 +101,10 @@ def generer_echeances(request, type_frais_pk):
                         )
                         if created:
                             nb_crees += 1
+                    # Aligner immédiatement les tranches avec les paiements déjà encaissés
+                    _resynchroniser_echeances(etab, eleve, annee, type_frais)
 
-            messages.success(request, f" {nb_crees} échéance(s) générée(s) pour {eleves.count()} élève(s).")
+            messages.success(request, f" {nb_crees} échéance(s) générée(s) pour {len(eleves)} élève(s).")
             return redirect('tableau_tranches', type_frais_pk=type_frais.pk)
 
     # Prépopuler les montants équitables

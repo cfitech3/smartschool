@@ -46,7 +46,39 @@ def appel_presences(request):
         classe = get_object_or_404(classes, pk=classe_id, etablissement=etab)
         jour_non_ouvre, motif_non_ouvre = JourNonOuvre.est_jour_non_ouvre(etab, date_appel, classe)
 
-    if classe_id and not jour_non_ouvre:
+    if request.method == "POST" and classe and not jour_non_ouvre:
+        from django.db import transaction
+        eleve_ids = list(classe.inscriptions.filter(is_active=True).values_list("eleve_id", flat=True))
+        exist_map = {
+            p.eleve_id: p
+            for p in Presence.objects.filter(classe=classe, date=date_appel)
+        }
+        to_create = []
+        to_update = []
+        for eid in eleve_ids:
+            st = request.POST.get(f"statut_{eid}", "present")
+            mo = request.POST.get(f"motif_{eid}", "")
+            ex = exist_map.get(eid)
+            if ex is None:
+                to_create.append(Presence(
+                    eleve_id=eid, classe=classe, date=date_appel,
+                    statut=st, motif=mo, enregistre_par=request.user,
+                ))
+            elif ex.statut != st or ex.motif != mo or ex.enregistre_par_id != request.user.pk:
+                ex.statut = st
+                ex.motif = mo
+                ex.enregistre_par = request.user
+                to_update.append(ex)
+        with transaction.atomic():
+            if to_create:
+                Presence.objects.bulk_create(to_create)
+            if to_update:
+                Presence.objects.bulk_update(to_update, ["statut", "motif", "enregistre_par"])
+        saved = len(eleve_ids)
+        messages.success(request, f"Appel enregistré : {saved} élève(s) — {classe.nom} — {date_appel.strftime('%d/%m/%Y')}")
+        return redirect(f"{request.path}?classe={classe_id}&date={date_appel}")
+
+    if classe and not jour_non_ouvre:
         inscriptions = classe.inscriptions.filter(is_active=True).select_related("eleve").order_by("eleve__nom", "eleve__prenom")
         pex = {p.eleve_id: p for p in Presence.objects.filter(classe=classe, date=date_appel)}
         appel_fait = bool(pex)
@@ -58,20 +90,6 @@ def appel_presences(request):
                 "motif": p.motif if p else "",
                 "presence_id": p.pk if p else None,
             })
-
-    if request.method == "POST" and classe_id and not jour_non_ouvre:
-        classe = get_object_or_404(classes, pk=classe_id, etablissement=etab)
-        saved = 0
-        for insc in classe.inscriptions.filter(is_active=True).select_related("eleve"):
-            st = request.POST.get(f"statut_{insc.eleve.pk}", "present")
-            mo = request.POST.get(f"motif_{insc.eleve.pk}", "")
-            Presence.objects.update_or_create(
-                eleve=insc.eleve, classe=classe, date=date_appel,
-                defaults={"statut": st, "motif": mo, "enregistre_par": request.user}
-            )
-            saved += 1
-        messages.success(request, f"Appel enregistré : {saved} élève(s) — {classe.nom} — {date_appel.strftime('%d/%m/%Y')}")
-        return redirect(f"{request.path}?classe={classe_id}&date={date_appel}")
 
     # Jours non ouvrés du mois (pour coloration du calendrier)
     debut_mois = date_appel.replace(day=1)

@@ -135,17 +135,45 @@ def enregistrer_paiement(request):
         if not annee:
             messages.error(request, "Aucune année scolaire active. Veuillez activer une année scolaire avant d'enregistrer un paiement.")
             return redirect("liste_paiements")
+        from django.core.cache import cache
+        idem_token = (request.POST.get("idempotency_token") or "").strip()
+        if idem_token and cache.get(f"pay_idem_{idem_token}"):
+            messages.warning(request, "Ce paiement vient déjà d'être enregistré (double soumission ignorée).")
+            return redirect("liste_paiements")
+
         eid=request.POST.get("eleve"); fid=request.POST.get("type_frais")
         montant=request.POST.get("montant","").replace(" ",""); mode=request.POST.get("mode_paiement","especes")
         try:
             val_montant = Decimal(montant.replace(",","."))
             if val_montant <= 0:
                 raise ValueError("Le montant doit être strictement positif.")
-            
-            eleve=get_object_or_404(Eleve,pk=eid,etablissement=etab)
+
             tf=get_object_or_404(TypeFrais,pk=fid,etablissement=etab)
             periode_payee=request.POST.get("periode_payee", "")
             with transaction.atomic():
+                eleve=get_object_or_404(Eleve.objects.select_for_update(),pk=eid,etablissement=etab)
+                # Contrôle anti-surpaiement sur les frais à enveloppe annuelle fixe (unique / tranches)
+                if tf.periodicite in ("unique", "tranches") and Decimal(str(tf.montant_defaut or 0)) > 0:
+                    from .services_bourses import net_a_payer
+                    net_exige = net_a_payer(eleve, annee, tf)
+                    deja_paye = (
+                        Paiement.objects.filter(
+                            etablissement=etab, eleve=eleve, annee=annee, type_frais=tf, statut="valide"
+                        ).aggregate(t=Sum("montant"))["t"]
+                        or Decimal("0")
+                    )
+                    reste_du = max(Decimal("0"), net_exige - deja_paye)
+                    if reste_du == 0:
+                        raise ValueError(
+                            f"Aucun solde restant dû sur « {tf.nom} » pour {eleve.nom_complet} "
+                            f"(frais déjà soldé ou boursier à 100 %)."
+                        )
+                    if val_montant > reste_du:
+                        raise ValueError(
+                            f"Surpaiement refusé : le montant saisi ({int(val_montant):,} FCFA) dépasse "
+                            f"le reste net à payer ({int(reste_du):,} FCFA) sur « {tf.nom} ».".replace(",", " ")
+                        )
+
                 p=Paiement.objects.create(etablissement=etab,eleve=eleve,annee=annee,type_frais=tf,
                     montant=val_montant,mode_paiement=mode,statut="valide", periode_payee=periode_payee,
                     encaisse_par=request.user,notes=request.POST.get("notes",""))
@@ -153,11 +181,13 @@ def enregistrer_paiement(request):
                     etab, eleve, annee, tf,
                     paiement_cree=p, periode_payee=periode_payee,
                 )
+            if idem_token:
+                cache.set(f"pay_idem_{idem_token}", p.pk, 900)
             messages.success(request,f"Paiement {p.montant:,.0f} FCFA enregistre. Ref: {p.reference}")
             if request.POST.get("imprimer_recu"): return redirect("recu_paiement",pk=p.pk)
             return redirect("liste_paiements")
         except (ValueError, InvalidOperation) as e:
-            messages.error(request, f"Montant invalide : {e}")
+            messages.error(request, f"{e}")
         except Exception:
             logger.exception("Erreur lors de l'enregistrement du paiement (etab=%s)", etab.pk)
             messages.error(request, "Impossible d'enregistrer le paiement. Veuillez réessayer ou contacter l'administrateur.")
@@ -178,11 +208,13 @@ def enregistrer_paiement(request):
         e.classe_pk  = cl.pk  if cl else None
         e.classe_nom = cl.nom if cl else None
         eleves_avec_classe.append(e)
+    import uuid
     classes = get_classes_actives(etab, annee, user=request.user) if annee else []
     return render(request,"finances/enregistrer_paiement.html",{
         "eleves":eleves_avec_classe, "classes":classes,
         "types_frais":types_frais, "modes":Paiement.MODES,
-        "eleve_pre":eleve_pre, "annee":annee
+        "eleve_pre":eleve_pre, "annee":annee,
+        "idempotency_token": uuid.uuid4().hex,
     })
 
 @login_required
@@ -190,7 +222,7 @@ def enregistrer_paiement(request):
 def recu_paiement(request,pk):
     etab=request.etablissement
     paiement=get_object_or_404(Paiement,pk=pk,etablissement=etab)
-    
+
     # Sécurité RBAC + IDOR Famille
     if request.user.role in ['parent', 'eleve']:
         from core.views_espace_famille import get_eleves_accessibles
@@ -201,49 +233,66 @@ def recu_paiement(request,pk):
     elif request.user.role not in ['admin', 'super_admin', 'comptable']:
         messages.error(request, "Accès refusé. Vous n'avez pas l'autorisation de consulter les reçus financiers.")
         return redirect('dashboard')
-            
+
+    from core.verification_qr import construire_contexte_qr
+    qr_ctx = {}
+    if paiement.statut == 'valide':
+        qr_ctx = construire_contexte_qr(
+            request, 'recu', paiement.eleve, annee=paiement.annee,
+            extra={'pay_pk': paiement.pk, 'ref': paiement.reference, 'mnt': int(paiement.montant)},
+        )
     modele=ModeleDocument.objects.filter(etablissement=etab,type_document="recu",is_actif=True).first()
-    return render(request,"finances/recu.html",{"paiement":paiement,"etablissement":etab,"modele":modele})
+    ctx = {"paiement":paiement,"etablissement":etab,"modele":modele}
+    ctx.update(qr_ctx)
+    return render(request,"finances/recu.html",ctx)
 
 @login_required
 @permission_required("finances")
 @req
 def rapport_financier(request):
+    import calendar
+    import json
     from django.db.models import Count
+    from django.db.models.functions import TruncMonth
     from finances.models import Echeance
-    
+
     etab=request.etablissement
     annee=AnneeScolaire.objects.filter(etablissement=etab,is_active=True).first()
     today=timezone.now().date()
-    
-    if not annee:
-        return render(request,"finances/rapport.html",{"mois_data":[],"par_type":[],"eleves_en_retard":[],"total_annee":0,"annee":None,"today":today})
 
-    # Ne pas filtrer par eleves_actifs_ids afin de conserver l'intégrité comptable des paiements encaissés
+    if not annee:
+        return render(request,"finances/rapport.html",{"mois_data":"[]","par_type":[],"eleves_en_retard":[],"total_annee":0,"annee":None,"today":today})
+
     base_paiements = Paiement.objects.filter(etablissement=etab, statut="valide")
-    
-    mois_data=[]
+
+    mois_cibles = []
     for i in range(11,-1,-1):
-        # Calcul du mois précis pour éviter les décalages de 30 jours
         target_month = (today.month - i - 1) % 12 + 1
         target_year = today.year + (today.month - i - 1) // 12
-        
-        t = base_paiements.filter(date_paiement__year=target_year, date_paiement__month=target_month).aggregate(t=Sum("montant"))["t"] or 0
-        import calendar
-        nom_mois = calendar.month_name[target_month][:3].capitalize()
-        mois_data.append({"mois": f"{nom_mois} {target_year}", "total": float(t)})
-        
+        mois_cibles.append((target_year, target_month))
+
+    debut_12m = timezone.make_aware(datetime.datetime(mois_cibles[0][0], mois_cibles[0][1], 1))
+    totaux_map = {
+        (r["m"].year, r["m"].month): float(r["t"] or 0)
+        for r in base_paiements.filter(date_paiement__gte=debut_12m)
+        .annotate(m=TruncMonth("date_paiement")).values("m").annotate(t=Sum("montant"))
+        if r["m"]
+    }
+    mois_data = [
+        {"mois": f"{calendar.month_name[m][:3].capitalize()} {y}", "total": totaux_map.get((y, m), 0.0)}
+        for (y, m) in mois_cibles
+    ]
+
     par_type = base_paiements.filter(annee=annee).values("type_frais__nom").annotate(total=Sum("montant"), nb=Count("id")).order_by("-total")
-    
-    # Calcul exact des retards (échéances dépassées)
+
     eleves_en_retard_ids = Echeance.objects.filter(
         etablissement=etab, annee=annee, statut__in=['a_payer', 'retard'], date_limite__lt=today
     ).values_list('eleve_id', flat=True).distinct()
-    
+
     en_retard = Eleve.objects.filter(pk__in=eleves_en_retard_ids)[:10]
     total = base_paiements.filter(annee=annee).aggregate(t=Sum("montant"))["t"] or 0
-    
-    return render(request,"finances/rapport.html",{"mois_data":mois_data,"par_type":par_type,"eleves_en_retard":en_retard,"total_annee":total,"annee":annee,"today":today})
+
+    return render(request,"finances/rapport.html",{"mois_data":json.dumps(mois_data),"par_type":par_type,"eleves_en_retard":en_retard,"total_annee":total,"annee":annee,"today":today})
 
 @login_required
 @req

@@ -22,6 +22,7 @@
 
 <div style="max-width:640px;">
 <form method="post">{% csrf_token %}
+<input type="hidden" name="idempotency_token" value="{{ idempotency_token }}">
 <div class="card" style="margin-bottom:14px;">
   <div class="card-header"><span class="card-title">Informations du paiement</span></div>
   <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">

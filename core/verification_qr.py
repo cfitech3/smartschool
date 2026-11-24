@@ -106,9 +106,18 @@ def verifier_document_qr(request, token):
     Vue publique `/verifier/<token>/` permettant de vérifier l'authenticité
     d'un bulletin, relevé de notes LMD ou certificat en scannant son QR Code.
     """
+    from django.core.cache import cache
+    from django.http import HttpResponse
     from eleves.models import Eleve, Inscription
     from etablissements.models import AnneeScolaire, Etablissement
     from notes.models import Periode, NoteUE
+
+    ip = request.META.get('REMOTE_ADDR') or 'unknown'
+    rl_key = f"qr_verify_rl_{ip}"
+    hits = cache.get(rl_key, 0)
+    if hits >= 30:
+        return HttpResponse("Trop de requêtes de vérification. Veuillez réessayer dans une minute.", status=429)
+    cache.set(rl_key, hits + 1, 60)
 
     try:
         data = signing.loads(token, salt=QR_SALT)
@@ -182,6 +191,27 @@ def verifier_document_qr(request, token):
         details['credits_requis'] = c_req
         if data.get('moy') is not None and moy_gen is not None:
             details['concordance'] = abs(float(moy_gen) - float(data['moy'])) < 0.05
+
+    elif type_doc == 'recu':
+        from finances.models import Paiement
+        paiement = Paiement.objects.select_related('type_frais').filter(
+            pk=data.get('pay_pk'), eleve=eleve, etablissement=etab
+        ).first()
+        if not paiement:
+            return render(request, 'core/verifier_document.html', {
+                'valide': False,
+                'erreur': "Reçu introuvable dans le journal de caisse officiel.",
+            }, status=404)
+        if paiement.statut != 'valide':
+            motif_txt = f" (Motif : {paiement.motif_annulation})" if paiement.motif_annulation else ""
+            return render(request, 'core/verifier_document.html', {
+                'valide': False,
+                'erreur': f"ALERTE FRAUDE : Le paiement Réf. {paiement.reference} a été ANNULÉ en caisse{motif_txt}. Ce reçu n'a aucune valeur.",
+            }, status=400)
+        details['type_libelle'] = f"Reçu de Paiement — {paiement.type_frais.nom} ({int(paiement.montant):,} FCFA)".replace(',', ' ')
+        details['ref'] = paiement.reference
+        if data.get('mnt') is not None:
+            details['concordance'] = int(paiement.montant) == int(data['mnt'])
 
     elif type_doc == 'doc':
         doc_nom = data.get('doc_type', 'Attestation / Certificat')

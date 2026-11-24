@@ -96,17 +96,11 @@ def calculer_bulletin(eleve, periode, matieres, index_notes=None, classe=None, c
     return lignes, moy_gen, total_coeffic, total_coef
 
 
-def calculer_bulletin_composition(eleve, annee, numero, matieres):
+def calculer_bulletin_composition(eleve, annee, numero, matieres, index_compos=None):
     """
     Calcule le 'bulletin de composition' pour le 1er cycle fondamental.
-
-    Au 1er cycle :
-    - Les notes sont sur 10 (note_max = 10)
-    - Le coefficient est 1 pour toutes les matières
-    - Pas de conversion en /20 : la note est affichée directement /10
-    - La moyenne générale est calculée sur 10
-
-    Retourne: lignes, moyenne_generale, total_coeffic, total_coef
+    Si `index_compos` ({(eleve_id, matiere_id): Composition}) est fourni,
+    s'exécute en 0 requête SQL par élève.
     """
     from .models import Composition
 
@@ -114,10 +108,13 @@ def calculer_bulletin_composition(eleve, annee, numero, matieres):
     total_coeffic = Decimal('0')
     total_coef = 0
 
-    compos_map = {
-        c.matiere_id: c
-        for c in Composition.objects.filter(eleve=eleve, annee=annee, numero=numero, matiere__in=matieres)
-    }
+    if index_compos is not None:
+        compos_map = {m.pk: index_compos.get((eleve.pk, m.pk)) for m in matieres}
+    else:
+        compos_map = {
+            c.matiere_id: c
+            for c in Composition.objects.filter(eleve=eleve, annee=annee, numero=numero, matiere__in=matieres)
+        }
 
     for mat in matieres:
         if mat.is_conduite:

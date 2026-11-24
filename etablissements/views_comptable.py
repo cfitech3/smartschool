@@ -56,6 +56,7 @@ def detail_enseignant_comptable(request, pk):
     if request.method == 'POST':
         salaire_str = request.POST.get('salaire', '').strip()
         try:
+            ancien_salaire = int(ens.salaire) if ens.salaire is not None else None
             if salaire_str:
                 val = int(salaire_str.replace(' ', '').replace(',', ''))
                 if val < 0:
@@ -65,6 +66,13 @@ def detail_enseignant_comptable(request, pk):
             else:
                 ens.salaire = None
             ens.save()
+            nouveau_salaire = int(ens.salaire) if ens.salaire is not None else None
+            if ancien_salaire != nouveau_salaire:
+                from .models import JournalAction
+                JournalAction.log(
+                    request, 'autre', cible=ens.nom_complet, etablissement=etab,
+                    detail=f"Modification salaire enseignant {ens.nom_complet} : {ancien_salaire or '—'} -> {nouveau_salaire or '—'} FCFA",
+                )
             messages.success(
                 request,
                 f" Salaire de {ens.nom_complet} mis à jour : "

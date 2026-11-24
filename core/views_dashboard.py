@@ -234,11 +234,17 @@ def _dashboard_secretariat(request, etab, annee, today):
     from core.cycle_filter import get_cycles_actifs_ids, get_eleves_actifs, get_classes_actives, get_inscriptions_actives
     cycles_ids = get_cycles_actifs_ids(etab)
     stats = {}
-    stats['total_eleves']  = get_eleves_actifs(etab, annee, user=request.user).count()  # Fix: filtre par année active
+    stats['total_eleves']  = get_eleves_actifs(etab, annee, user=request.user).count()
     stats['total_classes'] = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
-    stats['presents_today'] = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='present').count()
-    stats['absents_today']  = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='absent').count()
-    stats['retards_today']  = Presence.objects.filter(classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='retard').count()
+    pres_map = {
+        p['statut']: p['nb']
+        for p in Presence.objects.filter(
+            classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today
+        ).values('statut').annotate(nb=Count('pk'))
+    }
+    stats['presents_today'] = pres_map.get('present', 0)
+    stats['absents_today']  = pres_map.get('absent', 0)
+    stats['retards_today']  = pres_map.get('retard', 0)
 
     # Inscriptions récentes
     inscrits_recents = get_inscriptions_actives(etab, annee, user=request.user).select_related('eleve','classe').order_by('-date_inscription')[:8] if annee else []
@@ -419,15 +425,15 @@ def _dashboard_surveillant(request, etab, annee, today):
     from core.cycle_filter import get_cycles_actifs_ids, get_eleves_actifs, get_classes_actives
     cycles_ids = get_cycles_actifs_ids(etab)
     stats = {}
-    stats['presents_today'] = Presence.objects.filter(
-        classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='present'
-    ).count()
-    stats['absents_today']  = Presence.objects.filter(
-        classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='absent'
-    ).count()
-    stats['retards_today']  = Presence.objects.filter(
-        classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today, statut='retard'
-    ).count()
+    pres_surv_map = {
+        p['statut']: p['nb']
+        for p in Presence.objects.filter(
+            classe__etablissement=etab, classe__niveau__cycle__in=cycles_ids, date=today
+        ).values('statut').annotate(nb=Count('pk'))
+    }
+    stats['presents_today'] = pres_surv_map.get('present', 0)
+    stats['absents_today']  = pres_surv_map.get('absent', 0)
+    stats['retards_today']  = pres_surv_map.get('retard', 0)
     stats['total_classes']  = get_classes_actives(etab, annee, user=request.user).count() if annee else 0
     stats['total_eleves']   = get_eleves_actifs(etab, annee, user=request.user).count()  # Fix: filtre par année active
 

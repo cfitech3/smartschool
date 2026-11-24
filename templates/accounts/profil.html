@@ -2,65 +2,162 @@
 {% block title %}Mon Profil{% endblock %}
 {% block topbar_title %}Mon Profil{% endblock %}
 {% block content %}
-<div class="page-header"><h1><i class="bi bi-person-fill"></i> Mon Profil</h1></div>
+<div class="page-header">
+  <h1><i class="bi bi-person-fill"></i> Mon Profil</h1>
+</div>
 <div class="grid-2" style="align-items:start;">
   <div class="card">
     <div class="card-body" style="text-align:center;padding:36px;">
       <div style="position:relative;width:90px;height:90px;margin:0 auto 14px;">
-        <div class="user-avatar" onclick="document.getElementById('id_photo_profil').click()" style="width:100%;height:100%;font-size:32px;cursor:pointer;overflow:hidden;border:3px solid var(--border);position:relative;" title="Cliquer pour changer de photo">
+        <div class="user-avatar" onclick="document.getElementById('id_photo_profil').click()"
+          style="width:100%;height:100%;font-size:32px;cursor:pointer;overflow:hidden;border:3px solid var(--border);position:relative;"
+          title="Cliquer pour changer de photo">
           {% if user.photo %}
-            <img src="{{ user.photo.url }}" style="width:100%;height:100%;object-fit:cover;">
+          <img src="{{ user.photo.url }}" style="width:100%;height:100%;object-fit:cover;">
           {% else %}
-            {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+          {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
           {% endif %}
-          <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;padding:3px 0;text-align:center;"><i class="bi bi-camera-fill"></i></div>
+          <div
+            style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;padding:3px 0;text-align:center;">
+            <i class="bi bi-camera-fill"></i></div>
         </div>
       </div>
       <form method="post" enctype="multipart/form-data" id="form-photo-profil">{% csrf_token %}
-        <input type="file" name="photo" id="id_photo_profil" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="if(this.files[0] && this.files[0].size <= 2*1024*1024){ document.getElementById('form-photo-profil').submit(); } else { alert('La photo ne doit pas dépasser 2 Mo.'); this.value=''; }">
+        <input type="file" name="photo" id="id_photo_profil" accept="image/jpeg,image/png,image/webp"
+          style="display:none;"
+          onchange="if(this.files[0] && this.files[0].size <= 2*1024*1024){ document.getElementById('form-photo-profil').submit(); } else { alert('La photo ne doit pas dépasser 2 Mo.'); this.value=''; }">
       </form>
       <div style="font-size:18px;font-weight:800;">{{ user.get_full_name|default:user.username }}</div>
       <div style="color:var(--text-muted);margin-top:4px;">{{ user.get_role_display }}</div>
-      {% if current_etablissement %}<div style="margin-top:8px;"><span class="badge badge-primary">{{ current_etablissement.nom }}</span></div>{% endif %}
+      {% if current_etablissement %}<div style="margin-top:8px;"><span class="badge badge-primary">{{
+          current_etablissement.nom }}</span></div>{% endif %}
     </div>
   </div>
   <div class="card">
     <div class="card-header"><span class="card-title">Informations</span></div>
     <div class="card-body">
       <table style="width:100%;font-size:13.5px;">
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);width:40%;">Identifiant</td><td style="padding:10px 0;font-weight:600;">{{ user.username }}</td></tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Email</td><td style="padding:10px 0;">{{ user.email|default:"—" }}</td></tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 0;color:var(--text-muted);">Telephone</td><td style="padding:10px 0;">{{ user.telephone|default:"—" }}</td></tr>
-        <tr><td style="padding:10px 0;color:var(--text-muted);">Inscrit le</td><td style="padding:10px 0;">{{ user.date_joined|date:"d F Y" }}</td></tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:10px 0;color:var(--text-muted);width:40%;">Identifiant</td>
+          <td style="padding:10px 0;font-weight:600;">{{ user.username }}</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:10px 0;color:var(--text-muted);">Email</td>
+          <td style="padding:10px 0;">{{ user.email|default:"—" }}</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:10px 0;color:var(--text-muted);">Téléphone</td>
+          <td style="padding:10px 0;">{{ user.telephone|default:"—" }}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;color:var(--text-muted);">Inscrit le</td>
+          <td style="padding:10px 0;">{{ user.date_joined|date:"d F Y" }}</td>
+        </tr>
       </table>
       <form method="post" action="{% url 'logout' %}" style="display:inline;">
         {% csrf_token %}
-        <button type="submit" class="btn btn-outline btn-sm" style="margin-top:16px;cursor:pointer;"><i class="bi bi-box-arrow-right"></i> Deconnexion</button>
+        <button type="submit" class="btn btn-outline btn-sm" style="margin-top:16px;cursor:pointer;"><i
+            class="bi bi-box-arrow-right"></i> Déconnexion</button>
       </form>
     </div>
   </div>
 </div>
 
-<div class="card" style="margin-top:20px;max-width:560px;">
-  <div class="card-header"><span class="card-title"><i class="bi bi-shield-lock-fill"></i> Changer mon mot de passe</span></div>
-  <div class="card-body">
-    <form method="post" action="{% url 'profil' %}">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="changer_mdp">
-      <div class="form-group" style="margin-bottom:12px;">
-        <label class="form-label">Ancien mot de passe *</label>
-        <input type="password" name="ancien_mdp" class="form-control" required autocomplete="current-password">
+<div class="grid-2" style="margin-top:20px;align-items:start;">
+  <div class="card">
+    <div class="card-header"><span class="card-title"><i class="bi bi-shield-lock-fill"></i> Changer mon mot de
+        passe</span></div>
+    <div class="card-body">
+      <form method="post" action="{% url 'profil' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="changer_mdp">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Ancien mot de passe *</label>
+          <input type="password" name="ancien_mdp" class="form-control" required autocomplete="current-password">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Nouveau mot de passe * (min. 12 caractères)</label>
+          <input type="password" name="nouveau_mdp" class="form-control" minlength="12" required
+            autocomplete="new-password">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label">Confirmer le nouveau mot de passe *</label>
+          <input type="password" name="confirmer_mdp" class="form-control" minlength="12" required
+            autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Mettre à jour le mot de
+          passe</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span class="card-title"><i class="bi bi-phone-flip"></i> Double authentification (2FA TOTP)</span>
+      {% if user.totp_enabled %}
+      <span class="badge" style="background:rgba(46,125,50,0.12);color:#2e7d32;font-weight:700;">Activée</span>
+      {% else %}
+      <span class="badge" style="background:rgba(100,116,139,0.12);color:#475569;">Désactivée</span>
+      {% endif %}
+    </div>
+    <div class="card-body">
+      {% if nouveaux_codes_secours %}
+      <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;padding:12px;margin-bottom:16px;">
+        <div style="font-weight:700;color:#92400e;margin-bottom:6px;"><i class="bi bi-exclamation-triangle-fill"></i>
+          Codes de secours à usage unique (à conserver hors-ligne) :</div>
+        <div
+          style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-family:monospace;font-size:14px;font-weight:700;">
+          {% for c in nouveaux_codes_secours %}<div>{{ c }}</div>{% endfor %}
+        </div>
       </div>
-      <div class="form-group" style="margin-bottom:12px;">
-        <label class="form-label">Nouveau mot de passe * (min. 10 caractères)</label>
-        <input type="password" name="nouveau_mdp" class="form-control" minlength="10" required autocomplete="new-password">
+      {% endif %}
+
+      {% if user.totp_enabled %}
+      <p style="font-size:13.5px;color:var(--text-muted);margin-bottom:14px;">
+        Votre compte est protégé par un code temporaire à 6 chiffres (Google Authenticator / FreeOTP).
+      </p>
+      <form method="post" action="{% url 'profil' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="desactiver_2fa">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Confirmer votre mot de passe pour désactiver *</label>
+          <input type="password" name="mot_de_passe_confirm" class="form-control" required
+            autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-outline" style="color:var(--danger);border-color:var(--danger);">
+          <i class="bi bi-shield-x"></i> Désactiver la 2FA
+        </button>
+      </form>
+      {% elif pending_secret %}
+      <p style="font-size:13.5px;margin-bottom:10px;">1. Scannez ce QR Code avec Google Authenticator, Microsoft
+        Authenticator ou FreeOTP :</p>
+      <div style="text-align:center;margin:12px 0;">{{ totp_qr_svg }}</div>
+      <div style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:14px;">
+        Clé manuelle : <code style="font-weight:700;user-select:all;">{{ pending_secret }}</code>
       </div>
-      <div class="form-group" style="margin-bottom:16px;">
-        <label class="form-label">Confirmer le nouveau mot de passe *</label>
-        <input type="password" name="confirmer_mdp" class="form-control" minlength="10" required autocomplete="new-password">
-      </div>
-      <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Mettre à jour le mot de passe</button>
-    </form>
+      <form method="post" action="{% url 'profil' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="activer_2fa">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">2. Saisissez le code à 6 chiffres affiché *</label>
+          <input type="text" name="otp_code" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+            placeholder="123456" required autocomplete="one-time-code">
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-shield-check"></i> Valider et activer</button>
+      </form>
+      {% else %}
+      <p style="font-size:13.5px;color:var(--text-muted);margin-bottom:14px;">
+        Renforcez la sécurité de votre compte (fortement recommandé pour les Directeurs, Comptables et Super
+        Administrateurs) avec une application d'authentification TOTP.
+      </p>
+      <form method="post" action="{% url 'profil' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="initier_2fa">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-qr-code-scan"></i> Configurer la double
+          authentification</button>
+      </form>
+      {% endif %}
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -9,9 +9,10 @@ import datetime
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
-from .models import Echeance, ReductionFrais
+from .models import Echeance, Paiement, ReductionFrais
 
 
 def get_reduction(eleve, annee, type_frais):
@@ -30,13 +31,95 @@ def _statut_ouvert(date_limite, today):
     return 'retard' if (date_limite and date_limite < today) else 'a_payer'
 
 
+def _consolider_acompte_non_affecte(eleve, annee, type_frais):
+    """
+    Si l'élève a versé en caisse un acompte partiel valide supérieur à la somme
+    des tranches déjà marquées 'payee', matérialise cet acompte sous forme de
+    tranche 'payee' (et réduit d'autant les tranches ouvertes) afin que le reste
+    à répartir reflète toujours fidèlement les encaissements réels.
+    """
+    echeances = list(
+        Echeance.objects.select_for_update()
+        .filter(eleve=eleve, annee=annee, type_frais=type_frais)
+        .order_by('numero')
+    )
+    if not echeances:
+        return
+    paye_caisse = (
+        Paiement.objects.filter(
+            eleve=eleve, annee=annee, type_frais=type_frais, statut='valide'
+        ).aggregate(t=Sum('montant'))['t']
+        or Decimal('0')
+    )
+    paye_tranches = sum((Decimal(str(e.montant)) for e in echeances if e.statut == 'payee'), Decimal('0'))
+    acompte = paye_caisse - paye_tranches
+    if acompte <= 0:
+        return
+
+    ouvertes = [e for e in echeances if e.statut != 'payee']
+    if not ouvertes:
+        return
+
+    dernier_paiement = (
+        Paiement.objects.filter(
+            eleve=eleve, annee=annee, type_frais=type_frais, statut='valide'
+        ).order_by('-date_paiement', '-pk').first()
+    )
+    if not dernier_paiement:
+        return
+
+    # Si l'acompte couvre déjà une ou plusieurs tranches ouvertes existantes, les marquer payées d'abord
+    for ech in list(ouvertes):
+        m_ech = Decimal(str(ech.montant))
+        if m_ech > 0 and acompte >= m_ech:
+            ech.marquer_payee(dernier_paiement)
+            acompte -= m_ech
+            ouvertes.remove(ech)
+
+    if acompte <= 0 or not ouvertes:
+        return
+
+    # Sinon, scinder la première tranche ouverte en (acompte payé) + (solde ouvert)
+    premiere = ouvertes[0]
+    solde_premiere = max(Decimal('0'), Decimal(str(premiere.montant)) - acompte)
+    # Décaler les numéros suivants pour insérer le solde juste après l'acompte
+    for e in reversed(echeances):
+        if e.numero > premiere.numero:
+            e.numero += 1
+            e.save(update_fields=['numero'])
+
+    premiere.libelle = f"{premiere.libelle} (Acompte)"[:50]
+    premiere.montant = acompte
+    premiere.marquer_payee(dernier_paiement)
+
+    today = timezone.now().date()
+    Echeance.objects.create(
+        etablissement=eleve.etablissement,
+        eleve=eleve,
+        annee=annee,
+        type_frais=type_frais,
+        numero=premiere.numero + 1,
+        libelle=f"Solde Tranche {premiere.numero}"[:50],
+        montant=solde_premiere,
+        date_limite=premiere.date_limite,
+        statut='dispensee' if solde_premiere == 0 else _statut_ouvert(premiere.date_limite, today),
+    )
+
+
 def resume_echeancier(eleve, annee, type_frais):
-    """Retourne (echeances, total_paye_tranches, reste_a_repartir, net)."""
+    """Retourne (echeances, total_paye_effectif, reste_a_repartir, net)."""
     echeances = list(Echeance.objects.filter(
         eleve=eleve, annee=annee, type_frais=type_frais
     ).order_by('numero'))
     net = net_a_payer(eleve, annee, type_frais)
-    paye = sum((Decimal(str(e.montant)) for e in echeances if e.statut == 'payee'), Decimal('0'))
+    paye_tranches = sum((Decimal(str(e.montant)) for e in echeances if e.statut == 'payee'), Decimal('0'))
+    paye_caisse = (
+        Paiement.objects.filter(
+            eleve=eleve, annee=annee, type_frais=type_frais, statut='valide'
+        ).aggregate(t=Sum('montant'))['t']
+        or Decimal('0')
+    )
+    paye = max(paye_tranches, paye_caisse)
     reste = max(Decimal('0'), net - paye)
     return echeances, paye, reste, net
 
@@ -45,13 +128,9 @@ def resume_echeancier(eleve, annee, type_frais):
 def recalculer_echeances_eleve(eleve, annee, type_frais):
     """
     Réajuste les échéances NON payées d'un élève après octroi / modification /
-    suppression d'une bourse. Les tranches déjà payées restent intactes.
-
-    - reste = 0  -> toutes les tranches ouvertes passent en 'dispensee' (montant 0)
-    - reste > 0  -> le reste est réparti au prorata des montants actuels
-                    (ou à parts égales si toutes étaient dispensées).
-    Retourne le nombre d'échéances modifiées.
+    suppression d'une bourse. Consolide d'abord tout acompte partiel encaissé.
     """
+    _consolider_acompte_non_affecte(eleve, annee, type_frais)
     echeances, _paye, reste, _net = resume_echeancier(eleve, annee, type_frais)
     ouvertes = [e for e in echeances if e.statut != 'payee']
     if not ouvertes:
@@ -92,6 +171,7 @@ def appliquer_echeancier_personnalise(etab, eleve, annee, type_frais, lignes):
     La somme des montants doit être égale au reste net à payer.
     Lève ValueError en cas d'incohérence.
     """
+    _consolider_acompte_non_affecte(eleve, annee, type_frais)
     echeances, _paye, reste, _net = resume_echeancier(eleve, annee, type_frais)
     reste_int = int(reste)
 

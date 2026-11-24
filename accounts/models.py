@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.crypto import salted_hmac
 
 class User(AbstractUser):
     ROLE_SUPER_ADMIN  = 'super_admin'
@@ -39,9 +40,24 @@ class User(AbstractUser):
                   "Vide = accès à tous les cycles (super admin / admin global)."
     )
     date_creation = models.DateTimeField(auto_now_add=True)
+    totp_secret = models.CharField(max_length=64, blank=True, default="")
+    totp_enabled = models.BooleanField(default=False)
+    totp_backup_codes = models.TextField(blank=True, default="")
 
     class Meta:
         verbose_name = 'Utilisateur'
+        indexes = [
+            models.Index(fields=['etablissement', 'role', 'is_active'], name='idx_user_etab_role_actif'),
+        ]
+
+    def get_session_auth_hash(self):
+        """
+        Invalide immédiatement les sessions actives si le mot de passe, le rôle,
+        l'établissement de rattachement ou le statut actif du compte change.
+        """
+        key_salt = "django.contrib.auth.models.AbstractBaseUser.get_session_auth_hash"
+        payload = f"{self.password}:{self.role}:{self.etablissement_id}:{int(self.is_active)}"
+        return salted_hmac(key_salt, payload, algorithm="sha256").hexdigest()
 
     def __str__(self):
         return f"{self.get_full_name() or self.username} ({self.get_role_display()})"
@@ -87,6 +103,10 @@ class JournalConnexion(models.Model):
     class Meta:
         ordering = ['-date']
         verbose_name = 'Journal connexion'
+        indexes = [
+            models.Index(fields=['username', 'statut', 'date'], name='idx_jconn_user_statut_date'),
+            models.Index(fields=['ip', 'statut', 'date'], name='idx_jconn_ip_statut_date'),
+        ]
 
     def __str__(self):
         return f"{self.get_statut_display()} — {self.username} — {self.date:%d/%m/%Y %H:%M}"

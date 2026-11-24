@@ -5,14 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Dépendances système (Pillow, ReportLab, PostgreSQL client)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt psycopg2-binary==2.9.10
+RUN pip install --no-cache-dir -r requirements.txt "psycopg[binary]==3.2.6"
 
 COPY . .
 

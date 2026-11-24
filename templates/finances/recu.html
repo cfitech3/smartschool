@@ -41,6 +41,16 @@ body{font-family:{{ modele.police|default:"Arial" }},sans-serif;background:#f0f4
     {% endif %}
     <div class="montant-box" {% if paiement.statut == 'annule' %}style="background:#9E9E9E;text-decoration:line-through;"{% endif %}><div class="montant">{{ paiement.montant|floatformat:0 }} FCFA</div><div class="montant-lbl">Montant recu</div></div>
     {% if paiement.notes %}<div style="font-size:12px;color:#546E7A;font-style:italic;">Note : {{ paiement.notes }}</div>{% endif %}
+    {% if paiement.statut == 'valide' and qr_svg %}
+    <div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:8px;border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;">
+      <div style="background:#fff;padding:2px;border:1px solid #e2e8f0;border-radius:4px;line-height:0;">{{ qr_svg }}</div>
+      <div style="font-size:10px;color:#475569;line-height:1.4;">
+        <div style="font-weight:800;color:#0f172a;">REÇU CERTIFIÉ QR</div>
+        <div>Scannez pour vérifier la validité en caisse.</div>
+        <div style="font-family:monospace;font-size:9.5px;margin-top:2px;">Contrôle : <strong>#{{ qr_code_court }}</strong></div>
+      </div>
+    </div>
+    {% endif %}
   </div>
   <div class="recu-footer">{% if paiement.statut == 'annule' %}<span style="color:#C62828;font-weight:700;"><i class="bi bi-x-circle-fill"></i> PAIEMENT ANNULÉ</span>{% else %}<i class="bi bi-check-circle-fill text-success"></i> Paiement valide{% endif %}{% if modele and modele.texte_pied_page %}<br>{{ modele.texte_pied_page }}{% endif %}<br>{{ paiement.date_paiement|date:"d/m/Y" }}</div>
 </div>

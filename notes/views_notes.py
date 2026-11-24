@@ -671,10 +671,16 @@ def bulletins_classe_mali(request):
         inscriptions = classe.inscriptions.filter(is_active=True).select_related('eleve')
 
         if is_premier_cycle and annee:
-            # 1er cycle : calculer depuis les Compositions /10 pour la composition choisie
-            matieres = get_matieres_pour_eleve(None, annee, classe)
+            # 1er cycle : préchargement global O(1) SQL de toutes les Compositions de la classe
+            matieres = list(get_matieres_pour_eleve(None, annee, classe))
+            index_compos = {
+                (c.eleve_id, c.matiere_id): c
+                for c in Composition.objects.filter(classe=classe, annee=annee, numero=numero)
+            }
             for insc in inscriptions:
-                _, moy, _, _ = calculer_bulletin_composition(insc.eleve, annee, numero, matieres)
+                _, moy, _, _ = calculer_bulletin_composition(
+                    insc.eleve, annee, numero, matieres, index_compos=index_compos,
+                )
                 resultats.append({'eleve': insc.eleve, 'moyenne': moy, 'rang': None})
         elif is_universite and periode:
             # Université (LMD) : calculer depuis NoteUE pondéré par les crédits ECTS (ue.credits)

@@ -1,4 +1,5 @@
-from django.db import models
+from django.db import models, transaction
+from django.db.models import Q, F
 
 class Etablissement(models.Model):
     TYPES = [
@@ -21,6 +22,12 @@ class Etablissement(models.Model):
 
     def __str__(self): return self.nom
 
+    def save(self, *args, **kwargs):
+        res = super().save(*args, **kwargs)
+        from django.core.cache import cache
+        cache.delete(f"etab_mw_{self.pk}")
+        return res
+
 
 class AnneeScolaire(models.Model):
     etablissement = models.ForeignKey(Etablissement, on_delete=models.CASCADE, related_name='annees')
@@ -32,13 +39,25 @@ class AnneeScolaire(models.Model):
     class Meta:
         unique_together = ['etablissement','libelle']
         ordering = ['-libelle']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['etablissement'],
+                condition=Q(is_active=True),
+                name='unique_annee_active_par_etablissement',
+            ),
+            models.CheckConstraint(
+                condition=Q(date_fin__gte=F('date_debut')),
+                name='annee_date_fin_apres_debut',
+            ),
+        ]
 
     def __str__(self): return f"{self.libelle} — {self.etablissement.nom}"
 
     def save(self, *args, **kwargs):
-        if self.is_active:
-            AnneeScolaire.objects.filter(etablissement=self.etablissement).exclude(pk=self.pk).update(is_active=False)
-        super().save(*args, **kwargs)
+        with transaction.atomic():
+            if self.is_active:
+                AnneeScolaire.objects.filter(etablissement=self.etablissement, is_active=True).exclude(pk=self.pk).update(is_active=False)
+            return super().save(*args, **kwargs)
 
 
 class Niveau(models.Model):
@@ -52,6 +71,12 @@ class Niveau(models.Model):
         unique_together = ['etablissement','nom']
 
     def __str__(self): return self.nom
+
+    def save(self, *args, **kwargs):
+        res = super().save(*args, **kwargs)
+        from django.core.cache import cache
+        cache.delete(f"etab_mw_{self.pk}")
+        return res
 
 
 class Classe(models.Model):
@@ -70,6 +95,9 @@ class Classe(models.Model):
     class Meta:
         unique_together = ['etablissement','annee','nom']
         ordering = ['niveau__ordre','nom']
+        indexes = [
+            models.Index(fields=['etablissement', 'annee'], name='idx_classe_etab_annee'),
+        ]
 
     def __str__(self): return f"{self.nom} — {self.annee.libelle}"
 

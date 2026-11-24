@@ -334,3 +334,135 @@ class TestAnnulationPaiementPartielEcheance(TestCase):
         ech.refresh_from_db()
         self.assertEqual(ech.statut, "a_payer")
         self.assertIsNone(ech.paiement)
+
+
+class TestBourseApresAcomptePartiel(TestCase):
+    """Régression Section 2 : l'octroi d'une bourse après un acompte partiel ne doit pas ignorer l'acompte."""
+
+    def setUp(self):
+        self.etab, self.annee, self.tf = _setup_base("ACMP")
+        self.comptable = _creer_admin(self.etab, "cpt_acmp")
+        self.eleve = _creer_eleve(self.etab)
+
+    def test_recalcul_echeances_consolide_acompte_partiel(self):
+        from finances.models import Echeance, ReductionFrais
+        from finances.services_bourses import recalculer_echeances_eleve, resume_echeancier
+
+        for num in (1, 2, 3):
+            Echeance.objects.create(
+                etablissement=self.etab, eleve=self.eleve,
+                annee=self.annee, type_frais=self.tf,
+                numero=num, libelle=f"Tranche {num}", montant=Decimal("50000"),
+                statut="a_payer",
+            )
+
+        # Acompte partiel de 30 000 F (< 50 000 F, donc aucune tranche initiale n'est 'payee')
+        _creer_paiement(self.etab, self.annee, self.tf, self.eleve, self.comptable, montant=30000)
+
+        # Bourse de 30 000 F -> net = 120 000 F, déjà payé = 30 000 F -> reste = 90 000 F
+        ReductionFrais.objects.create(
+            etablissement=self.etab, eleve=self.eleve,
+            annee=self.annee, type_frais=self.tf,
+            montant=Decimal("30000"), motif="Bourse mérite",
+        )
+        recalculer_echeances_eleve(self.eleve, self.annee, self.tf)
+
+        echeances, paye, reste, net = resume_echeancier(self.eleve, self.annee, self.tf)
+        self.assertEqual(net, Decimal("120000"))
+        self.assertEqual(paye, Decimal("30000"))
+        self.assertEqual(reste, Decimal("90000"))
+        somme_ouvertes = sum(Decimal(str(e.montant)) for e in echeances if e.statut != "payee")
+        somme_payees = sum(Decimal(str(e.montant)) for e in echeances if e.statut == "payee")
+        self.assertEqual(somme_payees, Decimal("30000"))
+        self.assertEqual(somme_ouvertes, Decimal("90000"))
+
+
+class TestInvariantsComptables95(TestCase):
+    """Tests des 5 chantiers Intégrité Financière & Métier (Objectif 9.5/10)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from django.urls import reverse
+        cache.clear()
+        self.reverse = reverse
+        self.etab, self.annee, self.tf = _setup_base("INV95")
+        self.comptable = _creer_admin(self.etab, "cpt_inv95")
+        self.eleve = _creer_eleve(self.etab, nom="Keita", prenom="Salif")
+
+    def test_immutabilite_montant_et_blocage_suppression_paiement(self):
+        from django.core.exceptions import ValidationError
+        p = _creer_paiement(self.etab, self.annee, self.tf, self.eleve, self.comptable, montant=50000)
+
+        p.montant = Decimal("10000")
+        with self.assertRaises(ValidationError):
+            p.save()
+
+        p.refresh_from_db()
+        self.assertEqual(p.montant, Decimal("50000"))
+
+        with self.assertRaises(ValidationError):
+            p.delete()
+
+    def test_anti_surpaiement_et_boursier_100_pourcent(self):
+        from finances.models import Paiement, ReductionFrais
+        self.client.force_login(self.comptable)
+
+        # Surpaiement > 150 000 F refusé
+        resp = self.client.post(self.reverse("enregistrer_paiement"), {
+            "eleve": self.eleve.pk, "type_frais": self.tf.pk,
+            "montant": "200000", "mode_paiement": "especes",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(Paiement.objects.filter(eleve=self.eleve).count(), 0)
+
+        # Bourse 100 % -> encaissement bloqué (reste = 0)
+        ReductionFrais.objects.create(
+            etablissement=self.etab, eleve=self.eleve, annee=self.annee,
+            type_frais=self.tf, mode_calcul="pourcentage", valeur_pourcentage=Decimal("100"),
+        )
+        resp2 = self.client.post(self.reverse("enregistrer_paiement"), {
+            "eleve": self.eleve.pk, "type_frais": self.tf.pk,
+            "montant": "10000", "mode_paiement": "especes",
+        })
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(Paiement.objects.filter(eleve=self.eleve).count(), 0)
+
+    def test_idempotence_anti_double_clic_caisse(self):
+        from finances.models import Paiement
+        self.client.force_login(self.comptable)
+        get_resp = self.client.get(self.reverse("enregistrer_paiement"))
+        token = get_resp.context["idempotency_token"]
+
+        payload = {
+            "eleve": self.eleve.pk, "type_frais": self.tf.pk,
+            "montant": "50000", "mode_paiement": "especes",
+            "idempotency_token": token,
+        }
+        r1 = self.client.post(self.reverse("enregistrer_paiement"), payload)
+        r2 = self.client.post(self.reverse("enregistrer_paiement"), payload)
+        self.assertEqual(r1.status_code, 302)
+        self.assertEqual(r2.status_code, 302)
+        self.assertEqual(Paiement.objects.filter(eleve=self.eleve, statut="valide").count(), 1)
+
+    def test_qr_recu_detecte_paiement_annule_apres_impression(self):
+        from core.verification_qr import generer_token_document
+        p = _creer_paiement(self.etab, self.annee, self.tf, self.eleve, self.comptable, montant=50000)
+        token = generer_token_document(
+            "recu", self.eleve, annee=self.annee,
+            extra={"pay_pk": p.pk, "ref": p.reference, "mnt": int(p.montant)},
+        )
+
+        # Tant que le paiement est valide -> QR valide (200)
+        url_verif = self.reverse("verifier_document_qr", kwargs={"token": token})
+        resp_ok = self.client.get(url_verif)
+        self.assertEqual(resp_ok.status_code, 200)
+        self.assertTrue(resp_ok.context["valide"])
+
+        # Une fois le paiement annulé en caisse -> le même QR papier renvoie 400 + valide=False !
+        self.client.force_login(self.comptable)
+        self.client.post(self.reverse("annuler_paiement", kwargs={"pk": p.pk}), {
+            "motif_annulation": "Chèque sans provision",
+        })
+        resp_fraud = self.client.get(url_verif)
+        self.assertEqual(resp_fraud.status_code, 400)
+        self.assertFalse(resp_fraud.context["valide"])

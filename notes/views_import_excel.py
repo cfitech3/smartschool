@@ -6,7 +6,7 @@ Saisie de notes hors-ligne par fichier Excel (.xlsx) :
   2. Ré-importation sécurisée en un clic avec contrôle de barème, RBAC enseignant
      et journalisation dans LogModificationNote.
 """
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import io
 
 from django.contrib import messages
@@ -24,17 +24,53 @@ from .models import Matiere, Periode, NotePeriode, NoteUE, Composition, LogModif
 from .views_universite import _filtrer_ues_filiere
 
 
+MAX_EXCEL_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 Mo max
+MAX_EXCEL_ROWS = 2005
+
+
 def _parse_dec(val, min_v, max_v):
-    """Convertit une cellule Excel en Decimal borné entre min_v et max_v."""
+    """Convertit une cellule Excel en Decimal borné entre min_v et max_v (sans passer par float)."""
     if val is None:
         return None
     s = str(val).strip().replace(',', '.')
     if s == '' or s in ('—', '-', 'None'):
         return None
-    d = Decimal(str(round(float(s), 2)))
+    d = Decimal(s).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     if d < Decimal(str(min_v)) or d > Decimal(str(max_v)):
         raise ValueError(f"Valeur {d} hors barème [{min_v}..{max_v}]")
     return d
+
+
+def _verifier_acces_enseignant_lmd(user, etab, annee, classe):
+    """Vérifie qu'un enseignant universitaire est bien rattaché à cette classe."""
+    if not user.is_enseignant:
+        return True
+    if AffectationMatiere.objects.filter(enseignant__user=user, annee=annee, classe=classe).exists():
+        return True
+    from .models import EmploiDuTemps
+    if EmploiDuTemps.objects.filter(etablissement=etab, classe=classe, enseignant=user).exists():
+        return True
+    return NoteUE.objects.filter(saisi_par=user, classe=classe, periode__annee=annee).exists()
+
+
+def _filtrer_ues_enseignant(user, annee, classe, ues):
+    """Restreint la liste des UE aux codes/préfixes affectés à l'enseignant lorsqu'une correspondance existe."""
+    if not user.is_enseignant or not ues:
+        return ues
+    codes_aff = [
+        (c or '').strip().upper()
+        for c in AffectationMatiere.objects.filter(
+            enseignant__user=user, annee=annee, classe=classe
+        ).values_list('matiere__code', flat=True)
+        if c
+    ]
+    if not codes_aff:
+        return ues
+    exact = [u for u in ues if u.code.upper() in codes_aff]
+    if exact:
+        return exact
+    prefixed = [u for u in ues if any(u.code.upper().startswith(c) for c in codes_aff)]
+    return prefixed if prefixed else ues
 
 
 def _verifier_acces_enseignant_matiere(user, etab, annee, classe, matiere):
@@ -98,11 +134,15 @@ def telecharger_modele_saisie_excel(request):
         if not is_etab_superieur(etab):
             messages.error(request, "Action réservée à l'enseignement supérieur.")
             return redirect('saisie_notes_mali')
+        if not _verifier_acces_enseignant_lmd(request.user, etab, annee, classe):
+            messages.error(request, "Vous n'êtes pas affecté à cette classe universitaire.")
+            return redirect('saisie_notes_ue')
         periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab)
         sem_int = int(semestre) if str(semestre).isdigit() else 1
-        ues = list(_filtrer_ues_filiere(
-            UEUniversite.objects.filter(cycle=cycle, semestre=sem_int), classe
-        ).order_by('code'))
+        ues = _filtrer_ues_enseignant(
+            request.user, annee, classe,
+            list(_filtrer_ues_filiere(UEUniversite.objects.filter(cycle=cycle, semestre=sem_int), classe).order_by('code')),
+        )
 
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=2 + len(ues) * 2)
         ws['A1'] = f"GRILLE DE SAISIE LMD HORS-LIGNE — {etab.nom.upper()} — {classe.nom} (Semestre {sem_int})"
@@ -314,6 +354,9 @@ def importer_notes_excel(request):
     if not fichier or not fichier.name.lower().endswith('.xlsx'):
         messages.error(request, "Veuillez sélectionner un fichier Excel valide (.xlsx).")
         return redirect(redirect_url)
+    if fichier.size > MAX_EXCEL_UPLOAD_BYTES:
+        messages.error(request, "Le fichier Excel dépasse la taille maximale autorisée (5 Mo).")
+        return redirect(redirect_url)
 
     if not (classe_id and str(classe_id).isdigit()):
         messages.error(request, "Veuillez sélectionner une classe valide.")
@@ -326,7 +369,7 @@ def importer_notes_excel(request):
     }
 
     try:
-        wb = openpyxl.load_workbook(fichier, data_only=True)
+        wb = openpyxl.load_workbook(fichier, read_only=True, data_only=True)
     except Exception:
         messages.error(request, "Impossible de lire le fichier Excel. Vérifiez qu'il n'est pas corrompu.")
         return redirect(redirect_url)
@@ -353,17 +396,21 @@ def importer_notes_excel(request):
     with transaction.atomic():
         # ── IMPORT UNIVERSITÉ LMD ────────────────────────────────────────────
         if mode_lmd or (cycle and cycle.is_universite):
+            if not _verifier_acces_enseignant_lmd(request.user, etab, annee, classe):
+                messages.error(request, "Vous n'êtes pas affecté à cette classe universitaire.")
+                return redirect('saisie_notes_ue')
             periode = get_object_or_404(Periode, pk=periode_id, etablissement=etab)
             if not periode.peut_saisir and not request.user.is_admin:
                 messages.error(request, "La saisie est clôturée pour cette période.")
                 return redirect(redirect_url)
 
             sem_int = int(semestre) if str(semestre).isdigit() else 1
-            ues = list(_filtrer_ues_filiere(
-                UEUniversite.objects.filter(cycle=cycle, semestre=sem_int), classe
-            ).order_by('code'))
+            ues = _filtrer_ues_enseignant(
+                request.user, annee, classe,
+                list(_filtrer_ues_filiere(UEUniversite.objects.filter(cycle=cycle, semestre=sem_int), classe).order_by('code')),
+            )
 
-            for r_idx, row in enumerate(ws.iter_rows(min_row=5, values_only=True), 5):
+            for r_idx, row in enumerate(ws.iter_rows(min_row=5, max_row=MAX_EXCEL_ROWS, values_only=True), 5):
                 if not row or not row[0]:
                     continue
                 mat = str(row[0]).strip().upper()
@@ -419,7 +466,7 @@ def importer_notes_excel(request):
                     messages.error(request, "La saisie est clôturée pour cette période.")
                     return redirect(redirect_url)
 
-            for r_idx, row in enumerate(ws.iter_rows(min_row=5, values_only=True), 5):
+            for r_idx, row in enumerate(ws.iter_rows(min_row=5, max_row=MAX_EXCEL_ROWS, values_only=True), 5):
                 if not row or not row[0]:
                     continue
                 mat = str(row[0]).strip().upper()
@@ -435,10 +482,20 @@ def importer_notes_excel(request):
                         nc = _parse_dec(c_val1, 0, 18)
                         if nc is None:
                             continue
-                        NotePeriode.objects.update_or_create(
+                        exist = NotePeriode.objects.filter(
+                            eleve=eleve, matiere=matiere, classe=classe, periode=periode
+                        ).first()
+                        avant_nc = exist.note_conduite if exist else None
+                        obj, _ = NotePeriode.objects.update_or_create(
                             eleve=eleve, matiere=matiere, classe=classe, periode=periode,
                             defaults={'note_conduite': nc, 'saisi_par': request.user}
                         )
+                        if avant_nc is not None and avant_nc != nc:
+                            LogModificationNote.objects.create(
+                                note_periode=obj, modifie_par=request.user,
+                                role_modifiant=request.user.role, champ_modifie='note_conduite (Import Excel)',
+                                valeur_avant=str(avant_nc), valeur_apres=str(nc), notif_envoyee=True,
+                            )
                         nb_importees += 1
 
                     elif is_premier_cycle:
@@ -456,7 +513,11 @@ def importer_notes_excel(request):
                         nd = _parse_dec(c_val1, 0, 20)
                         if nd is None:
                             continue
-                        NotePeriode.objects.update_or_create(
+                        exist = NotePeriode.objects.filter(
+                            eleve=eleve, matiere=matiere, classe=classe, periode=periode
+                        ).first()
+                        avant_mc = exist.moy_classe if exist else None
+                        obj, _ = NotePeriode.objects.update_or_create(
                             eleve=eleve, matiere=matiere, classe=classe, periode=periode,
                             defaults={
                                 'moy_classe': nd, 'moy_compo': nd * 2,
@@ -464,6 +525,12 @@ def importer_notes_excel(request):
                                 'saisi_par': request.user,
                             }
                         )
+                        if avant_mc is not None and avant_mc != nd:
+                            LogModificationNote.objects.create(
+                                note_periode=obj, modifie_par=request.user,
+                                role_modifiant=request.user.role, champ_modifie='moy_directe (Import Excel)',
+                                valeur_avant=str(avant_mc), valeur_apres=str(nd), notif_envoyee=True,
+                            )
                         nb_importees += 1
 
                     else:
@@ -507,11 +574,21 @@ def importer_notes_excel(request):
                     erreurs.append(f"Ligne {r_idx} ({mat}) : {e}")
 
     if nb_importees:
+        try:
+            from etablissements.models import JournalAction
+            JournalAction.log(
+                request, 'autre', cible=classe.nom, etablissement=etab,
+                detail=f"Import Excel notes ({nb_importees} note(s)) — classe {classe.nom}",
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning("Échec journalisation import Excel (%s)", classe.nom, exc_info=True)
         messages.success(request, f"Import Excel réussi : {nb_importees} note(s) enregistrée(s).")
     else:
         messages.warning(request, "Aucune note n'a été importée (vérifiez que les colonnes de notes sont remplies).")
     for err in erreurs[:5]:
         messages.warning(request, err)
+    wb.close()
 
     return redirect(redirect_url)
 

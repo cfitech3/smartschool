@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -125,24 +126,25 @@ def ajouter_reduction(request):
                         f"({int(tf.montant_defaut):,} F).".replace(',', ' ')
                     )
 
-            red = ReductionFrais.objects.filter(eleve=eleve, annee=annee, type_frais=tf).first()
-            # Si on modifie une réduction et qu'on change de frais, supprimer l'ancienne
-            if instance and (instance.type_frais_id != tf.pk or instance.eleve_id != eleve.pk):
-                ancien_tf, ancien_eleve = instance.type_frais, instance.eleve
-                instance.delete()
-                recalculer_echeances_eleve(ancien_eleve, annee, ancien_tf)
-            if red is None:
-                red = ReductionFrais(etablissement=etab, eleve=eleve, annee=annee, type_frais=tf)
-            red.categorie = categorie
-            red.mode_calcul = mode
-            red.valeur_pourcentage = pct
-            red.montant = montant
-            red.organisme_tiers = request.POST.get('organisme_tiers', '').strip()[:150]
-            red.motif = request.POST.get('motif', '').strip()[:200]
-            red.accordee_par = request.user
-            red.save()
+            with transaction.atomic():
+                red = ReductionFrais.objects.select_for_update().filter(eleve=eleve, annee=annee, type_frais=tf).first()
+                # Si on modifie une réduction et qu'on change de frais, supprimer l'ancienne
+                if instance and (instance.type_frais_id != tf.pk or instance.eleve_id != eleve.pk):
+                    ancien_tf, ancien_eleve = instance.type_frais, instance.eleve
+                    instance.delete()
+                    recalculer_echeances_eleve(ancien_eleve, annee, ancien_tf)
+                if red is None:
+                    red = ReductionFrais(etablissement=etab, eleve=eleve, annee=annee, type_frais=tf)
+                red.categorie = categorie
+                red.mode_calcul = mode
+                red.valeur_pourcentage = pct
+                red.montant = montant
+                red.organisme_tiers = request.POST.get('organisme_tiers', '').strip()[:150]
+                red.motif = request.POST.get('motif', '').strip()[:200]
+                red.accordee_par = request.user
+                red.save()
 
-            nb = recalculer_echeances_eleve(eleve, annee, tf)
+                nb = recalculer_echeances_eleve(eleve, annee, tf)
             _log(request, etab, eleve.matricule,
                  f"Bourse/Réduction {red.get_categorie_display()} {red.libelle_valeur} "
                  f"({int(red.montant)} FCFA) sur {tf.nom} — {eleve.nom_complet}")
@@ -176,8 +178,9 @@ def supprimer_reduction(request, pk):
     eleve, annee, tf = red.eleve, red.annee, red.type_frais
     if request.method == "POST":
         detail = f"Suppression {red.get_categorie_display()} {red.libelle_valeur} sur {tf.nom} — {eleve.nom_complet}"
-        red.delete()
-        nb = recalculer_echeances_eleve(eleve, annee, tf)
+        with transaction.atomic():
+            red.delete()
+            nb = recalculer_echeances_eleve(eleve, annee, tf)
         _log(request, etab, eleve.matricule, detail)
         messages.success(request, f"Réduction supprimée. {nb} échéance(s) recalculée(s) au tarif standard.")
     return redirect("situation_eleve", pk=eleve.pk)

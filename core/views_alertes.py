@@ -9,11 +9,16 @@ import datetime
 
 def get_alertes_etablissement(etab, annee, user):
     """
-    Retourne une liste d'alertes contextuelles selon le rôle.
-    Chaque alerte : {type, niveau, titre, detail, url, count}
-    niveaux : 'danger' | 'warning' | 'info'
+    Retourne une liste d'alertes contextuelles selon le rôle (avec cache 120s
+    par établissement / rôle pour éviter 8+ requêtes SQL à chaque dashboard).
     """
+    from django.core.cache import cache
     today = timezone.now().date()
+    after_8am = int(timezone.now().hour >= 8)
+    cache_key = f"alertes_v2_{getattr(etab, 'pk', 0)}_{getattr(annee, 'pk', 0)}_{user.role}_{today.isoformat()}_{after_8am}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
     alertes = []
 
     from eleves.models import Presence, Inscription, Eleve
@@ -145,7 +150,7 @@ def get_alertes_etablissement(etab, annee, user):
 
         # Paiements en attente de validation
         nb_attente = Paiement.objects.filter(
-            etablissement=etab, statut='en_attente'
+            etablissement=etab, statut='attente'
         ).count()
         if nb_attente > 0:
             alertes.append({
@@ -243,5 +248,6 @@ def get_alertes_etablissement(etab, annee, user):
     # Trier : danger en premier, puis warning, puis info
     ordre = {'danger': 0, 'warning': 1, 'info': 2}
     alertes.sort(key=lambda a: ordre.get(a['niveau'], 3))
+    cache.set(cache_key, alertes, 120)
 
     return alertes

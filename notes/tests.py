@@ -237,3 +237,25 @@ class TestSanitizeHTMLFragment(TestCase):
 
         safe_html = '<p class="titre"><strong>Attestation</strong> de scolarité</p>'
         self.assertEqual(sanitize_html_fragment(safe_html), safe_html)
+
+
+class TestImportExcelSecurite(TestCase):
+    """Régression Section 3 : parsing Decimal pur et rejet des fichiers Excel > 5 Mo."""
+
+    def test_parse_dec_sans_erreur_binaire_et_bornes(self):
+        from notes.views_import_excel import _parse_dec
+        self.assertEqual(_parse_dec("14,25", 0, 20), Decimal("14.25"))
+        self.assertIsNone(_parse_dec("—", 0, 20))
+        with self.assertRaises(ValueError):
+            _parse_dec("21", 0, 20)
+
+    def test_routes_post_changer_etablissement(self):
+        from django.urls import reverse
+        from etablissements.models import Etablissement
+        etab = Etablissement.objects.create(nom="Ecole PST", code="PST", type="ecole")
+        sa = User.objects.create_user(username="sa_pst", password="x", role="super_admin")
+        self.client.force_login(sa)
+        resp_get = self.client.get(reverse("changer_etablissement", kwargs={"etab_id": etab.pk}))
+        self.assertEqual(resp_get.status_code, 405)
+        resp_post = self.client.post(reverse("changer_etablissement", kwargs={"etab_id": etab.pk}))
+        self.assertEqual(resp_post.status_code, 302)

@@ -54,87 +54,93 @@ def _get_classe_suivante(classe_actuelle, annee_suivante=None):
     return qs.first()
 
 
-def _calculer_moyenne_annuelle(eleve, classe, annee):
+def _calculer_moyennes_annuelles_classe(eleves_list, classe, annee):
     """
-    Calcule la moyenne annuelle d'un élève sur TOUTES les périodes
-    de l'année scolaire concernée.
-
-    Pour le 1er cycle (compositions /10, coef=1) :
-      → Moyenne de toutes les compositions de l'année scolaire.
-
-    Pour l'université (NoteUE /20 pondérées par crédits ECTS) :
-      → Moyenne pondérée par crédits de toutes les UE de l'année.
-
-    Pour les autres cycles (NotePeriode /20+/40) :
-      → Moyenne des moyennes trimestrielles.
+    Calcule en lot (O(1) requêtes SQL) la moyenne annuelle de tous les élèves
+    d'une classe sur l'année scolaire donnée, en respectant les coefficients de
+    série/cycle. Retourne un dict {eleve_pk: moyenne_ou_None}.
     """
-    # Détecter le cycle
-    cycle = None
-    if classe.niveau and classe.niveau.cycle:
-        cycle = classe.niveau.cycle
+    from decimal import Decimal
+    from notes.services import get_matieres_pour_classe, get_coefficients_map, calculer_bulletin
 
-    # ── UNIVERSITÉ : NoteUE /20 pondéré par crédits ECTS ─────────
+    eleves_ids = [e.pk for e in eleves_list]
+    resultats = {eid: None for eid in eleves_ids}
+    if not eleves_ids or not annee:
+        return resultats
+
+    cycle = classe.niveau.cycle if (classe.niveau and classe.niveau.cycle) else None
+
+    # ── UNIVERSITÉ : NoteUE /20 pondérées par crédits ECTS (1 requête) ───────
     if cycle and cycle.is_universite:
         from notes.models import NoteUE
-        notes_ue = NoteUE.objects.filter(
-            eleve=eleve, periode__annee=annee
-        ).select_related('ue')
-        total_pts = 0.0
-        total_cred = 0
-        for n in notes_ue:
+        pts_map = {eid: 0.0 for eid in eleves_ids}
+        cred_map = {eid: 0 for eid in eleves_ids}
+        for n in NoteUE.objects.filter(eleve_id__in=eleves_ids, periode__annee=annee).select_related('ue'):
             if n.note_retenue is not None:
                 c = n.ue.credits or 1
-                total_pts += float(n.note_retenue) * c
-                total_cred += c
-        if total_cred == 0:
-            return None
-        return round(total_pts / total_cred, 2)
+                pts_map[n.eleve_id] += float(n.note_retenue) * c
+                cred_map[n.eleve_id] += c
+        for eid in eleves_ids:
+            if cred_map[eid] > 0:
+                resultats[eid] = round(pts_map[eid] / cred_map[eid], 2)
+        return resultats
 
-    # ── 1ER CYCLE : Compositions /10 ─────────────────────────────
+    # ── 1ER CYCLE : Compositions /10 (1 requête) ─────────────────────────────
     if cycle and cycle.is_premier_cycle and cycle.utilise_compositions_multiples:
         from notes.models import Composition
-        from decimal import Decimal
-        compos = Composition.objects.filter(
-            eleve=eleve, classe=classe, annee=annee
-        ).exclude(note__isnull=True).select_related('matiere')
+        tot_map = {eid: Decimal('0') for eid in eleves_ids}
+        cnt_map = {eid: 0 for eid in eleves_ids}
+        for c in Composition.objects.filter(
+            eleve_id__in=eleves_ids, classe=classe, annee=annee
+        ).exclude(note__isnull=True):
+            if c.note_max:
+                tot_map[c.eleve_id] += (c.note / c.note_max) * 10
+                cnt_map[c.eleve_id] += 1
+        for eid in eleves_ids:
+            if cnt_map[eid] > 0:
+                resultats[eid] = round(float(tot_map[eid] / cnt_map[eid]), 2)
+        return resultats
 
-        if not compos.exists():
-            return None
+    # ── AUTRES CYCLES : NotePeriode préchargées sur toutes les périodes ──────
+    from notes.models import NotePeriode
+    periodes = list(Periode.objects.filter(etablissement=classe.etablissement, annee=annee))
+    if not periodes:
+        return resultats
 
-        total_notes = Decimal('0')
-        count = 0
-        for c in compos:
-            # note sur 10, coef=1 pour le 1er cycle
-            note_sur_10 = (c.note / c.note_max) * 10
-            total_notes += note_sur_10
-            count += 1
+    matieres = list(get_matieres_pour_classe(classe).filter(is_conduite=False))
+    if not matieres:
+        matieres = list(Matiere.objects.filter(etablissement=classe.etablissement, is_conduite=False))
+    coefs_map = get_coefficients_map(classe, matieres)
 
-        if count == 0:
-            return None
-        return round(float(total_notes / count), 2)
+    notes_par_periode = {p.pk: {} for p in periodes}
+    for np in NotePeriode.objects.filter(
+        eleve_id__in=eleves_ids, periode__in=periodes
+    ).select_related('matiere').order_by('date_modif', 'pk'):
+        key = (np.eleve_id, np.matiere_id)
+        if np.classe_id == classe.pk or key not in notes_par_periode[np.periode_id]:
+            notes_par_periode[np.periode_id][key] = np
 
-    # ── AUTRES CYCLES : NotePeriode classique ────────────────────
-    periodes = Periode.objects.filter(etablissement=classe.etablissement, annee=annee)
-    if not periodes.exists():
-        return None
+    for eleve in eleves_list:
+        total_points = 0.0
+        nb_per = 0
+        for p in periodes:
+            _, moy_p, _, _ = calculer_bulletin(
+                eleve, p, matieres,
+                index_notes=notes_par_periode[p.pk],
+                classe=classe,
+                coefs_map=coefs_map,
+            )
+            if moy_p is not None:
+                total_points += float(moy_p)
+                nb_per += 1
+        if nb_per > 0:
+            resultats[eleve.pk] = round(total_points / nb_per, 2)
+    return resultats
 
-    matieres = Matiere.objects.filter(etablissement=classe.etablissement, is_conduite=False)
 
-    total_points = 0.0
-    total_coef = 0
-
-    for periode in periodes:
-        try:
-            _, moy_periode, _, _ = calculer_bulletin(eleve, periode, matieres)
-            if moy_periode is not None:
-                total_points += float(moy_periode)
-                total_coef += 1
-        except Exception:
-            continue
-
-    if total_coef == 0:
-        return None
-    return round(total_points / total_coef, 2)
+def _calculer_moyenne_annuelle(eleve, classe, annee):
+    """Compatibilité unitaire : délègue au calcul batch pour un seul élève."""
+    return _calculer_moyennes_annuelles_classe([eleve], classe, annee).get(eleve.pk)
 
 
 @login_required
@@ -168,18 +174,21 @@ def assistant_fin_annee(request):
         if cycle_actuel and cycle_actuel.is_premier_cycle and cycle_actuel.utilise_compositions_multiples and note_passage > 10:
             note_passage = note_passage / 2.0
 
-        inscriptions = classe_actuelle.inscriptions.filter(
+        inscriptions = list(classe_actuelle.inscriptions.filter(
             annee=annee_active, is_active=True
-        ).select_related('eleve')
+        ).select_related('eleve'))
+        eleves_inscrits = [i.eleve for i in inscriptions]
+        deja_inscrits_ids = set(
+            Inscription.objects.filter(
+                eleve_id__in=[e.pk for e in eleves_inscrits], annee=annee_suivante
+            ).values_list('eleve_id', flat=True)
+        )
+        moyennes_map = _calculer_moyennes_annuelles_classe(eleves_inscrits, classe_actuelle, annee_active)
 
         for insc in inscriptions:
             eleve = insc.eleve
-            deja_inscrit = Inscription.objects.filter(
-                eleve=eleve, annee=annee_suivante
-            ).exists()
-
-            # Calcul moyenne annuelle
-            moyenne = _calculer_moyenne_annuelle(eleve, classe_actuelle, annee_active)
+            deja_inscrit = eleve.pk in deja_inscrits_ids
+            moyenne = moyennes_map.get(eleve.pk)
 
             # Décision suggérée automatiquement
             if moyenne is None:

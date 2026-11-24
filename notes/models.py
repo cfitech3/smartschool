@@ -1,9 +1,11 @@
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
+from core.tenancy import TenantSafeMixin
 
 
-class Matiere(models.Model):
+class Matiere(TenantSafeMixin, models.Model):
     etablissement = models.ForeignKey('etablissements.Etablissement', on_delete=models.CASCADE)
     nom = models.CharField(max_length=100)
     code = models.CharField(max_length=10, blank=True)
@@ -19,7 +21,7 @@ class Matiere(models.Model):
     def __str__(self): return f"{self.nom} (coef.{self.coefficient})"
 
 
-class Periode(models.Model):
+class Periode(TenantSafeMixin, models.Model):
     etablissement = models.ForeignKey('etablissements.Etablissement', on_delete=models.CASCADE)
     annee = models.ForeignKey('etablissements.AnneeScolaire', on_delete=models.CASCADE)
     type = models.CharField(max_length=20, choices=[('trimestre','Trimestre'),('semestre','Semestre')], default='trimestre')
@@ -76,6 +78,20 @@ class NoteUE(models.Model):
     class Meta:
         unique_together = [['eleve', 'ue', 'classe', 'periode']]
         ordering = ['ue__semestre', 'ue__code']
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(note__isnull=True) | (Q(note__gte=0) & Q(note__lte=20)),
+                name='noteue_note_0_20',
+            ),
+            models.CheckConstraint(
+                condition=Q(note_rattrapage__isnull=True) | (Q(note_rattrapage__gte=0) & Q(note_rattrapage__lte=20)),
+                name='noteue_rattrapage_0_20',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['classe', 'periode'], name='idx_noteue_classe_periode'),
+            models.Index(fields=['eleve', 'periode'], name='idx_noteue_eleve_periode'),
+        ]
 
     def __str__(self):
         return f"{self.eleve.nom_complet} — {self.ue.code} — {self.note or '—'}/20"
@@ -135,6 +151,10 @@ class NotePeriode(models.Model):
     class Meta:
         unique_together = ['eleve','matiere','classe','periode']
         verbose_name = 'Note de periode'
+        indexes = [
+            models.Index(fields=['classe', 'periode'], name='idx_notep_classe_periode'),
+            models.Index(fields=['eleve', 'periode'], name='idx_notep_eleve_periode'),
+        ]
 
     def __str__(self): return f"{self.eleve} — {self.matiere.nom} — {self.periode.libelle}"
 
@@ -231,6 +251,10 @@ class Composition(models.Model):
         ordering = ['numero']
         verbose_name = 'Composition'
         verbose_name_plural = 'Compositions'
+        indexes = [
+            models.Index(fields=['classe', 'annee', 'numero'], name='idx_compo_classe_ann_num'),
+            models.Index(fields=['eleve', 'annee', 'numero'], name='idx_compo_eleve_ann_num'),
+        ]
 
     def __str__(self):
         ref = self.annee.libelle if self.annee else (self.periode.libelle if self.periode else '—')

@@ -126,7 +126,10 @@ def ajouter_enseignant(request):
         spec=request.POST.get("specialite","").strip(); diplome=request.POST.get("diplome","").strip()
         sal, de, erreurs_pro = _lire_champs_pro(request)
         photo = request.FILES.get('photo')
-        erreur_photo = _valider_photo(photo)
+        clean_photo, erreur_photo = (None, None)
+        if photo:
+            from core.validators import sanitize_uploaded_image
+            clean_photo, erreur_photo = sanitize_uploaded_image(photo)
         if not username or not nom:
             messages.error(request,"Nom et identifiant obligatoires.")
         elif not password:
@@ -152,8 +155,8 @@ def ajouter_enseignant(request):
                 # Atomique : pas de compte User orphelin si la création de l'Enseignant échoue
                 with transaction.atomic():
                     u=User.objects.create_user(username,"",password,first_name=prenom,last_name=nom,role="enseignant",etablissement=etab)
-                    if photo:
-                        u.photo = photo
+                    if clean_photo:
+                        u.photo = clean_photo
                         u.save()
                     ens=Enseignant.objects.create(user=u,etablissement=etab,specialite=spec,diplome=diplome,date_embauche=de,salaire=sal)
                 messages.success(request,f"Enseignant {ens.nom_complet} cree.")
@@ -182,7 +185,10 @@ def modifier_enseignant(request,pk):
             erreurs.append("Le nom est obligatoire.")
         if statut not in dict(Enseignant.STATUTS):
             erreurs.append("Statut invalide.")
-        erreur_photo = _valider_photo(photo)
+        clean_photo, erreur_photo = (None, None)
+        if photo:
+            from core.validators import sanitize_uploaded_image
+            clean_photo, erreur_photo = sanitize_uploaded_image(photo)
         if erreur_photo:
             erreurs.append(erreur_photo)
         if pw:
@@ -209,8 +215,8 @@ def modifier_enseignant(request,pk):
         u.telephone = request.POST.get("telephone", "").strip()
         if pw:
             u.set_password(pw)
-        if photo:
-            u.photo = photo
+        if clean_photo:
+            u.photo = clean_photo
         # Statut « inactif » → compte bloqué (Django refuse la connexion des
         # comptes is_active=False et déconnecte une session déjà ouverte).
         # « actif » / « conge » → compte autorisé.

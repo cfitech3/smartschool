@@ -74,16 +74,20 @@ def rapport_bilan_annuel(request):
     MOIS_FR = ['', 'Janv','Févr','Mars','Avr','Mai','Juin',
                'Juil','Août','Sept','Oct','Nov','Déc']
 
-    # Recettes par mois
-    recettes_mois = []
-    total_annee = 0
-    for m in range(1, 13):
-        t = float(Paiement.objects.filter(
-            etablissement=etab, statut='valide',
-            date_paiement__month=m, date_paiement__year=annee_val
-        ).aggregate(t=Sum('montant'))['t'] or 0)
-        recettes_mois.append({'mois': MOIS_FR[m], 'total': t})
-        total_annee += t
+    # Recettes par mois (1 seule requête agrégée TruncMonth au lieu de 12)
+    from django.db.models.functions import TruncMonth
+    totaux_par_mois = {
+        r['m'].month: float(r['t'] or 0)
+        for r in Paiement.objects.filter(
+            etablissement=etab, statut='valide', date_paiement__year=annee_val
+        ).annotate(m=TruncMonth('date_paiement')).values('m').annotate(t=Sum('montant'))
+        if r['m']
+    }
+    recettes_mois = [
+        {'mois': MOIS_FR[m], 'total': totaux_par_mois.get(m, 0.0)}
+        for m in range(1, 13)
+    ]
+    total_annee = sum(r['total'] for r in recettes_mois)
 
     # Recettes par type de frais
     par_type = Paiement.objects.filter(

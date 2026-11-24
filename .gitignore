@@ -25,3 +25,6 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Rapports internes
+Audit_Complet_SmartSchool_V3.pdf

@@ -103,16 +103,20 @@ def saisie_notes_ue(request):
             messages.error(request, "La saisie est clôturée pour cette période. Contactez l'administration.")
             return redirect(f"{request.path}?classe={classe_id}&periode={periode_id}&semestre={semestre}&session={session_mode}")
 
+        from .views_import_excel import _filtrer_ues_enseignant
         cycle_univ = classe.niveau.cycle
-        ues = list(_filtrer_ues_filiere(
-            UEUniversite.objects.filter(cycle=cycle_univ, semestre=int(semestre)),
-            classe
-        ))
+        ues = _filtrer_ues_enseignant(
+            request.user, annee, classe,
+            list(_filtrer_ues_filiere(UEUniversite.objects.filter(cycle=cycle_univ, semestre=int(semestre)), classe)),
+        )
         inscriptions = list(classe.inscriptions.filter(is_active=True).select_related('eleve'))
         eleves_ids = [i.eleve_id for i in inscriptions]
 
-        # Action spéciale : report des UE capitalisées les années précédentes
+        # Action spéciale : report des UE capitalisées les années précédentes (réservée direction/secrétariat)
         if request.POST.get('action') == 'importer_capitalisations':
+            if not request.user.is_admin_ou_secretariat:
+                messages.error(request, "Le report des capitalisations antérieures est réservé à l'administration.")
+                return redirect(f"{request.path}?classe={classe_id}&periode={periode_id}&semestre={semestre}&session={session_mode}")
             anciennes = NoteUE.objects.filter(
                 eleve_id__in=eleves_ids, ue__in=ues, credits_valides=True
             ).exclude(periode=periode).order_by('-date_saisie')
@@ -148,44 +152,68 @@ def saisie_notes_ue(request):
                 messages.info(request, "Aucune UE capitalisée antérieure à reporter pour ces étudiants.")
             return redirect(f"{request.path}?classe={classe_id}&periode={periode_id}&semestre={semestre}&session={session_mode}")
 
-        # Saisie Session 1 (normale) ou Session 2 (rattrapage)
+        # Saisie Session 1 (normale) ou Session 2 (rattrapage) — Batch O(1) SQL
+        from django.db import transaction
+
+        def _sync_mention_ue(obj):
+            if obj.note_rattrapage is not None and obj.note is not None:
+                nf = obj.note_rattrapage if obj.note_rattrapage > obj.note else obj.note
+            elif obj.note_rattrapage is not None:
+                nf = obj.note_rattrapage
+            else:
+                nf = obj.note
+            if nf is not None:
+                v = float(nf)
+                obj.credits_valides = v >= 10
+                obj.mention = ('Très Bien' if v >= 16 else 'Bien' if v >= 14 else 'Assez Bien' if v >= 12 else 'Passable' if v >= 10 else 'Insuffisant')
+            else:
+                obj.credits_valides = False
+                obj.mention = ''
+
+        exist_map = {
+            (n.eleve_id, n.ue_id): n
+            for n in NoteUE.objects.filter(classe=classe, periode=periode, ue__in=ues)
+        }
+        to_create = []
+        to_update = []
         nb_saisies = 0
+
         for ue in ues:
             for insc in inscriptions:
                 eleve = insc.eleve
                 note_val = request.POST.get(f'note_{ue.pk}_{eleve.pk}')
                 ratt_val = request.POST.get(f'ratt_{ue.pk}_{eleve.pk}')
-
-                exist = NoteUE.objects.filter(
-                    eleve=eleve, ue=ue, classe=classe, periode=periode
-                ).first()
+                exist = exist_map.get((eleve.pk, ue.pk))
 
                 if session_mode == 'rattrapage':
-                    # En mode rattrapage : les UE déjà validées en Session 1 (>=10) sont verrouillées
                     if exist and exist.note is not None and float(exist.note) >= 10:
                         continue
                     if ratt_val is not None and ratt_val.strip() != '':
                         try:
                             ratt_dec = _parse_note_20(ratt_val)
                             if exist:
-                                exist.note_rattrapage = ratt_dec
-                                exist.saisi_par = request.user
-                                exist.save()
+                                if exist.note_rattrapage != ratt_dec:
+                                    exist.note_rattrapage = ratt_dec
+                                    exist.saisi_par = request.user
+                                    _sync_mention_ue(exist)
+                                    to_update.append(exist)
                             else:
-                                NoteUE.objects.create(
+                                nv = NoteUE(
                                     eleve=eleve, ue=ue, classe=classe, periode=periode,
-                                    note=None, note_rattrapage=ratt_dec, saisi_par=request.user
+                                    note=None, note_rattrapage=ratt_dec, saisi_par=request.user,
                                 )
+                                _sync_mention_ue(nv)
+                                to_create.append(nv)
                             nb_saisies += 1
                         except (ValueError, InvalidOperation):
                             pass
                     elif ratt_val is not None and ratt_val.strip() == '' and exist and exist.note_rattrapage is not None:
                         exist.note_rattrapage = None
                         exist.saisi_par = request.user
-                        exist.save()
+                        _sync_mention_ue(exist)
+                        to_update.append(exist)
                         nb_saisies += 1
                 else:
-                    # Mode normal : saisie Session 1 (+ rattrapage optionnel si saisi)
                     has_note = note_val is not None and note_val.strip() != ''
                     has_ratt = ratt_val is not None and ratt_val.strip() != ''
                     if not has_note and not has_ratt:
@@ -194,25 +222,36 @@ def saisie_notes_ue(request):
                             if ratt_val is not None and ratt_val.strip() == '':
                                 exist.note_rattrapage = None
                             exist.saisi_par = request.user
-                            exist.save()
+                            _sync_mention_ue(exist)
+                            to_update.append(exist)
                             nb_saisies += 1
                         continue
                     try:
                         note_dec = _parse_note_20(note_val) if has_note else (None if (note_val is not None and note_val.strip() == '') else (exist.note if exist else None))
                         ratt_dec = _parse_note_20(ratt_val) if has_ratt else (None if (ratt_val is not None and ratt_val.strip() == '') else (exist.note_rattrapage if exist else None))
                         if exist:
-                            exist.note = note_dec
-                            exist.note_rattrapage = ratt_dec
-                            exist.saisi_par = request.user
-                            exist.save()
+                            if exist.note != note_dec or exist.note_rattrapage != ratt_dec:
+                                exist.note = note_dec
+                                exist.note_rattrapage = ratt_dec
+                                exist.saisi_par = request.user
+                                _sync_mention_ue(exist)
+                                to_update.append(exist)
                         else:
-                            NoteUE.objects.create(
+                            nv = NoteUE(
                                 eleve=eleve, ue=ue, classe=classe, periode=periode,
-                                note=note_dec, note_rattrapage=ratt_dec, saisi_par=request.user
+                                note=note_dec, note_rattrapage=ratt_dec, saisi_par=request.user,
                             )
+                            _sync_mention_ue(nv)
+                            to_create.append(nv)
                         nb_saisies += 1
                     except (ValueError, InvalidOperation):
                         pass
+
+        with transaction.atomic():
+            if to_create:
+                NoteUE.objects.bulk_create(to_create)
+            if to_update:
+                NoteUE.objects.bulk_update(to_update, ['note', 'note_rattrapage', 'credits_valides', 'mention', 'saisi_par'])
 
         messages.success(request, f"{nb_saisies} note(s) enregistrée(s) ({'2ᵉ session — Rattrapage' if session_mode == 'rattrapage' else '1ʳᵉ session — Normale'}).")
         q_filt = '&filtre_rattrapage=1' if filtre_rattrapage else ''
@@ -223,30 +262,28 @@ def saisie_notes_ue(request):
     stats_session = {'valides_s1': 0, 'a_rattraper': 0, 'valides_ratt': 0, 'capitalisables': 0}
 
     if classe and classe.niveau and classe.niveau.cycle:
+        from .views_import_excel import _filtrer_ues_enseignant
         cycle_univ = classe.niveau.cycle
-        ues = list(_filtrer_ues_filiere(
-            UEUniversite.objects.filter(cycle=cycle_univ, semestre=int(semestre)),
-            classe
-        ).order_by('code'))
+        ues = _filtrer_ues_enseignant(
+            request.user, annee, classe,
+            list(_filtrer_ues_filiere(UEUniversite.objects.filter(cycle=cycle_univ, semestre=int(semestre)), classe).order_by('code')),
+        )
 
         inscriptions = list(classe.inscriptions.filter(is_active=True).select_related('eleve'))
         tous_eleves = [i.eleve for i in inscriptions]
 
-        notes_par_ue = {}
-        for ue in ues:
-            notes_existantes = {}
-            if periode:
-                for n in NoteUE.objects.filter(ue=ue, classe=classe, periode=periode, eleve__in=tous_eleves):
-                    notes_existantes[n.eleve_id] = n
-                    if n.note is not None and float(n.note) >= 10:
-                        stats_session['valides_s1'] += 1
-                    else:
-                        stats_session['a_rattraper'] += 1
-                        if n.note_rattrapage is not None and float(n.note_rattrapage) >= 10:
-                            stats_session['valides_ratt'] += 1
-                # Compter aussi les étudiants sans aucune note comme "à rattraper" si en S2
-                stats_session['a_rattraper'] += max(0, len(tous_eleves) - len(notes_existantes))
-            notes_par_ue[ue.pk] = notes_existantes
+        notes_par_ue = {ue.pk: {} for ue in ues}
+        if periode and ues and tous_eleves:
+            for n in NoteUE.objects.filter(ue__in=ues, classe=classe, periode=periode, eleve__in=tous_eleves):
+                notes_par_ue[n.ue_id][n.eleve_id] = n
+                if n.note is not None and float(n.note) >= 10:
+                    stats_session['valides_s1'] += 1
+                else:
+                    stats_session['a_rattraper'] += 1
+                    if n.note_rattrapage is not None and float(n.note_rattrapage) >= 10:
+                        stats_session['valides_ratt'] += 1
+            for ue in ues:
+                stats_session['a_rattraper'] += max(0, len(tous_eleves) - len(notes_par_ue[ue.pk]))
 
         # Détecter combien d'UE capitalisées antérieures peuvent être reportées
         if periode and tous_eleves and ues:

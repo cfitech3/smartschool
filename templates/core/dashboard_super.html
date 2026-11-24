@@ -58,44 +58,58 @@
       </tr>
     </thead>
     <tbody>
-    {% for e in etablissements %}
-    <tr style="{% if not e.is_active %}opacity:0.55;{% endif %}">
-      <td>
-        <div style="font-weight:700;">{{ e.nom }}</div>
-        {% if e.directeur %}<div style="font-size:11px;color:var(--text-muted);">{{ e.directeur }}</div>{% endif %}
-      </td>
-      <td>
-        <code style="font-size:11px;color:var(--primary);">/auth/portail/{{ e.code }}/</code>
-        <button onclick="copyLink('{{ e.code|escapejs }}')" style="background:none;border:none;cursor:pointer;font-size:13px;" title="Copier"><i class="bi bi-clipboard"></i></button>
-      </td>
-      <td style="text-align:center;font-weight:700;">{{ e.nb_eleves }}</td>
-      <td style="text-align:right;font-weight:600;color:var(--success);">{{ e.recettes_mois|floatformat:0 }} FCFA</td>
-      <td>
-        {% if e.is_active %}
-          <span style="background:var(--bg-success);color:var(--text-success);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">Actif</span>
-        {% else %}
-          <span style="background:var(--bg-danger);color:var(--text-danger);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">Suspendu</span>
-        {% endif %}
-      </td>
-      <td>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;">
-          <a href="{% url 'voir_etablissement' e.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-eye-fill"></i>️ Voir</a>
-          <a href="{% url 'gestion_comptes_etab' e.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-people-fill"></i> Comptes</a>
-          <a href="{% url 'changer_etablissement' e.pk %}" class="btn btn-outline btn-sm" title="Basculer sur cet établissement"><i class="bi bi-shuffle"></i></a>
-          <form method="post" action="{% url 'toggle_etablissement' e.pk %}" style="margin:0;"
-                onsubmit="return confirm('{% if e.is_active %}Suspendre{% else %}Réactiver{% endif %} {{ e.nom|escapejs }} ?')">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-sm"
-                    style="background:{% if e.is_active %}var(--warning){% else %}var(--success){% endif %};color:#fff;">
-              {% if e.is_active %}<i class="bi bi-lock-fill"></i>{% else %}<i class="bi bi-check-circle-fill text-success"></i>{% endif %}
-            </button>
-          </form>
-        </div>
-      </td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-muted);">Aucun établissement — <a href="{% url 'creer_etablissement' %}">Créer le premier</a></td></tr>
-    {% endfor %}
+      {% for e in etablissements %}
+      <tr style="{% if not e.is_active %}opacity:0.55;{% endif %}">
+        <td>
+          <div style="font-weight:700;">{{ e.nom }}</div>
+          {% if e.directeur %}<div style="font-size:11px;color:var(--text-muted);">{{ e.directeur }}</div>{% endif %}
+        </td>
+        <td>
+          <code style="font-size:11px;color:var(--primary);">/auth/portail/{{ e.code }}/</code>
+          <button onclick="copyLink('{{ e.code|escapejs }}')"
+            style="background:none;border:none;cursor:pointer;font-size:13px;" title="Copier"><i
+              class="bi bi-clipboard"></i></button>
+        </td>
+        <td style="text-align:center;font-weight:700;">{{ e.nb_eleves }}</td>
+        <td style="text-align:right;font-weight:600;color:var(--success);">{{ e.recettes_mois|floatformat:0 }} FCFA</td>
+        <td>
+          {% if e.is_active %}
+          <span
+            style="background:var(--bg-success);color:var(--text-success);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">Actif</span>
+          {% else %}
+          <span
+            style="background:var(--bg-danger);color:var(--text-danger);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">Suspendu</span>
+          {% endif %}
+        </td>
+        <td>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;">
+            <a href="{% url 'voir_etablissement' e.pk %}" class="btn btn-outline btn-sm"><i class="bi bi-eye-fill"></i>️
+              Voir</a>
+            <a href="{% url 'gestion_comptes_etab' e.pk %}" class="btn btn-outline btn-sm"><i
+                class="bi bi-people-fill"></i> Comptes</a>
+            <form method="post" action="{% url 'changer_etablissement' e.pk %}" style="margin:0;display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline btn-sm" title="Basculer sur cet établissement"><i
+                  class="bi bi-shuffle"></i></button>
+            </form>
+            <form method="post" action="{% url 'toggle_etablissement' e.pk %}" style="margin:0;"
+              onsubmit="return confirm('{% if e.is_active %}Suspendre{% else %}Réactiver{% endif %} {{ e.nom|escapejs }} ?')">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm"
+                style="background:{% if e.is_active %}var(--warning){% else %}var(--success){% endif %};color:#fff;">
+                {% if e.is_active %}<i class="bi bi-lock-fill"></i>{% else %}<i
+                  class="bi bi-check-circle-fill text-success"></i>{% endif %}
+              </button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6" style="text-align:center;padding:30px;color:var(--text-muted);">Aucun établissement — <a
+            href="{% url 'creer_etablissement' %}">Créer le premier</a></td>
+      </tr>
+      {% endfor %}
     </tbody>
   </table>
 </div>
@@ -106,25 +120,35 @@
     <span class="card-title"><i class="bi bi-people-fill"></i> Derniers comptes créés</span>
   </div>
   <table class="table-modern">
-    <thead><tr><th>Utilisateur</th><th>Rôle</th><th>Établissement</th><th>Créé le</th><th>Statut</th></tr></thead>
+    <thead>
+      <tr>
+        <th>Utilisateur</th>
+        <th>Rôle</th>
+        <th>Établissement</th>
+        <th>Créé le</th>
+        <th>Statut</th>
+      </tr>
+    </thead>
     <tbody>
-    {% for u in derniers_users %}
-    <tr>
-      <td style="font-weight:600;">{{ u.get_full_name|default:u.username }}</td>
-      <td><span class="badge badge-primary" style="font-size:11px;">{{ u.get_role_display }}</span></td>
-      <td style="font-size:12px;color:var(--text-muted);">{{ u.etablissement.nom|default:"—"|truncatechars:22 }}</td>
-      <td style="font-size:12px;color:var(--text-muted);">{{ u.date_creation|date:"d/m/Y" }}</td>
-      <td>
-        {% if u.is_active %}
+      {% for u in derniers_users %}
+      <tr>
+        <td style="font-weight:600;">{{ u.get_full_name|default:u.username }}</td>
+        <td><span class="badge badge-primary" style="font-size:11px;">{{ u.get_role_display }}</span></td>
+        <td style="font-size:12px;color:var(--text-muted);">{{ u.etablissement.nom|default:"—"|truncatechars:22 }}</td>
+        <td style="font-size:12px;color:var(--text-muted);">{{ u.date_creation|date:"d/m/Y" }}</td>
+        <td>
+          {% if u.is_active %}
           <span style="color:var(--success);font-size:11px;"><i class="bi bi-check-circle-fill text-success"></i></span>
-        {% else %}
+          {% else %}
           <span style="color:var(--danger);font-size:11px;"><i class="bi bi-lock-fill"></i></span>
-        {% endif %}
-      </td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun utilisateur</td></tr>
-    {% endfor %}
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun utilisateur</td>
+      </tr>
+      {% endfor %}
     </tbody>
   </table>
 </div>
@@ -133,22 +157,26 @@
 <div class="card">
   <div class="card-header"><span class="card-title"><i class="bi bi-lightning-fill"></i> Actions rapides</span></div>
   <div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 18px;">
-    <a href="{% url 'creer_etablissement' %}" class="btn btn-primary"><i class="bi bi-buildings-fill"></i> + Nouvelle école</a>
-    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline"><i class="bi bi-clipboard"></i> Gérer les établissements</a>
+    <a href="{% url 'creer_etablissement' %}" class="btn btn-primary"><i class="bi bi-buildings-fill"></i> + Nouvelle
+      école</a>
+    <a href="{% url 'liste_etablissements' %}" class="btn btn-outline"><i class="bi bi-clipboard"></i> Gérer les
+      établissements</a>
     <a href="{% url 'liste_utilisateurs' %}" class="btn btn-outline"><i class="bi bi-people-fill"></i> Utilisateurs</a>
     <a href="{% url 'parametres' %}" class="btn btn-outline"><i class="bi bi-gear-fill"></i>️ Paramètres</a>
-    <a href="{% url 'liste_modeles' %}" class="btn btn-outline"><i class="bi bi-printer-fill"></i>️ Modèles documents</a>
+    <a href="{% url 'liste_modeles' %}" class="btn btn-outline"><i class="bi bi-printer-fill"></i>️ Modèles
+      documents</a>
   </div>
 </div>
 
 <script>
-function copyLink(code) {
-  const url = window.location.origin + '/auth/portail/' + code + '/';
-  navigator.clipboard.writeText(url).then(() => {
-    Toastify({text:'<i class="bi bi-check-circle-fill text-success"></i> Lien copié : ' + url, duration:3000, gravity:"top", position:"right",
-      style:{background:"var(--success)",color:"#fff",borderRadius:"8px",fontSize:"13px"}
-    }).showToast();
-  });
-}
+  function copyLink(code) {
+    const url = window.location.origin + '/auth/portail/' + code + '/';
+    navigator.clipboard.writeText(url).then(() => {
+      Toastify({
+        text: '<i class="bi bi-check-circle-fill text-success"></i> Lien copié : ' + url, duration: 3000, gravity: "top", position: "right",
+        style: { background: "var(--success)", color: "#fff", borderRadius: "8px", fontSize: "13px" }
+      }).showToast();
+    });
+  }
 </script>
 {% endblock %}

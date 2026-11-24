@@ -94,6 +94,8 @@ INSTALLED_APPS = [
 # ── Middleware ────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
+    'core.middleware.SecurityHeadersMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -146,6 +148,7 @@ if _database_url:
                 'HOST': _parsed_db.hostname,
                 'PORT': str(_parsed_db.port or 5432),
                 'CONN_MAX_AGE': 60,  # Connexions persistantes (perf)
+                'CONN_HEALTH_CHECKS': True,
                 'OPTIONS': _db_options,
             }
         }
@@ -240,7 +243,17 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_AGE = 31449600     # 1 an en secondes
 # Nom du cookie de session (distingue les projets sur le même localhost)
 SESSION_COOKIE_NAME = 'smartschool_sessionid'
+SESSION_COOKIE_AGE = int(os.environ.get('SESSION_COOKIE_AGE', 28800))  # 8h d'inactivité max
+SESSION_SAVE_EVERY_REQUEST = False  # Rafraîchissement glissant toutes les 15 min via middleware (évite 1 UPDATE SQL par GET)
 CSRF_COOKIE_NAME = 'smartschool_csrftoken'
+
+# Limites anti-DoS mémoire sur requêtes POST / uploads
+DATA_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000
+
+# Chemin d'administration système personnalisable en production
+ADMIN_URL_PATH = os.environ.get('DJANGO_ADMIN_PATH', 'admin/').strip('/') + '/'
 _csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 if _csrf_origins_env:
     CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins_env.split(',') if o.strip()]
