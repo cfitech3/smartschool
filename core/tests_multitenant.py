@@ -174,6 +174,29 @@ class TestAppSecEtMultiTenant95(TestCase):
         self.assertEqual(resp_reuse.status_code, 200)
         self.assertNotIn("_auth_user_id", self.client.session)
 
+    # ── Régression UI : le menu latéral (construit en JS) doit recevoir ses données ──
+    def test_menu_lateral_donnees_json_et_scripts_non_imbriques(self):
+        import re
+        self.client.force_login(self.admin_a)
+        html = self.client.get(reverse("dashboard")).content.decode("utf-8")
+
+        # 1. Le bloc de données JSON du menu est présent
+        self.assertIn('id="sidebar-menu-data"', html)
+
+        # 2. Aucun <script> exécutable ne doit en contenir un autre (cause d'un menu vide)
+        depth = 0
+        for m in re.finditer(r"<script\b[^>]*>|</script>", html, re.I):
+            tag = m.group(0).lower()
+            if tag.startswith("</"):
+                depth = max(0, depth - 1)
+            else:
+                self.assertEqual(depth, 0, "Balise <script> imbriquée : le JavaScript de la page est cassé")
+                if "src=" not in tag:
+                    depth += 1
+
+        # 3. SMARTSCHOOL_CONTEXT est défini avant son utilisation par buildSidebar()
+        self.assertLess(html.index("const SMARTSCHOOL_CONTEXT"), html.index("buildSidebar();"))
+
     def test_invalidation_immediate_session_si_changement_role(self):
         self.client.force_login(self.admin_a)
         self.assertEqual(self.client.get(reverse("dashboard")).status_code, 200)

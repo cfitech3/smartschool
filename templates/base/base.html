@@ -138,6 +138,7 @@ const SMARTSCHOOL_CONTEXT = {
   messages_non_lus: {{ nb_messages_non_lus|default:0 }},
   reclamations: {{ nb_reclamations_attente|default:0 }},
 };
+</script>
 
 {{ sidebar_menu_json|default:'[]'|json_script:"sidebar-menu-data" }}
 <script>
